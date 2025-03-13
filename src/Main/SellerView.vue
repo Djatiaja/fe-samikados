@@ -42,28 +42,28 @@
         <h2 class="text-md sm:text-lg md:text-xl font-bold">PILIH KATEGORI ANDA</h2>
         <div class="text-center mt-4 mb-6 border border-gray-300 shadow-lg p-6 rounded-lg">
           <div class="grid grid-cols-5 gap-4 max-h-60 overflow-y-auto">
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/view"/>
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
+            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
           </div>
         </div>
       </div>
       <div class="container grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mx-auto">
-        <ProducCard1 name="Ganci" price="20000" link="/dashboard-seller" image="/image/Transparent.png"/>
-        <ProducCard1 name="Ganci" price="20000" link="/dashboard-seller" image="/image/Transparent.png"/>
-        <ProducCard1 name="Ganci" price="20000" link="/dashboard-seller" image="/image/Transparent.png"/>
-        <ProducCard1 name="Ganci" price="20000" link="/dashboard-seller" image="/image/Transparent.png"/>
-        <ProducCard1 name="Ganci" price="20000" link="/dashboard-seller" image="/image/Transparent.png"/>
+        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
+        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
+        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
+        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
+        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
       </div>
     </div>
 
