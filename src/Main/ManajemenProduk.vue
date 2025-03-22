@@ -84,6 +84,8 @@
                 <th class="p-4 text-center border-r border-gray-300">Deskripsi</th>
                 <th class="p-4 text-center border-r border-gray-300">Stok</th>
                 <th class="p-4 text-center border-r border-gray-300">Harga</th>
+                <th class="p-4 text-center border-r border-gray-300">Variasi</th>
+                <th class="p-4 text-center border-r border-gray-300">Opsi Tambahan</th>
                 <th class="p-4 text-center border-r border-gray-300">Gambar</th>
                 <th class="p-4 text-center border-r border-gray-300">Status</th>
                 <th class="p-4 text-center">Aksi</th>
@@ -97,6 +99,26 @@
                 <td class="p-4 text-center border-r border-gray-300">{{ product.stock }}</td>
                 <td class="p-4 text-center border-r border-gray-300">
                   {{ formatCurrency(product.price) }}
+                </td>
+                <td class="p-4 text-center border-r border-gray-300">
+                  <div v-if="product.variations && product.variations.length > 0">
+                    <span
+                      class="bg-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 mr-1 mb-1 inline-block"
+                    >
+                      {{ product.variations.length }} variasi
+                    </span>
+                  </div>
+                  <span v-else>-</span>
+                </td>
+                <td class="p-4 text-center border-r border-gray-300">
+                  <div v-if="product.additionalOptions && product.additionalOptions.length > 0">
+                    <span
+                      class="bg-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 mr-1 mb-1 inline-block"
+                    >
+                      {{ product.additionalOptions.length }} opsi
+                    </span>
+                  </div>
+                  <span v-else>-</span>
                 </td>
                 <td class="p-4 text-center border-r border-gray-300">
                   <div class="flex justify-center">
@@ -177,6 +199,8 @@ export default {
         price: null,
         images: [],
         status: 'aktif',
+        variations: [],
+        additionalOptions: [],
       },
 
       // Products data array
@@ -194,6 +218,11 @@ export default {
             'https://placehold.co/400x400/green/white?text=PIN+3',
           ],
           status: 'aktif',
+          variations: [
+            { id: 1, name: 'Peniti', price: 4500 },
+            { id: 2, name: 'Magnet', price: 5500 },
+          ],
+          additionalOptions: [{ id: 1, name: 'Packaging Box', price: 2000 }],
         },
         {
           id: 2,
@@ -207,6 +236,16 @@ export default {
             'https://placehold.co/400x400/purple/white?text=Kaos+2',
           ],
           status: 'aktif',
+          variations: [
+            { id: 1, name: 'S', price: 85000 },
+            { id: 2, name: 'M', price: 85000 },
+            { id: 3, name: 'L', price: 85000 },
+            { id: 4, name: 'XL', price: 90000 },
+          ],
+          additionalOptions: [
+            { id: 1, name: 'Sablon DTF', price: 15000 },
+            { id: 2, name: 'Bordir', price: 20000 },
+          ],
         },
         {
           id: 3,
@@ -217,6 +256,8 @@ export default {
           price: 12000,
           images: ['https://placehold.co/400x400/yellow/black?text=Gantungan+1'],
           status: 'nonaktif',
+          variations: [],
+          additionalOptions: [],
         },
       ],
     }
@@ -252,7 +293,7 @@ export default {
       style.textContent = `
         .swal2-popup {
           width: 100% !important;
-          max-width: 32rem !important;
+          max-width: 40rem !important;
           padding: 1.5rem;
           border-radius: 0.5rem;
         }
@@ -263,6 +304,8 @@ export default {
         }
         .swal2-html-container {
           margin: 0 !important;
+          max-height: 70vh;
+          overflow-y: auto;
         }
         .swal2-confirm {
           background-color: #dc2626 !important;
@@ -345,6 +388,34 @@ export default {
         .form-compact .mb-4 {
           margin-bottom: 0.75rem;
         }
+        .variation-box {
+          position: relative;
+          padding: 0.75rem;
+          margin-bottom: 0.5rem;
+          border: 1px solid #e5e7eb;
+          border-radius: 0.375rem;
+          background-color: #f9fafb;
+        }
+        .variation-box .close-btn {
+          position: absolute;
+          top: 0.25rem;
+          right: 0.25rem;
+          width: 1.5rem;
+          height: 1.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 9999px;
+          background-color: #ef4444;
+          color: white;
+          font-size: 0.75rem;
+          cursor: pointer;
+        }
+        .variations-container, .options-container {
+          max-height: 250px;
+          overflow-y: auto;
+          padding-right: 0.5rem;
+        }
       `
       document.head.appendChild(style)
     },
@@ -361,6 +432,8 @@ export default {
         price: null,
         images: [],
         status: 'aktif',
+        variations: [],
+        additionalOptions: [],
       }
 
       this.showProductModal('Tambah Produk Baru')
@@ -368,14 +441,18 @@ export default {
 
     // Show Edit Product Modal
     showEditProductModal(product) {
-      // Copy product data to form
-      this.productForm = { ...product }
+      // Deep copy product data to form
+      this.productForm = JSON.parse(JSON.stringify(product))
 
       this.showProductModal('Edit Produk')
     },
 
     // Generic Product Modal (used for both Add and Edit)
     showProductModal(title) {
+      // Generate variation and option HTML
+      let variationsHtml = this.generateVariationsHtml()
+      let optionsHtml = this.generateOptionsHtml()
+
       Swal.fire({
         title: `<h3 class="text-lg font-bold">${title}</h3>`,
         html: `
@@ -389,52 +466,52 @@ export default {
                 <option value="Others" ${this.productForm.category === 'Others' ? 'selected' : ''}>Others</option>
               </select>
             </div>
-            
+
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1">Nama Produk</label>
-              <input 
-                type="text" 
-                id="productName" 
-                placeholder="Masukkan Nama Produk" 
+              <input
+                type="text"
+                id="productName"
+                placeholder="Masukkan Nama Produk"
                 class="w-full text-sm p-2 border border-gray-300 rounded-lg"
                 value="${this.productForm.name || ''}"
               >
             </div>
-            
+
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1">Deskripsi</label>
-              <textarea 
-                id="description" 
-                rows="2" 
-                placeholder="Masukkan deskripsi produk" 
+              <textarea
+                id="description"
+                rows="2"
+                placeholder="Masukkan deskripsi produk"
                 class="w-full text-sm p-2 border border-gray-300 rounded-lg"
               >${this.productForm.description || ''}</textarea>
             </div>
-            
+
             <div class="grid grid-cols-2 gap-3">
               <div class="mb-3">
                 <label class="block text-gray-700 font-medium text-sm mb-1">Stok Produk</label>
-                <input 
-                  type="number" 
-                  id="stock" 
-                  placeholder="Masukkan Stok" 
+                <input
+                  type="number"
+                  id="stock"
+                  placeholder="Masukkan Stok"
                   class="w-full text-sm p-2 border border-gray-300 rounded-lg"
                   value="${this.productForm.stock || ''}"
                 >
               </div>
-              
+
               <div class="mb-3">
-                <label class="block text-gray-700 font-medium text-sm mb-1">Harga Produk (Rp)</label>
-                <input 
-                  type="text" 
-                  id="price" 
-                  placeholder="Masukkan Harga" 
+                <label class="block text-gray-700 font-medium text-sm mb-1">Harga Dasar (Rp)</label>
+                <input
+                  type="text"
+                  id="price"
+                  placeholder="Masukkan Harga"
                   class="w-full text-sm p-2 border border-gray-300 rounded-lg"
                   value="${this.productForm.price || ''}"
                 >
               </div>
             </div>
-            
+
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1">Gambar Produk</label>
               <div class="custom-file-input">
@@ -454,7 +531,41 @@ export default {
               </div>
               <small class="text-gray-500 text-xs block mt-1">Dapat memilih lebih dari 1 file.</small>
             </div>
-            
+
+            <!-- Variations Section -->
+            <div class="mb-3">
+              <div class="flex justify-between items-center mb-2">
+                <label class="block text-gray-700 font-medium text-sm">Variasi Produk</label>
+                <button
+                  type="button"
+                  id="addVariationBtn"
+                  class="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded flex items-center"
+                >
+                  <span class="mr-1">+</span> Tambah Variasi
+                </button>
+              </div>
+              <div id="variationsContainer" class="variations-container">
+                ${variationsHtml}
+              </div>
+            </div>
+
+            <!-- Additional Options Section -->
+            <div class="mb-3">
+              <div class="flex justify-between items-center mb-2">
+                <label class="block text-gray-700 font-medium text-sm">Opsi Tambahan</label>
+                <button
+                  type="button"
+                  id="addOptionBtn"
+                  class="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded flex items-center"
+                >
+                  <span class="mr-1">+</span> Tambah Opsi
+                </button>
+              </div>
+              <div id="optionsContainer" class="options-container">
+                ${optionsHtml}
+              </div>
+            </div>
+
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1">Status</label>
               <select id="productStatus" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
@@ -468,6 +579,9 @@ export default {
         cancelButtonText: 'Batal',
         confirmButtonText: title === 'Tambah Produk Baru' ? 'Tambah' : 'Simpan',
         focusConfirm: false,
+        didOpen: () => {
+          this.setupVariationAndOptionButtons()
+        },
         preConfirm: () => {
           // Get form values
           const category = document.getElementById('category').value
@@ -480,7 +594,7 @@ export default {
 
           // Validation
           if (!name || !description || !stock || !price) {
-            Swal.showValidationMessage('Semua field harus diisi')
+            Swal.showValidationMessage('Nama, deskripsi, stok, dan harga harus diisi')
             return false
           }
 
@@ -499,6 +613,36 @@ export default {
             images = ['https://placehold.co/400x400']
           }
 
+          // Get variations
+          const variations = []
+          const variationBoxes = document.querySelectorAll('.variation-box')
+          variationBoxes.forEach((box, index) => {
+            const nameInput = box.querySelector('.variation-name')
+            const priceInput = box.querySelector('.variation-price')
+            if (nameInput && nameInput.value && priceInput && priceInput.value) {
+              variations.push({
+                id: this.productForm.variations[index]?.id || Date.now() + index,
+                name: nameInput.value,
+                price: parseInt(priceInput.value) || 0,
+              })
+            }
+          })
+
+          // Get additional options
+          const additionalOptions = []
+          const optionBoxes = document.querySelectorAll('.option-box')
+          optionBoxes.forEach((box, index) => {
+            const nameInput = box.querySelector('.option-name')
+            const priceInput = box.querySelector('.option-price')
+            if (nameInput && nameInput.value && priceInput && priceInput.value) {
+              additionalOptions.push({
+                id: this.productForm.additionalOptions[index]?.id || Date.now() + index,
+                name: nameInput.value,
+                price: parseInt(priceInput.value) || 0,
+              })
+            }
+          })
+
           // Build product object
           const product = {
             id: this.productForm.id || Date.now(), // Use existing ID or create new one
@@ -509,6 +653,8 @@ export default {
             price: parseInt(price),
             status,
             images,
+            variations,
+            additionalOptions,
           }
 
           return product
@@ -554,6 +700,181 @@ export default {
       }, 100)
     },
 
+    // Generate HTML for variations
+    generateVariationsHtml() {
+      if (!this.productForm.variations || this.productForm.variations.length === 0) {
+        return '<div class="text-gray-500 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
+      }
+
+      let html = ''
+      this.productForm.variations.forEach((variation, index) => {
+        html += this.generateVariationBox(variation, index)
+      })
+
+      return html
+    },
+
+    // Generate HTML for a single variation box
+    generateVariationBox(variation = { name: '', price: '' }, index) {
+      return `
+        <div class="variation-box" data-index="${index}">
+          <div class="close-btn">×</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-gray-700 text-xs mb-1">Nama Variasi</label>
+              <input
+                type="text"
+                class="variation-name w-full text-sm p-2 border border-gray-300 rounded-lg"
+                placeholder="Contoh: Ukuran L"
+                value="${variation.name || ''}"
+              >
+            </div>
+            <div>
+              <label class="block text-gray-700 text-xs mb-1">Harga (Rp)</label>
+              <input
+                type="number"
+                class="variation-price w-full text-sm p-2 border border-gray-300 rounded-lg"
+                placeholder="Harga variasi"
+                value="${variation.price || ''}"
+              >
+            </div>
+          </div>
+        </div>
+      `
+    },
+
+    // Generate HTML for options
+    generateOptionsHtml() {
+      if (!this.productForm.additionalOptions || this.productForm.additionalOptions.length === 0) {
+        return '<div class="text-gray-500 text-sm italic">Belum ada opsi tambahan. Klik tombol "Tambah Opsi" untuk menambahkan.</div>'
+      }
+
+      let html = ''
+      this.productForm.additionalOptions.forEach((option, index) => {
+        html += this.generateOptionBox(option, index)
+      })
+
+      return html
+    },
+
+    // Generate HTML for a single option box
+    generateOptionBox(option = { name: '', price: '' }, index) {
+      return `
+        <div class="variation-box option-box" data-index="${index}">
+          <div class="close-btn">×</div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-gray-700 text-xs mb-1">Nama Opsi</label>
+              <input
+                type="text"
+                class="option-name w-full text-sm p-2 border border-gray-300 rounded-lg"
+                placeholder="Contoh: Finishing Glossy"
+                value="${option.name || ''}"
+              >
+            </div>
+            <div>
+              <label class="block text-gray-700 text-xs mb-1">Harga Tambahan (Rp)</label>
+              <input
+                type="number"
+                class="option-price w-full text-sm p-2 border border-gray-300 rounded-lg"
+                placeholder="Harga tambahan"
+                value="${option.price || ''}"
+              >
+            </div>
+          </div>
+        </div>
+      `
+    },
+
+    // Setup event listeners for variation and option buttons
+    setupVariationAndOptionButtons() {
+      // Add variation button
+      const addVariationBtn = document.getElementById('addVariationBtn')
+      if (addVariationBtn) {
+        addVariationBtn.addEventListener('click', () => {
+          const container = document.getElementById('variationsContainer')
+          const variationsCount = container.querySelectorAll('.variation-box').length
+
+          // Remove empty state message if it exists
+          if (variationsCount === 0) {
+            container.innerHTML = ''
+          }
+
+          // Add new variation box
+          const newBox = document.createElement('div')
+          newBox.innerHTML = this.generateVariationBox({}, variationsCount)
+          container.appendChild(newBox.firstElementChild)
+
+          // Setup close button for the new box
+          this.setupCloseButtons()
+        })
+      }
+
+      // Add option button
+      const addOptionBtn = document.getElementById('addOptionBtn')
+      if (addOptionBtn) {
+        addOptionBtn.addEventListener('click', () => {
+          const container = document.getElementById('optionsContainer')
+          const optionsCount = container.querySelectorAll('.option-box').length
+
+          // Remove empty state message if it exists
+          if (optionsCount === 0) {
+            container.innerHTML = ''
+          }
+
+          // Add new option box
+          const newBox = document.createElement('div')
+          newBox.innerHTML = this.generateOptionBox({}, optionsCount)
+          container.appendChild(newBox.firstElementChild)
+
+          // Setup close button for the new box
+          this.setupCloseButtons()
+        })
+      }
+
+      // Setup existing close buttons
+      this.setupCloseButtons()
+    },
+
+    // Setup close buttons for all variation and option boxes
+    setupCloseButtons() {
+      const closeButtons = document.querySelectorAll('.close-btn')
+      closeButtons.forEach((btn) => {
+        // Remove existing event listeners to prevent duplicates
+        const newBtn = btn.cloneNode(true)
+        btn.parentNode.replaceChild(newBtn, btn)
+
+        // Add event listener
+        newBtn.addEventListener('click', (e) => {
+          const box = e.target.closest('.variation-box')
+          if (box) {
+            // Check if it's the last box
+            const isOptionBox = box.classList.contains('option-box')
+            const container = isOptionBox
+              ? document.getElementById('optionsContainer')
+              : document.getElementById('variationsContainer')
+            const boxes = isOptionBox
+              ? container.querySelectorAll('.option-box')
+              : container.querySelectorAll('.variation-box:not(.option-box)')
+
+            box.remove()
+
+            // If no boxes left, show empty state message
+            if (boxes.length <= 1) {
+              const emptyMessage = isOptionBox
+                ? '<div class="text-gray-500 text-sm italic">Belum ada opsi tambahan. Klik tombol "Tambah Opsi" untuk menambahkan.</div>'
+                : '<div class="text-gray-500 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
+
+              // Only set empty message if we just removed the last box
+              if (boxes.length === 1 && boxes[0] === box) {
+                container.innerHTML = emptyMessage
+              }
+            }
+          }
+        })
+      })
+    },
+
     // Show Delete Confirmation Modal
     showDeleteConfirmationModal(product) {
       Swal.fire({
@@ -572,7 +893,6 @@ export default {
         }
       })
     },
-
     // Show Status Change Confirmation Modal
     showStatusChangeModal(product, newStatus) {
       // Store original status in case user cancels
@@ -691,5 +1011,3 @@ export default {
   },
 }
 </script>
-
-<style scoped></style>

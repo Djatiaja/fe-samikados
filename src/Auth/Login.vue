@@ -5,13 +5,13 @@
     <main
       class="container mx-auto flex flex-col lg:flex-row lg:justify-evenly lg:items-center flex-grow"
     >
-      <section class="w-full lg:w-fit mb-8 lg:mb-0 hidden lg:flex">
+      <div class="w-full lg:w-fit mb-8 lg:mb-0 hidden lg:flex">
         <figure>
           <img src="/image/Transparent.png" alt="Cart icon image" class="w-full max-w-md" />
         </figure>
-      </section>
+      </div>
 
-      <section class="w-full lg:w-1/3 bg-white p-8 shadow-xl rounded-lg">
+      <div class="w-full lg:w-1/3 bg-white p-8 shadow-xl rounded-lg">
         <h2 class="text-xl lg:text-2xl font-bold mb-4 text-gray-800">LOGIN</h2>
         <form @submit.prevent="handleLogin">
           <div class="mb-4">
@@ -64,7 +64,7 @@
             <router-link class="text-red-600 hover:underline" to="/register">Register</router-link>
           </div>
         </form>
-      </section>
+      </div>
     </main>
 
     <AuthFooter />
