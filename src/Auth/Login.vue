@@ -47,7 +47,7 @@
             >
           </div>
 
-          <AuthMainButton text="Masuk" @click="handleLogin" />
+          <AuthMainButton text="Masuk" />
 
           <div class="text-center mb-4 text-gray-700">atau</div>
           <button
@@ -61,7 +61,7 @@
           <!-- Register Link -->
           <div class="text-center mt-4">
             <span class="text-gray-700">Belum Punya Akun? </span>
-            <router-link class="text-red-600 hover:underline" to="/register">Register</router-link>
+            <router-link class="text-red-600 hover:underline" to="/register1">Register</router-link>
           </div>
         </form>
       </div>
@@ -72,11 +72,13 @@
 </template>
 
 <script>
+import Swal from 'sweetalert2'
 import AuthHeader from '@/components/AuthHeader.vue'
 import AuthMainButton from '@/components/AuthMainButton.vue'
 import AuthFooter from '@/components/AuthFooter.vue'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
+import axios from 'axios'
 
 export default {
   components: {
@@ -90,14 +92,42 @@ export default {
     const password = ref('')
     const rememberMe = ref(false)
 
-    const handleLogin = () => {
-      console.log('Logging in with:', { userInput: userInput.value, password: password.value })
-      router.push('/dashboard-seller') // Redirect ke Dashboard Seller
+    const handleLogin = async () => {
+      try {
+        const response = await axios.post('http://127.0.0.1:8000/api/auth/login', {
+          loginParam: userInput.value,
+          password: password.value,
+        })
+
+        // Simpan token ke localStorage
+        localStorage.setItem('token', response.data.data.token)
+
+        // SweetAlert untuk sukses login
+        Swal.fire({
+          title: 'Login Berhasil!',
+          text: 'Anda akan diarahkan ke dashboard...',
+          icon: 'success',
+          timer: 2000, // Auto-close dalam 2 detik
+          showConfirmButton: false,
+        }).then(() => {
+          router.push('/dashboard-seller') // Redirect setelah sukses
+        })
+      } catch (error) {
+        console.error('Login gagal:', error)
+
+        // SweetAlert untuk error login
+        Swal.fire({
+          title: 'Login Gagal!',
+          text: 'Periksa kembali email/username dan password Anda.',
+          icon: 'error',
+          confirmButtonText: 'Coba Lagi',
+        })
+      }
     }
 
     const signInWithGoogle = () => {
       console.log('Signing in with Google...')
-      router.push('/dashboard-seller') // Redirect ke Dashboard Seller setelah login dengan Google
+      router.push('/dashboard-seller')
     }
 
     return { userInput, password, rememberMe, handleLogin, signInWithGoogle }
