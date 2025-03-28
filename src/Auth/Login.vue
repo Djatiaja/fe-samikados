@@ -61,7 +61,7 @@
           <!-- Register Link -->
           <div class="text-center mt-4">
             <span class="text-gray-700">Belum Punya Akun? </span>
-            <router-link class="text-red-600 hover:underline" to="/register1">Register</router-link>
+            <router-link class="text-red-600 hover:underline" to="/register">Register</router-link>
           </div>
         </form>
       </div>
