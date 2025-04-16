@@ -107,7 +107,7 @@ export default {
           title: 'Login Berhasil!',
           text: 'Anda akan diarahkan ke dashboard...',
           icon: 'success',
-          timer: 2000, // Auto-close dalam 2 detik
+          timer: 1000, // Auto-close dalam 2 detik
           showConfirmButton: false,
         }).then(() => {
           router.push('/dashboard-seller') // Redirect setelah sukses

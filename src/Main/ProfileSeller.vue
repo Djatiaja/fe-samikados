@@ -115,6 +115,7 @@ import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
 import Swal from 'sweetalert2'
+import axios from 'axios'
 
 export default {
   components: { HeaderSeller, SidebarSeller, FooterSeller },
@@ -645,9 +646,8 @@ export default {
     },
     logout() {
       Swal.fire({
-        title: `<h3 class="text-lg font-bold">Konfirmasi</h3>`,
+        title: 'Konfirmasi',
         text: 'Apakah anda yakin ingin keluar?',
-        icon: 'question',
         showCancelButton: true,
         buttonsStyling: false,
         customClass: {
@@ -661,8 +661,62 @@ export default {
         confirmButtonText: 'Ya, Keluar',
       }).then((result) => {
         if (result.isConfirmed) {
-          // Perform logout - in a real app, redirect to login page
-          alert('Logged out successfully')
+          // Get the token from localStorage
+          const token = localStorage.getItem('token')
+
+          // Make API call to logout endpoint
+          axios
+            .post(
+              'http://127.0.0.1:8000/api/auth/logout',
+              {},
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              },
+            )
+            .then(() => {
+              // Clear token from localStorage
+              localStorage.removeItem('token')
+
+              // Show success message
+              Swal.fire({
+                title: 'Sukses!',
+                text: 'Anda berhasil keluar',
+                icon: 'success',
+                confirmButtonText: 'OK',
+                buttonsStyling: false,
+                customClass: {
+                  confirmButton:
+                    'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+                },
+                timer: 1500,
+                showConfirmButton: false,
+              }).then(() => {
+                // Redirect to login page
+                this.$router.push('/login')
+              })
+            })
+            .catch((error) => {
+              console.error('Logout failed:', error)
+
+              // Even if API call fails, still remove token and redirect
+              localStorage.removeItem('token')
+
+              Swal.fire({
+                title: 'Perhatian',
+                text: 'Terjadi kesalahan saat logout, tetapi anda tetap dialihkan ke halaman login',
+                icon: 'warning',
+                confirmButtonText: 'OK',
+                buttonsStyling: false,
+                customClass: {
+                  confirmButton:
+                    'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+                },
+              }).then(() => {
+                this.$router.push('/login')
+              })
+            })
         }
       })
     },

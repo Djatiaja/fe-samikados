@@ -144,7 +144,7 @@
                   <select
                     :class="[
                       'status-dropdown w-40 text-white py-2 px-4 rounded-lg',
-                      product.status === 'aktif' ? 'bg-green-500' : 'bg-red-500',
+                      product.status === 'aktif' ? 'bg-green-500' : 'bg-red-600',
                     ]"
                     :value="product.status"
                     @change="showStatusChangeModal(product, $event.target.value)"
