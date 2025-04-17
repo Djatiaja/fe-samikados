@@ -431,12 +431,16 @@ export default {
       }
     },
 
-    async updateOrderStatus(orderId, statusId) {
+    async updateOrderStatus(order_id, statusId) {
+      console.log('Response:', { order_status_id: statusId,
+        order_id:order_id});
       try {
         // Add withCredentials option for CSRF protection
-        const response = await axios.put(`${this.apiBaseUrl}/orders/${orderId}/status`, {
-          status_id: statusId,
+        const response = await axios.put(`${this.apiBaseUrl}/orders/${order_id}/status`, {
+          order_status_id: statusId,
         })
+
+
 
         if (response.data.status === 'success') {
           return true
@@ -445,6 +449,7 @@ export default {
         }
       } catch (error) {
         console.error('Error updating order status:', error)
+        console.log(error.response)
 
         if (error.response && error.response.status === 401) {
           this.handleAuthError()
