@@ -74,8 +74,19 @@
           </select>
         </div>
 
+        <!-- Loading Indicator -->
+        <div v-if="isLoading" class="flex justify-center items-center py-10">
+          <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600"></div>
+        </div>
+
+        <!-- Error Message -->
+        <div v-if="error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p>{{ error }}</p>
+          <button @click="fetchOrders" class="underline text-red-600">Try Again</button>
+        </div>
+
         <!-- Responsive Table -->
-        <div class="overflow-auto rounded-lg shadow-md">
+        <div v-if="!isLoading" class="overflow-auto rounded-lg shadow-md">
           <table class="w-full table-auto border-collapse border border-gray-300">
             <thead class="bg-red-600 text-white">
               <tr>
@@ -115,6 +126,9 @@
                   Lihat Detail
                 </td>
               </tr>
+              <tr v-if="filteredOrders.length === 0">
+                <td colspan="8" class="text-center py-4">Tidak ada data pesanan yang ditemukan</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -130,6 +144,7 @@ import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
 import Swal from 'sweetalert2'
+import axios from 'axios'
 
 export default {
   components: { HeaderSeller, SidebarSeller, FooterSeller },
@@ -140,40 +155,9 @@ export default {
       statusFilter: 'all',
       entriesPerPage: 25,
       searchQuery: '',
-      orders: [
-        {
-          id: 1,
-          orderNumber: '001234',
-          customerName: 'Putri Maharani',
-          orderDate: '7/10/24',
-          endDate: '10/10/24',
-          status: 'selesai',
-          category: 'Stiker',
-          productName: 'Stiker Logo Custom',
-          notes: 'Tolong pastikan warnanya cerah',
-          size: '15 x 15 cm',
-          finishing: 'Dengan Finishing',
-          quantity: 50,
-          totalPrice: 250000,
-          purchaseMethod: 'offline',
-        },
-        {
-          id: 2,
-          orderNumber: '001235',
-          customerName: 'Budi Santoso',
-          orderDate: '8/10/24',
-          endDate: '11/10/24',
-          status: 'batal',
-          category: 'T-shirt',
-          productName: 'T-shirt Custom',
-          notes: 'Ukuran S',
-          size: 'M',
-          finishing: 'Tanpa Finishing',
-          quantity: 100,
-          totalPrice: 500000,
-          purchaseMethod: 'offline',
-        },
-      ],
+      orders: [],
+      isLoading: false,
+      error: null,
       lastOrderNumber: 1235, // Track last order number for auto-generation
     }
   },
@@ -197,6 +181,87 @@ export default {
     },
   },
   methods: {
+    async fetchOrders() {
+      try {
+        this.isLoading = true
+        const token = localStorage.getItem('token');
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+        const response = await axios.get('http://127.0.0.1:8000/api/seller/history');
+        const data = response.data;
+
+        if (data.status === 'success') {
+          // Map API data to match component's structure
+          const apiOrders = data.data.map(order => {
+            // Get the first product name if available
+            const firstProduct = order.order_detail.length > 0 ?
+              order.order_detail[0].product.name : 'N/A'
+
+            // Create a date object from timestamp
+            const orderDate = new Date(order.created_at)
+            // Assuming end date is 3 days later (adjust as needed)
+            const endDate = new Date(orderDate)
+            endDate.setDate(endDate.getDate() + 3)
+
+            // Format dates to match component's format
+            const formattedOrderDate = orderDate.toLocaleDateString('en-US', {
+              day: 'numeric',
+              month: 'numeric',
+              year: '2-digit',
+            })
+
+            const formattedEndDate = endDate.toLocaleDateString('en-US', {
+              day: 'numeric',
+              month: 'numeric',
+              year: '2-digit',
+            })
+
+            // Calculate total quantities
+            const totalQuantity = order.order_detail.reduce((sum, item) =>
+              sum + item.quantity, 0)
+
+            return {
+              id: order.id,
+              orderNumber: `00${order.id}`,
+              customerName: order.user.name,
+              orderDate: formattedOrderDate,
+              endDate: formattedEndDate,
+              status: order.order_status.name,
+              category: 'Pesanan Online', // Default category for API orders
+              productName: firstProduct,
+              notes: order.additional_info || '',
+              size: '', // Not available in API
+              finishing: '', // Will be filled from product_finishing if needed
+              quantity: totalQuantity,
+              totalPrice: order.grand_total,
+              purchaseMethod: 'online',
+              // Add additional fields for detail view
+              address: order.address,
+              orderDetail: order.order_detail
+            }
+          })
+
+          // Combine API orders with any manually added orders (keeping manual entries)
+          const manualOrders = this.orders.filter(order => order.purchaseMethod === 'offline')
+          this.orders = [...apiOrders, ...manualOrders]
+
+          // Update lastOrderNumber based on max order ID
+          if (apiOrders.length > 0) {
+            const maxApiOrderId = Math.max(...apiOrders.map(o => parseInt(o.id)))
+            this.lastOrderNumber = Math.max(this.lastOrderNumber, maxApiOrderId)
+          }
+        } else {
+          console.error('Failed to fetch orders:', data.error)
+          this.error = data.error || 'Failed to fetch orders'
+        }
+      } catch (err) {
+        console.error('Error fetching orders:', err)
+        this.error = 'Network or server error'
+      } finally {
+        this.isLoading = false
+      }
+    },
+
     toggleSidebar() {
       if (this.isMobile) {
         this.isSidebarActive = !this.isSidebarActive
@@ -386,7 +451,7 @@ export default {
           // Create order object
           const order = {
             id: Date.now(),
-            // No orderNumber field as it will be generated by backend
+            orderNumber: this.generateOrderNumber(),
             customerName,
             orderDate: formattedOrderDate,
             endDate: formattedEndDate,
@@ -406,13 +471,7 @@ export default {
       }).then((result) => {
         if (result.isConfirmed && result.value) {
           // Add new order to orders array
-          // Note: In production, you'll likely send this to your backend instead
-          // and the backend will assign the order number
-          const newOrder = {
-            ...result.value,
-            orderNumber: 'pending', // This would be replaced by the backend's response
-          }
-          this.orders.push(newOrder)
+          this.orders.push(result.value)
 
           // Show success message
           this.showSuccessMessage('Riwayat pesanan berhasil ditambahkan')
@@ -443,9 +502,41 @@ export default {
     },
 
     showOrderDetail(order) {
-      Swal.fire({
-        title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${order.orderNumber}</span>`,
-        html: `
+      let detailHtml = '';
+
+      if (order.purchaseMethod === 'online') {
+        // For online orders, display order details from API
+        detailHtml = `
+          <div class="grid grid-cols-[120px_10px_auto] gap-y-2 sm:gap-y-4 text-left text-lg px-4 sm:px-6">
+            <div class="font-semibold">Alamat</div> <div class="text-center">:</div> <div class="ml-4">${order.address || '-'}</div>
+            <div class="font-semibold">Metode</div> <div class="text-center">:</div> <div class="ml-4">Online</div>
+            <div class="font-semibold">Catatan</div> <div class="text-center">:</div> <div class="ml-4">${order.notes || '-'}</div>
+            <div class="font-semibold">Total Harga</div> <div class="text-center">:</div> <div class="ml-4">${this.formatCurrency(order.totalPrice)}</div>
+          </div>
+          <div class="mt-4 text-lg font-bold">Produk yang Dibeli:</div>
+        `;
+
+        // Add product details if available
+        if (order.orderDetail && order.orderDetail.length > 0) {
+          detailHtml += `<div class="mt-2 border-t pt-2">`;
+          order.orderDetail.forEach((item, idx) => {
+            const finishing = item.product_finishing ?
+              `${item.product_finishing.finishing.name} (+${this.formatCurrency(item.product_finishing.price)})` :
+              'Tanpa Finishing';
+
+            detailHtml += `
+              <div class="py-2 ${idx > 0 ? 'border-t' : ''}">
+                <div class="font-medium">${item.product.name} × ${item.quantity}</div>
+                <div class="text-gray-600">Finishing: ${finishing}</div>
+                <div class="text-gray-600">Subtotal: ${this.formatCurrency(item.subtotal_buy_price)}</div>
+              </div>
+            `;
+          });
+          detailHtml += `</div>`;
+        }
+      } else {
+        // For offline orders, use existing format
+        detailHtml = `
           <div class="grid grid-cols-[120px_10px_auto] gap-y-2 sm:gap-y-4 text-left text-lg px-4 sm:px-6">
             <div class="font-semibold">Kategori</div> <div class="text-center">:</div> <div class="ml-4">${order.category || '-'}</div>
             <div class="font-semibold">Nama Produk</div> <div class="text-center">:</div> <div class="ml-4">${order.productName || '-'}</div>
@@ -455,19 +546,27 @@ export default {
             <div class="font-semibold">Jumlah</div> <div class="text-center">:</div> <div class="ml-4">${order.quantity || '-'}</div>
             <div class="font-semibold">Total Harga</div> <div class="text-center">:</div> <div class="ml-4">${this.formatCurrency(order.totalPrice)}</div>
           </div>
-        `,
+        `;
+      }
+
+      Swal.fire({
+        title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${order.orderNumber}</span>`,
+        html: detailHtml,
         confirmButtonText: 'Tutup',
         buttonsStyling: false,
         customClass: {
           confirmButton:
             'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
         },
-      })
+      });
     },
   },
   mounted() {
     this.isSidebarActive = window.innerWidth >= 1024
     window.addEventListener('resize', this.handleResize)
+
+    // Fetch orders from API
+    this.fetchOrders()
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.handleResize)

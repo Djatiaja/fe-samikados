@@ -33,14 +33,11 @@
         <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6">Notifikasi</h2>
         <div>
           <NotifCard
-            title="Admin"
-            message="Halo Ruang Jaya Print! Selamat bergabung dengan SAMIKADOS. Silahkan chat Admin jika perlu bantuan."
-            date_time="20 Oktober 2024, 10:00 AM"
-          />
-          <NotifCard
-            title="Admin"
-            message="Halo Ruang Jaya Print! Selamat bergabung dengan SAMIKADOS. Silahkan chat Admin jika perlu bantuan."
-            date_time="20 Oktober 2024, 10:00 AM"
+            v-for="notif in notifs"
+            :key="notif.id"
+            :title="notif.title"
+            :message="notif.message"
+            :date_time="formatDate(notif.created_at)"
           />
         </div>
       </div>
@@ -55,6 +52,7 @@ import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
 import NotifCard from '@/components/NotifCard.vue'
+import axios from 'axios'
 
 export default {
   components: { HeaderSeller, SidebarSeller, FooterSeller, NotifCard },
@@ -64,11 +62,14 @@ export default {
       isMobile: window.innerWidth < 1024,
       statusFilter: 'all',
       entriesPerPage: 25,
+      searchQuery: '',
+      notifs: [],
     }
   },
   mounted() {
     this.isSidebarActive = window.innerWidth >= 1024
     window.addEventListener('resize', this.handleResize)
+    this.fetchNotifs()
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.handleResize)
@@ -82,6 +83,33 @@ export default {
     handleResize() {
       this.isMobile = window.innerWidth < 1024
       this.isSidebarActive = !this.isMobile
+    },
+    async fetchNotifs() {
+      try {
+        const token = localStorage.getItem('token');
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+        const res = await axios.get(`http://127.0.0.1:8000/api/seller/notifikasi`)
+        if (res.data.status === 'success') {
+          this.notifs = res.data.data
+          this.markAsRead()
+        }
+      } catch (error) {
+        console.error('Gagal fetch notifikasi:', error)
+      }
+    },
+    async markAsRead() {
+      try {
+        const token = localStorage.getItem('token');
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        await axios.post(`http://127.0.0.1:8000/api/seller/notifikasi`)
+      } catch (error) {
+        console.error('Gagal update is_read:', error)
+      }
+    },
+    formatDate(dateStr) {
+      const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+      return new Date(dateStr).toLocaleString('id-ID', options)
     },
   },
 }
