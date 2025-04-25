@@ -1,5 +1,12 @@
 <template>
   <div class="flex flex-col min-h-screen">
+    <!-- Overlay for sidebar on mobile -->
+    <div
+      id="overlay"
+      :class="{ block: isSidebarActive && isMobile, hidden: !isSidebarActive || !isMobile }"
+      @click="toggleSidebar"
+      class="fixed inset-0 bg-opacity-20 z-20"
+    ></div>
     <!-- Header -->
     <HeaderSeller @toggle-sidebar="toggleSidebar" :showSearch="true">
       <template #search>
@@ -43,21 +50,29 @@
               </option>
             </select>
           </div>
-
-          <!-- Entries per page -->
-          <div class="mb-4 md:mb-0">
-            <label for="entriesPerPage" class="mr-2">Entries per page:</label>
-            <select
-              v-model="entriesPerPage"
-              class="p-2 border border-gray-300 rounded-md"
-              @change="updatePagination"
+          <!-- Add Order Button -->
+          <div class="mb-4">
+            <button
+              @click="openAddOrderModal"
+              class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md flex items-center"
             >
-              <option value="5">5</option>
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-            </select>
+              <span class="mr-2">+</span> Tambah Pesanan
+            </button>
           </div>
+        </div>
+        <!-- Entries per page -->
+        <div class="mb-4">
+          <label for="entriesPerPage" class="mr-2">Entries per page:</label>
+          <select
+            v-model="entriesPerPage"
+            class="p-2 border border-gray-300 rounded-md"
+            @change="updatePagination"
+          >
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
         </div>
 
         <!-- Loading indicator -->
@@ -506,23 +521,24 @@ export default {
       })
     },
 
-    // Get the appropriate class based on status
     getStatusClass(statusId) {
       const status = this.orderStatuses.find((s) => s.id === statusId)
       if (!status) return 'bg-gray-500'
 
-      // Map color names to Tailwind classes
-      switch (status.color) {
-        case 'MediumBlue':
-          return 'bg-blue-600'
-        case 'Red':
-          return 'bg-red-600'
-        case 'Green':
-          return 'bg-green-600'
-        case 'Orange':
-          return 'bg-yellow-500'
+      // Map status IDs or names to colors - update this mapping as needed
+      switch (statusId) {
+        case 1: // Assuming 1 is "Masuk" or "New Order"
+          return 'bg-blue-600' // Blue for new orders
+        case 2: // Assuming 2 is "Diproses" or "Processing"
+          return 'bg-yellow-500' // Yellow for processing
+        case 3: // Assuming 3 is "Dikirim" or "Shipped"
+          return 'bg-purple-600' // Purple for shipped
+        case 4: // Assuming 4 is "Selesai" or "Completed"
+          return 'bg-green-600' // Green for completed
+        case 5: // Assuming 5 is "Dibatalkan" or "Cancelled"
+          return 'bg-red-600' // Red for cancelled
         default:
-          return 'bg-gray-500'
+          return 'bg-gray-500' // Default gray
       }
     },
 
@@ -530,16 +546,18 @@ export default {
       const status = this.orderStatuses.find((s) => s.id === statusId)
       if (!status) return 'bg-gray-500'
 
-      // Map color names to Tailwind classes for dropdown options
-      switch (status.color) {
-        case 'MediumBlue':
+      // Same color mapping as above
+      switch (statusId) {
+        case 1: // "Masuk" or "New Order"
           return 'bg-blue-600 text-white'
-        case 'Red':
-          return 'bg-red-600 text-white'
-        case 'Green':
-          return 'bg-green-600 text-white'
-        case 'Orange':
+        case 2: // "Diproses" or "Processing"
           return 'bg-yellow-500 text-white'
+        case 3: // "Dikirim" or "Shipped"
+          return 'bg-purple-600 text-white'
+        case 4: // "Selesai" or "Completed"
+          return 'bg-green-600 text-white'
+        case 5: // "Dibatalkan" or "Cancelled"
+          return 'bg-red-600 text-white'
         default:
           return 'bg-gray-500 text-white'
       }
@@ -653,6 +671,183 @@ export default {
           this.initProductCarousel(order.order_detail.length)
         },
       })
+    },
+    openAddOrderModal() {
+      Swal.fire({
+        title: '<span class="text-xl font-bold">Tambah Pesanan Baru</span>',
+        html: `
+      <form id="addOrderForm" class="text-left">
+        <!-- Customer Information -->
+        <div class="mb-4">
+          <h4 class="font-semibold mb-3 pb-2 border-b">Informasi Pembeli</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Nama Pembeli</label>
+              <input
+                id="customerName"
+                type="text"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Email</label>
+              <input
+                id="customerEmail"
+                type="email"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+          </div>
+          <div class="mt-3">
+            <label class="block text-sm font-medium mb-1">Alamat</label>
+            <textarea
+              id="customerAddress"
+              class="w-full p-2 border border-gray-300 rounded-md"
+              rows="2"
+              required
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Product Selection -->
+        <div class="mb-4">
+          <h4 class="font-semibold mb-3 pb-2 border-b">Produk</h4>
+          <div id="productItems">
+            <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Nama Produk</label>
+                  <input type="text" class="product-name w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Jumlah</label>
+                  <input type="number" min="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
+                </div>
+              </div>
+              <div class="mt-2">
+                <label class="block text-sm font-medium mb-1">Finishing</label>
+                <select class="product-finishing w-full p-2 border border-gray-300 rounded-md text-base">
+                  <option value="">Tanpa Finishing</option>
+                  <option value="1">Finishing A</option>
+                  <option value="2">Finishing B</option>
+                  <option value="3">Finishing C</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            id="addMoreProduct"
+            class="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            + Tambah Produk Lain
+          </button>
+        </div>
+
+        <!-- Additional Information -->
+        <div class="mb-4">
+          <label class="block text-sm font-medium mb-1">Informasi Tambahan</label>
+          <textarea
+            id="additionalInfo"
+            class="w-full p-2 border border-gray-300 rounded-md"
+            rows="2"
+          ></textarea>
+        </div>
+      </form>
+    `,
+        showCancelButton: true,
+        confirmButtonText: 'Tambah Pesanan',
+        cancelButtonText: 'Batal',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md mr-4',
+          cancelButton: 'bg-gray-200 hover:bg-gray-300 text-black py-2 px-4 rounded-md',
+          htmlContainer: 'overflow-y-auto max-h-[70vh]',
+        },
+        didOpen: () => {
+          // Add event listener for adding more products
+          document.getElementById('addMoreProduct').addEventListener('click', () => {
+            const productItems = document.getElementById('productItems')
+            const newItem = document.createElement('div')
+            newItem.className = 'mb-4 p-3 bg-gray-50 rounded-lg'
+            newItem.innerHTML = `
+          <div class="flex justify-between mb-2">
+            <h5 class="font-medium">Produk Tambahan</h5>
+            <button
+              type="button"
+              class="text-red-600 hover:text-red-800 remove-product"
+            >
+              Hapus
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium mb-1">Nama Produk</label>
+              <input type="text" class="product-name w-full p-2 border border-gray-300 rounded-md" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Jumlah</label>
+              <input type="number" min="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
+            </div>
+          </div>
+          <div class="mt-2">
+            <label class="block text-sm font-medium mb-1">Finishing</label>
+            <select class="product-finishing w-full p-2 border border-gray-300 rounded-md">
+              <option value="">Tanpa Finishing</option>
+              <option value="1">Finishing A</option>
+              <option value="2">Finishing B</option>
+              <option value="3">Finishing C</option>
+            </select>
+          </div>
+        `
+            productItems.appendChild(newItem)
+
+            // Add event listener to remove button
+            const removeButtons = document.querySelectorAll('.remove-product')
+            removeButtons.forEach((button) => {
+              button.addEventListener('click', function () {
+                this.closest('.mb-4').remove()
+              })
+            })
+          })
+        },
+        preConfirm: () => {
+          // Get form values
+          const form = document.getElementById('addOrderForm')
+          if (!form.checkValidity()) {
+            form.reportValidity()
+            return false
+          }
+
+          // You would normally collect all the data here
+          // For this mockup, we'll just return a success message
+          return true
+        },
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.handleAddOrderSuccess()
+        }
+      })
+    },
+
+    handleAddOrderSuccess() {
+      // Show success message
+      Swal.fire({
+        icon: 'success',
+        title: 'Pesanan Berhasil Ditambahkan',
+        text: 'Pesanan baru telah berhasil ditambahkan ke dalam sistem.',
+        confirmButtonText: 'OK',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-red-600 text-white py-2 px-4 rounded-md',
+        },
+      })
+
+      // In a real implementation, you would refresh the orders list here
+      // For now, we'll just log a message
+      console.log('Order added successfully!')
     },
 
     createProductsCarousel(order) {
