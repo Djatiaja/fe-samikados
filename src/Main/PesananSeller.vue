@@ -449,8 +449,19 @@ export default {
     async updateOrderStatus(orderId, statusId) {
       try {
         // Add withCredentials option for CSRF protection
+        const token = localStorage.getItem('token') || this.getCookie('token')
+
+      if (!token) {
+        console.warn('Authentication token not found. User might not be logged in.')
+        // Redirect to login page if needed
+        // this.$router.push('/login')
+        return
+      }
+
+      // Set default headers for all axios requests
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
         const response = await axios.put(`${this.apiBaseUrl}/orders/${orderId}/status`, {
-          status_id: statusId,
+          order_status_id: statusId,
         })
 
         if (response.data.status === 'success') {
