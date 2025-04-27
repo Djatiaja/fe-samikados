@@ -634,41 +634,70 @@ export default {
       Swal.fire({
         title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${order.id}</span>`,
         html: `
-          <div class="text-left mb-6">
-            <div class="grid grid-cols-[120px_10px_auto] gap-y-2 text-lg">
-              <div class="font-semibold">Pembeli</div> <div class="text-center">:</div> <div class="ml-4">${order.user.name}</div>
-              <div class="font-semibold">Alamat</div> <div class="text-center">:</div> <div class="ml-4">${order.address || '-'}</div>
-              <div class="font-semibold">Tanggal</div> <div class="text-center">:</div> <div class="ml-4">${this.formatDate(order.created_at)}</div>
-              <div class="font-semibold">Status</div> <div class="text-center">:</div> <div class="ml-4">${this.getStatusName(order.order_status_id)}</div>
-              <div class="font-semibold">Total</div> <div class="text-center">:</div> <div class="ml-4">${this.formatCurrency(order.grand_total)}</div>
-            </div>
+      <div class="text-left mb-6">
+        <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-base sm:text-lg">
+          <div class="font-semibold">Pembeli</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.user.name}</div>
+          <div class="font-semibold">Alamat</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.address || '-'}</div>
+          <div class="font-semibold">Tanggal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatDate(order.created_at)}</div>
+          <div class="font-semibold">Status</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.getStatusName(order.order_status_id)}</div>
+          <div class="font-semibold">Total</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(order.grand_total)}</div>
+        </div>
 
-            ${
-              order.additional_info
-                ? `
-            <div class="mt-4">
-              <div class="font-semibold">Informasi Tambahan:</div>
-              <div class="mt-2 p-3 bg-gray-100 rounded-lg">${order.additional_info}</div>
-            </div>`
-                : ''
-            }
-          </div>
+        ${
+          order.additional_info
+            ? `
+        <div class="mt-4">
+          <div class="font-semibold">Informasi Tambahan:</div>
+          <div class="mt-2 p-3 bg-gray-100 rounded-lg">${order.additional_info}</div>
+        </div>`
+            : ''
+        }
+      </div>
 
-          <!-- Products Section -->
-          <div class="mt-4">
-            <div class="font-semibold text-lg mb-2">Produk (${order.order_detail.length}):</div>
-            ${productsHtml}
-          </div>
-        `,
-        width: '80%',
+      <!-- Products Section -->
+      <div class="mt-4">
+        <div class="font-semibold text-lg mb-2">Produk (${order.order_detail.length}):</div>
+        ${productsHtml}
+      </div>
+    `,
+        // Responsive width settings
+        width: 'auto',
+        // Set max-width based on screen size
+        customClass: {
+          popup: 'swal-responsive-popup',
+          confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-base mt-6',
+          htmlContainer: 'overflow-y-auto',
+        },
         confirmButtonText: 'Tutup',
         buttonsStyling: false,
-        customClass: {
-          confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-base mt-6',
-        },
         didOpen: () => {
           // Initialize the product carousel navigation
           this.initProductCarousel(order.order_detail.length)
+
+          // Add responsive styles for the modal
+          const style = document.createElement('style')
+          style.innerHTML = `
+        .swal-responsive-popup {
+          width: 95% !important;
+          max-width: 800px !important;
+        }
+        @media (min-width: 640px) {
+          .swal-responsive-popup {
+            width: 80% !important;
+          }
+        }
+        @media (min-width: 1024px) {
+          .swal-responsive-popup {
+            width: 60% !important;
+          }
+        }
+        @media (min-width: 1280px) {
+          .swal-responsive-popup {
+            width: 50% !important;
+          }
+        }
+      `
+          document.head.appendChild(style)
         },
       })
     },
@@ -856,58 +885,58 @@ export default {
       }
 
       let carouselHtml = `
-        <div class="product-carousel relative">
-          <div class="carousel-container overflow-hidden">
-            <div class="carousel-track flex transition-transform duration-300" style="transform: translateX(0);">
-      `
+    <div class="product-carousel relative">
+      <div class="carousel-container overflow-hidden">
+        <div class="carousel-track flex transition-transform duration-300" style="transform: translateX(0);">
+  `
 
       // Add slides for each product
       order.order_detail.forEach((item, index) => {
         carouselHtml += `
-          <div class="carousel-slide w-full flex-shrink-0 p-4 bg-gray-50 rounded-lg">
-            <div class="grid grid-cols-[120px_10px_auto] gap-y-2 text-left text-lg">
-              <div class="font-semibold">Nama Produk</div> <div class="text-center">:</div> <div class="ml-4">${item.product.name}</div>
-              <div class="font-semibold">Jumlah</div> <div class="text-center">:</div> <div class="ml-4">${item.quantity}</div>
-              <div class="font-semibold">Subtotal</div> <div class="text-center">:</div> <div class="ml-4">${this.formatCurrency(item.subtotal_buy_price)}</div>
-              ${
-                item.product_finishing
-                  ? `
-              <div class="font-semibold">Finishing</div> <div class="text-center">:</div> <div class="ml-4">${item.product_finishing.finishing.name}</div>
-              <div class="font-semibold">Harga Finishing</div> <div class="text-center">:</div> <div class="ml-4">${this.formatCurrency(item.product_finishing.price)}</div>
-              `
-                  : ''
-              }
-            </div>
-          </div>
-        `
+      <div class="carousel-slide w-full flex-shrink-0 p-3 sm:p-4 bg-gray-50 rounded-lg">
+        <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-left text-base sm:text-lg">
+          <div class="font-semibold">Nama Produk</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.product.name}</div>
+          <div class="font-semibold">Jumlah</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.quantity}</div>
+          <div class="font-semibold">Subtotal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(item.subtotal_buy_price)}</div>
+          ${
+            item.product_finishing
+              ? `
+          <div class="font-semibold">Finishing</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.product_finishing.finishing.name}</div>
+          <div class="font-semibold">Harga Finishing</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(item.product_finishing.price)}</div>
+          `
+              : ''
+          }
+        </div>
+      </div>
+    `
       })
 
       // Add navigation controls
       carouselHtml += `
-            </div>
-          </div>
-          <!-- Carousel controls -->
-          <div class="carousel-controls flex justify-between items-center mt-4">
-            <button class="carousel-prev bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-md ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>← Prev</button>
-            <div class="carousel-indicators flex space-x-2 justify-center">
-      `
+        </div>
+      </div>
+      <!-- Carousel controls -->
+      <div class="carousel-controls flex justify-between items-center mt-4">
+        <button class="carousel-prev bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-md text-sm sm:text-base ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>← Prev</button>
+        <div class="carousel-indicators flex space-x-2 justify-center">
+  `
 
       // Add indicators
       order.order_detail.forEach((_, index) => {
         carouselHtml += `
-          <button class="carousel-indicator w-2 h-2 rounded-full bg-gray-300 ${index === 0 ? 'bg-gray-700' : ''}" data-index="${index}"></button>
-        `
+      <button class="carousel-indicator w-2 h-2 rounded-full bg-gray-300 ${index === 0 ? 'bg-gray-700' : ''}" data-index="${index}"></button>
+    `
       })
 
       carouselHtml += `
-            </div>
-            <button class="carousel-next bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded-md ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>Next →</button>
-          </div>
-          <div class="carousel-counter text-center text-sm mt-2">
-            <span class="current-slide">1</span> dari <span>${order.order_detail.length}</span>
-          </div>
         </div>
-      `
+        <button class="carousel-next bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-md text-sm sm:text-base ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>Next →</button>
+      </div>
+      <div class="carousel-counter text-center text-sm mt-2">
+        <span class="current-slide">1</span> dari <span>${order.order_detail.length}</span>
+      </div>
+    </div>
+  `
 
       return carouselHtml
     },
