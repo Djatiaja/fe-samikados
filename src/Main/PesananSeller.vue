@@ -461,7 +461,7 @@ export default {
 
     async fetchProductVariants(productId) {
       try {
-        const response = await axios.get(`${this.apiBaseUrl}/product/variants`, {
+        const response = await axios.get(`${this.apiBaseUrl}/product/variant`, {
           params: { product_id: productId },
         })
 
@@ -824,6 +824,9 @@ export default {
       let finishingsByProduct = {}
       let variantsByProduct = {}
 
+      // Simpan referensi ke 'this' agar dapat digunakan dalam callback
+      const self = this
+
       // Fetch categories first
       this.fetchCategories()
         .then((fetchedCategories) => {
@@ -832,104 +835,104 @@ export default {
           Swal.fire({
             title: '<span class="text-xl font-bold">Tambah Pesanan Baru</span>',
             html: `
-      <form id="addOrderForm" class="text-left">
-        <!-- Customer Information -->
-        <div class="mb-4">
-          <h4 class="font-semibold mb-3 pb-2 border-b">Informasi Pembeli</h4>
-          <div class="grid grid-cols-1 md:grid-cols-[3fr_1fr] gap-4">
-            <div>
-              <label class="block text-sm font-medium mb-1">Identitas Pembeli (Nama/Username/Email)</label>
-              <input
-                id="customerIdentifier"
-                type="text"
-                class="w-full p-2 border border-gray-300 rounded-md"
-                placeholder="Masukkan nama, username, atau email"
-                required
-              />
-            </div>
-            <div class="flex items-end">
-              <button
-                type="button"
-                id="searchCustomer"
-                class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm"
-              >
-                Cari
-              </button>
-            </div>
-          </div>
-          <div id="customerResult" class="mt-3">
-            <!-- Customer result will be displayed here -->
-          </div>
+  <form id="addOrderForm" class="text-left">
+    <!-- Customer Information -->
+    <div class="mb-4">
+      <h4 class="font-semibold mb-3 pb-2 border-b">Informasi Pembeli</h4>
+      <div class="grid grid-cols-1 md:grid-cols-[3fr_1fr] gap-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">Identitas Pembeli (Nama/Username/Email)</label>
+          <input
+            id="customerIdentifier"
+            type="text"
+            class="w-full p-2 border border-gray-300 rounded-md"
+            placeholder="Masukkan nama, username, atau email"
+            required
+          />
         </div>
-
-        <!-- Product Selection -->
-        <div class="mb-4">
-          <h4 class="font-semibold mb-3 pb-2 border-b">Produk</h4>
-          <div id="productItems">
-            <div class="mb-4 p-3 bg-gray-50 rounded-lg product-item">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div>
-                  <label class="block text-sm font-medium mb-1">Kategori</label>
-                  <select class="product-category w-full p-2 border border-gray-300 rounded-md">
-                    <option value="">Pilih Kategori</option>
-                    ${categories.map((category) => `<option value="${category.id}">${category.name}</option>`).join('')}
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">Produk</label>
-                  <select class="product-name w-full p-2 border border-gray-300 rounded-md" disabled>
-                    <option value="">Pilih Produk</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div>
-                  <label class="block text-sm font-medium mb-1">Finishing</label>
-                  <select class="product-finishing w-full p-2 border border-gray-300 rounded-md" disabled>
-                    <option value="">Pilih Finishing</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">Variasi</label>
-                  <select class="product-variant w-full p-2 border border-gray-300 rounded-md" disabled>
-                    <option value="">Pilih Variasi</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div>
-                  <label class="block text-sm font-medium mb-1">Jumlah</label>
-                  <input type="number" min="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
-                </div>
-                <div id="product-preview" class="flex justify-center items-center">
-                  <div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div class="flex items-end">
           <button
             type="button"
-            id="addMoreProduct"
-            class="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+            id="searchCustomer"
+            class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md text-sm"
           >
-            + Tambah Produk Lain
+            Cari
           </button>
         </div>
+      </div>
+      <div id="customerResult" class="mt-3">
+        <!-- Customer result will be displayed here -->
+      </div>
+    </div>
 
-        <!-- Additional Information -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium mb-1">Informasi Tambahan</label>
-          <textarea
-            id="additionalInfo"
-            class="w-full p-2 border border-gray-300 rounded-md"
-            rows="2"
-            placeholder="Tambahkan catatan atau instruksi khusus"
-          ></textarea>
+    <!-- Product Selection -->
+    <div class="mb-4">
+      <h4 class="font-semibold mb-3 pb-2 border-b">Produk</h4>
+      <div id="productItems">
+        <div class="mb-4 p-3 bg-gray-50 rounded-lg product-item">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+            <div>
+              <label class="block text-sm font-medium mb-1">Kategori</label>
+              <select class="product-category w-full p-2 border border-gray-300 rounded-md">
+                <option value="">Pilih Kategori</option>
+                ${categories.map((category) => `<option value="${category.id}">${category.name}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Produk</label>
+              <select class="product-name w-full p-2 border border-gray-300 rounded-md" disabled>
+                <option value="">Pilih Produk</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+            <div>
+              <label class="block text-sm font-medium mb-1">Finishing</label>
+              <select class="product-finishing w-full p-2 border border-gray-300 rounded-md" disabled>
+                <option value="">Pilih Finishing</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Variasi</label>
+              <select class="product-variant w-full p-2 border border-gray-300 rounded-md" disabled>
+                <option value="">Pilih Variasi</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+            <div>
+              <label class="block text-sm font-medium mb-1">Jumlah</label>
+              <input type="number" min="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
+            </div>
+            <div class="product-preview flex justify-center items-center">
+              <div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>
+            </div>
+          </div>
         </div>
-      </form>
-      `,
+      </div>
+      <button
+        type="button"
+        id="addMoreProduct"
+        class="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+      >
+        + Tambah Produk Lain
+      </button>
+    </div>
+
+    <!-- Additional Information -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-1">Informasi Tambahan</label>
+      <textarea
+        id="additionalInfo"
+        class="w-full p-2 border border-gray-300 rounded-md"
+        rows="2"
+        placeholder="Tambahkan catatan atau instruksi khusus"
+      ></textarea>
+    </div>
+  </form>
+  `,
             showCancelButton: true,
             confirmButtonText: 'Tambah Pesanan',
             cancelButtonText: 'Batal',
@@ -951,119 +954,137 @@ export default {
                 const customerResultDiv = document.getElementById('customerResult')
                 customerResultDiv.innerHTML = '<div class="text-center py-2">Mencari...</div>'
 
-                const user = await this.fetchUserByIdentifier(identifier)
+                // Gunakan self, bukan this
+                const user = await self.fetchUserByIdentifier(identifier)
                 if (user) {
                   selectedUser = user
                   customerResultDiv.innerHTML = `
-              <div class="mt-2 p-3 bg-gray-100 rounded-lg">
-                <div class="font-medium text-green-600">Pengguna ditemukan!</div>
-                <div class="mt-1">Nama: ${user.name}</div>
-                <input type="hidden" id="selectedUserId" value="${user.id}">
-              </div>
-            `
+          <div class="mt-2 p-3 bg-gray-100 rounded-lg">
+            <div class="font-medium text-green-600">Pengguna ditemukan!</div>
+            <div class="mt-1">Nama: ${user.name}</div>
+            <input type="hidden" id="selectedUserId" value="${user.id}">
+          </div>
+        `
                 } else {
                   customerResultDiv.innerHTML = `
-              <div class="mt-2 p-3 bg-red-100 rounded-lg">
-                <div class="font-medium text-red-600">Pengguna tidak ditemukan</div>
-                <div class="mt-1">Silakan periksa kembali identitas yang dimasukkan</div>
-              </div>
-            `
+          <div class="mt-2 p-3 bg-red-100 rounded-lg">
+            <div class="font-medium text-red-600">Pengguna tidak ditemukan</div>
+            <div class="mt-1">Silakan periksa kembali identitas yang dimasukkan</div>
+          </div>
+        `
                 }
               })
 
-              // Add event listener for category selection
+              // Add event listener for category selection - Perbaikan disini
               const setupCategoryListener = (productItem) => {
                 const categorySelect = productItem.querySelector('.product-category')
                 const productSelect = productItem.querySelector('.product-name')
 
-                categorySelect.addEventListener(
-                  'change',
-                  async function () {
-                    const categoryId = this.value
-                    productSelect.innerHTML = '<option value="">Pilih Produk</option>'
+                categorySelect.addEventListener('change', async function () {
+                  const categoryId = this.value
+                  productSelect.innerHTML = '<option value="">Pilih Produk</option>'
 
-                    // Reset other selects
-                    const finishingSelect = productItem.querySelector('.product-finishing')
-                    const variantSelect = productItem.querySelector('.product-variant')
-                    finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
-                    finishingSelect.disabled = true
-                    variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
-                    variantSelect.disabled = true
+                  // Reset other selects
+                  const finishingSelect = productItem.querySelector('.product-finishing')
+                  const variantSelect = productItem.querySelector('.product-variant')
+                  finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
+                  finishingSelect.disabled = true
+                  variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
+                  variantSelect.disabled = true
 
-                    if (categoryId) {
-                      productSelect.disabled = true
-                      productSelect.innerHTML = '<option value="">Loading...</option>'
+                  if (categoryId) {
+                    productSelect.disabled = true
+                    productSelect.innerHTML = '<option value="">Loading...</option>'
 
-                      // Fetch products for this category
+                    try {
+                      // Debug log untuk memeriksa categoryId
+                      console.log('Fetching products for categoryId:', categoryId)
+
+                      // Fetch products for this category using self
                       if (!productsByCategory[categoryId]) {
                         productsByCategory[categoryId] =
-                          await this.fetchProductsByCategory(categoryId)
+                          await self.fetchProductsByCategory(categoryId)
+                        // Debug log untuk melihat hasil
+                        console.log('Fetched products:', productsByCategory[categoryId])
                       }
 
                       const products = productsByCategory[categoryId]
                       productSelect.innerHTML = '<option value="">Pilih Produk</option>'
-                      products.forEach((product) => {
-                        const option = document.createElement('option')
-                        option.value = product.id
-                        option.textContent = product.name
-                        option.dataset.image = product.image || ''
-                        productSelect.appendChild(option)
-                      })
 
+                      if (products && products.length > 0) {
+                        products.forEach((product) => {
+                          const option = document.createElement('option')
+                          option.value = product.id
+                          option.textContent = product.name
+                          option.dataset.image = product.image || ''
+                          productSelect.appendChild(option)
+                        })
+                      } else {
+                        productSelect.innerHTML =
+                          '<option value="">Tidak ada produk tersedia</option>'
+                      }
+                    } catch (error) {
+                      console.error('Error fetching products:', error)
+                      productSelect.innerHTML = '<option value="">Error loading products</option>'
+                    } finally {
                       productSelect.disabled = false
-                    } else {
-                      productSelect.disabled = true
                     }
-                  }.bind(this),
-                )
+                  } else {
+                    productSelect.disabled = true
+                  }
+                })
               }
 
-              // Add event listener for product selection
+              // Add event listener for product selection - Perbaikan disini
               const setupProductListener = (productItem) => {
                 const productSelect = productItem.querySelector('.product-name')
                 const finishingSelect = productItem.querySelector('.product-finishing')
                 const variantSelect = productItem.querySelector('.product-variant')
-                const previewDiv = productItem.querySelector('#product-preview')
+                const previewDiv = productItem.querySelector('.product-preview')
 
-                productSelect.addEventListener(
-                  'change',
-                  async function () {
-                    const productId = this.value
+                productSelect.addEventListener('change', async function () {
+                  const productId = this.value
 
-                    // Reset finishing and variant selects
-                    finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
-                    finishingSelect.disabled = true
-                    variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
-                    variantSelect.disabled = true
+                  // Reset finishing and variant selects
+                  finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
+                  finishingSelect.disabled = true
+                  variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
+                  variantSelect.disabled = true
 
-                    // Update product preview
-                    if (productId) {
-                      const selectedOption = productSelect.options[productSelect.selectedIndex]
-                      const imageUrl = selectedOption.dataset.image
+                  // Update product preview
+                  if (productId) {
+                    const selectedOption = productSelect.options[productSelect.selectedIndex]
+                    const imageUrl = selectedOption.dataset.image
 
-                      if (imageUrl) {
-                        previewDiv.innerHTML = `<img src="${imageUrl}" alt="Product Preview" class="max-h-20 max-w-full">`
-                      } else {
-                        previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Tidak ada gambar</div>`
-                      }
+                    if (imageUrl) {
+                      previewDiv.innerHTML = `<img src="${imageUrl}" alt="Product Preview" class="max-h-20 max-w-full">`
+                    } else {
+                      previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Tidak ada gambar</div>`
+                    }
 
-                      // Fetch finishings
+                    try {
+                      // Debug log untuk productId
+                      console.log('Fetching finishings for productId:', productId)
+
+                      // Fetch finishings using self
                       finishingSelect.disabled = true
                       finishingSelect.innerHTML = '<option value="">Loading...</option>'
 
                       if (!finishingsByProduct[productId]) {
                         finishingsByProduct[productId] =
-                          await this.fetchProductFinishings(productId)
+                          await self.fetchProductFinishings(productId)
+                        // Debug log
+                        console.log('Fetched finishings:', finishingsByProduct[productId])
                       }
 
                       const finishings = finishingsByProduct[productId]
                       finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
 
-                      if (finishings.length > 0) {
+                      if (finishings && finishings.length > 0) {
                         finishings.forEach((finishing) => {
                           const option = document.createElement('option')
                           option.value = finishing.id
-                          option.textContent = `${finishing.name} (+${this.formatCurrency(finishing.price)})`
+                          option.textContent = `${finishing.name} (+${self.formatCurrency(finishing.price)})`
                           finishingSelect.appendChild(option)
                         })
                         finishingSelect.disabled = false
@@ -1071,18 +1092,23 @@ export default {
                         finishingSelect.innerHTML = '<option value="">Tidak Ada Finishing</option>'
                       }
 
-                      // Fetch variants
+                      // Debug log untuk variants
+                      console.log('Fetching variants for productId:', productId)
+
+                      // Fetch variants using self
                       variantSelect.disabled = true
                       variantSelect.innerHTML = '<option value="">Loading...</option>'
 
                       if (!variantsByProduct[productId]) {
-                        variantsByProduct[productId] = await this.fetchProductVariants(productId)
+                        variantsByProduct[productId] = await self.fetchProductVariants(productId)
+                        // Debug log
+                        console.log('Fetched variants:', variantsByProduct[productId])
                       }
 
                       const variants = variantsByProduct[productId]
                       variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
 
-                      if (variants.length > 0) {
+                      if (variants && variants.length > 0) {
                         variants.forEach((variant) => {
                           const option = document.createElement('option')
                           option.value = variant.id
@@ -1093,11 +1119,16 @@ export default {
                       } else {
                         variantSelect.innerHTML = '<option value="">Tidak Ada Variasi</option>'
                       }
-                    } else {
-                      previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>`
+                    } catch (error) {
+                      console.error('Error fetching product details:', error)
+                      finishingSelect.innerHTML =
+                        '<option value="">Error loading finishings</option>'
+                      variantSelect.innerHTML = '<option value="">Error loading variants</option>'
                     }
-                  }.bind(this),
-                )
+                  } else {
+                    previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>`
+                  }
+                })
               }
 
               // Setup listeners for initial product item
@@ -1111,53 +1142,53 @@ export default {
                 const newItem = document.createElement('div')
                 newItem.className = 'mb-4 p-3 bg-gray-50 rounded-lg product-item'
                 newItem.innerHTML = `
-            <div class="flex justify-between mb-2">
-              <h5 class="font-medium">Produk Tambahan</h5>
-              <button type="button" class="text-red-600 hover:text-red-800 remove-product">
-                Hapus
-              </button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-              <div>
-                <label class="block text-sm font-medium mb-1">Kategori</label>
-                <select class="product-category w-full p-2 border border-gray-300 rounded-md">
-                  <option value="">Pilih Kategori</option>
-                  ${categories.map((category) => `<option value="${category.id}">${category.name}</option>`).join('')}
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Produk</label>
-                <select class="product-name w-full p-2 border border-gray-300 rounded-md" disabled>
-                  <option value="">Pilih Produk</option>
-                </select>
-              </div>
-            </div>
+        <div class="flex justify-between mb-2">
+          <h5 class="font-medium">Produk Tambahan</h5>
+          <button type="button" class="text-red-600 hover:text-red-800 remove-product">
+            Hapus
+          </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Kategori</label>
+            <select class="product-category w-full p-2 border border-gray-300 rounded-md">
+              <option value="">Pilih Kategori</option>
+              ${categories.map((category) => `<option value="${category.id}">${category.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Produk</label>
+            <select class="product-name w-full p-2 border border-gray-300 rounded-md" disabled>
+              <option value="">Pilih Produk</option>
+            </select>
+          </div>
+        </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-              <div>
-                <label class="block text-sm font-medium mb-1">Finishing</label>
-                <select class="product-finishing w-full p-2 border border-gray-300 rounded-md" disabled>
-                  <option value="">Pilih Finishing</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Variasi</label>
-                <select class="product-variant w-full p-2 border border-gray-300 rounded-md" disabled>
-                  <option value="">Pilih Variasi</option>
-                </select>
-              </div>
-            </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Finishing</label>
+            <select class="product-finishing w-full p-2 border border-gray-300 rounded-md" disabled>
+              <option value="">Pilih Finishing</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Variasi</label>
+            <select class="product-variant w-full p-2 border border-gray-300 rounded-md" disabled>
+              <option value="">Pilih Variasi</option>
+            </select>
+          </div>
+        </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-              <div>
-                <label class="block text-sm font-medium mb-1">Jumlah</label>
-                <input type="number" min="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
-              </div>
-              <div id="product-preview" class="flex justify-center items-center">
-                <div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>
-              </div>
-            </div>
-          `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+          <div>
+            <label class="block text-sm font-medium mb-1">Jumlah</label>
+            <input type="number" min="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
+          </div>
+          <div class="product-preview flex justify-center items-center">
+            <div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>
+          </div>
+        </div>
+      `
 
                 productItems.appendChild(newItem)
 
@@ -1234,7 +1265,7 @@ export default {
           }).then(async (result) => {
             if (result.isConfirmed && result.value) {
               // Submit the order
-              const success = await this.submitOrder(result.value)
+              const success = await self.submitOrder(result.value)
 
               if (success) {
                 Swal.fire({
@@ -1248,7 +1279,7 @@ export default {
                   },
                 }).then(() => {
                   // Refresh orders list
-                  this.fetchOrders()
+                  self.fetchOrders()
                 })
               }
             }
