@@ -35,7 +35,7 @@
       :class="{ 'lg:ml-64': isSidebarActive }"
     >
       <div class="p-4 md:p-6 lg:p-8">
-        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6">Pesanan</h2>
+        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6 md:mt12">Pesanan</h2>
         <!-- Filter and Entries Row -->
         <div class="flex flex-wrap justify-between items-center mb-6">
           <!-- Filter Dropdown -->
@@ -478,6 +478,7 @@ export default {
 
     async submitOrder(orderData) {
       try {
+        console.log(orderData)
         const response = await axios.post(`${this.apiBaseUrl}/orders`, orderData)
 
         if (response.data.status === 'success') {
@@ -823,9 +824,64 @@ export default {
       let productsByCategory = {}
       let finishingsByProduct = {}
       let variantsByProduct = {}
+      let productPrices = {} // Store base prices of products
 
       // Simpan referensi ke 'this' agar dapat digunakan dalam callback
       const self = this
+
+      // Function to calculate and update prices
+      const updateProductPrice = (productItem) => {
+        const productSelect = productItem.querySelector('.product-name')
+        const finishingSelect = productItem.querySelector('.product-finishing')
+        const variantSelect = productItem.querySelector('.product-variant')
+        const quantityInput = productItem.querySelector('.product-qty')
+        const priceDisplay = productItem.querySelector('.product-price')
+
+        if (!productSelect.value || !quantityInput.value) return
+
+        const productId = productSelect.value
+        const quantity = parseInt(quantityInput.value) || 0
+        let basePrice = productPrices[productId] || 0
+
+        // Add finishing price if selected
+        if (finishingSelect.value && finishingsByProduct[productId]) {
+          const selectedFinishing = finishingsByProduct[productId].find(
+            (f) => f.id == finishingSelect.value,
+          )
+          if (selectedFinishing) {
+            basePrice += selectedFinishing.price
+          }
+        }
+
+        // Add variant price if needed (assuming variants might affect price)
+        // Note: You may need to adjust this if variants have their own prices
+
+        // Calculate total for this product
+        const totalPrice = basePrice * quantity
+
+        // Update price display
+        priceDisplay.textContent = self.formatCurrency(totalPrice)
+
+        // Update subtotal
+        updateSubtotal()
+      }
+
+      // Function to update the subtotal of all products
+      const updateSubtotal = () => {
+        const priceDisplays = document.querySelectorAll('.product-price')
+        let subtotal = 0
+
+        priceDisplays.forEach((display) => {
+          // Extract number from formatted currency string
+          const priceText = display.textContent.replace(/[^\d]/g, '')
+          subtotal += parseInt(priceText) || 0
+        })
+
+        const subtotalDisplay = document.getElementById('orderSubtotal')
+        if (subtotalDisplay) {
+          subtotalDisplay.textContent = self.formatCurrency(subtotal)
+        }
+      }
 
       // Fetch categories first
       this.fetchCategories()
@@ -901,10 +957,14 @@ export default {
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
             <div>
               <label class="block text-sm font-medium mb-1">Jumlah</label>
-              <input type="number" min="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
+              <input type="number" min="1" value="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1">Harga</label>
+              <div class="p-2 bg-gray-100 rounded-md product-price">Rp 0</div>
             </div>
             <div class="product-preview flex justify-center items-center">
               <div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>
@@ -919,6 +979,14 @@ export default {
       >
         + Tambah Produk Lain
       </button>
+
+      <!-- Order Subtotal -->
+      <div class="mt-4 p-3 bg-gray-100 rounded-lg">
+        <div class="flex justify-between items-center">
+          <span class="font-semibold">Total Pesanan:</span>
+          <span id="orderSubtotal" class="font-bold text-lg">Rp 0</span>
+        </div>
+      </div>
     </div>
 
     <!-- Additional Information -->
@@ -975,7 +1043,7 @@ export default {
                 }
               })
 
-              // Add event listener for category selection - Perbaikan disini
+              // Add event listener for category selection
               const setupCategoryListener = (productItem) => {
                 const categorySelect = productItem.querySelector('.product-category')
                 const productSelect = productItem.querySelector('.product-name')
@@ -991,6 +1059,11 @@ export default {
                   finishingSelect.disabled = true
                   variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
                   variantSelect.disabled = true
+
+                  // Reset price display
+                  const priceDisplay = productItem.querySelector('.product-price')
+                  priceDisplay.textContent = self.formatCurrency(0)
+                  updateSubtotal()
 
                   if (categoryId) {
                     productSelect.disabled = true
@@ -1017,7 +1090,11 @@ export default {
                           option.value = product.id
                           option.textContent = product.name
                           option.dataset.image = product.image || ''
+                          option.dataset.price = product.price || 0
                           productSelect.appendChild(option)
+
+                          // Store product price
+                          productPrices[product.id] = parseFloat(product.price) || 0
                         })
                       } else {
                         productSelect.innerHTML =
@@ -1035,11 +1112,12 @@ export default {
                 })
               }
 
-              // Add event listener for product selection - Perbaikan disini
+              // Add event listener for product selection
               const setupProductListener = (productItem) => {
                 const productSelect = productItem.querySelector('.product-name')
                 const finishingSelect = productItem.querySelector('.product-finishing')
                 const variantSelect = productItem.querySelector('.product-variant')
+                const quantityInput = productItem.querySelector('.product-qty')
                 const previewDiv = productItem.querySelector('.product-preview')
 
                 productSelect.addEventListener('change', async function () {
@@ -1055,6 +1133,9 @@ export default {
                   if (productId) {
                     const selectedOption = productSelect.options[productSelect.selectedIndex]
                     const imageUrl = selectedOption.dataset.image
+
+                    // Update price calculation based on selected product
+                    updateProductPrice(productItem)
 
                     if (imageUrl) {
                       previewDiv.innerHTML = `<img src="${imageUrl}" alt="Product Preview" class="max-h-20 max-w-full">`
@@ -1084,7 +1165,7 @@ export default {
                         finishings.forEach((finishing) => {
                           const option = document.createElement('option')
                           option.value = finishing.id
-                          option.textContent = `${finishing.name} (+${self.formatCurrency(finishing.price)})`
+                          option.textContent = `${finishing.finishing.name} (+${self.formatCurrency(finishing.price)})`
                           finishingSelect.appendChild(option)
                         })
                         finishingSelect.disabled = false
@@ -1112,7 +1193,7 @@ export default {
                         variants.forEach((variant) => {
                           const option = document.createElement('option')
                           option.value = variant.id
-                          option.textContent = variant.name
+                          option.textContent = variant.variant_name
                           variantSelect.appendChild(option)
                         })
                         variantSelect.disabled = false
@@ -1127,8 +1208,18 @@ export default {
                     }
                   } else {
                     previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>`
+                    // Reset price display
+                    const priceDisplay = productItem.querySelector('.product-price')
+                    priceDisplay.textContent = self.formatCurrency(0)
+                    updateSubtotal()
                   }
                 })
+
+                // Add event listeners for finishing, variant and quantity changes
+                finishingSelect.addEventListener('change', () => updateProductPrice(productItem))
+                variantSelect.addEventListener('change', () => updateProductPrice(productItem))
+                quantityInput.addEventListener('change', () => updateProductPrice(productItem))
+                quantityInput.addEventListener('input', () => updateProductPrice(productItem))
               }
 
               // Setup listeners for initial product item
@@ -1179,10 +1270,14 @@ export default {
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
           <div>
             <label class="block text-sm font-medium mb-1">Jumlah</label>
-            <input type="number" min="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
+            <input type="number" min="1" value="1" class="product-qty w-full p-2 border border-gray-300 rounded-md" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Harga</label>
+            <div class="p-2 bg-gray-100 rounded-md product-price">Rp 0</div>
           </div>
           <div class="product-preview flex justify-center items-center">
             <div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>
@@ -1200,6 +1295,8 @@ export default {
                 const removeButton = newItem.querySelector('.remove-product')
                 removeButton.addEventListener('click', function () {
                   this.closest('.product-item').remove()
+                  // Update subtotal after removing a product
+                  updateSubtotal()
                 })
               })
             },
