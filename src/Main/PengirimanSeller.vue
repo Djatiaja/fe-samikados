@@ -310,13 +310,13 @@ export default {
       axios.get(`${this.baseUrl}/seller/pengiriman`)
         .then(response => {
           if (response.data.status === 'success') {
-            // Save all deliveries and set api_data as status
+            // Save all deliveries and set status as status
             this.deliveries = response.data.data.map(delivery => {
               return {
                 ...delivery,
-                // Use api_data as status but always display as "perjalanan"
+                // Use status as status but always display as "perjalanan"
                 status: 'perjalanan',
-                original_status: delivery.api_data
+                original_status: delivery.status
               };
             });
           } else {
