@@ -39,7 +39,7 @@
       :class="{ 'lg:ml-64': isSidebarActive }"
     >
       <div class="p-4 md:p-6 lg:p-8">
-        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6">Etalase</h2>
+        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6 mt-12 lg:mt-3">Etalase</h2>
 
         <!-- Loading State -->
         <div v-if="loading" class="flex justify-center items-center py-10">

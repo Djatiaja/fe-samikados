@@ -35,7 +35,7 @@
       :class="{ 'lg:ml-64': isSidebarActive }"
     >
       <div class="p-4 md:p-6 lg:p-8">
-        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6 md:mt12">Pesanan</h2>
+        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6 mt-12 lg:mt-3">Pesanan</h2>
         <!-- Filter and Entries Row -->
         <div class="flex flex-wrap justify-between items-center mb-6">
           <!-- Filter Dropdown -->

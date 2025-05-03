@@ -22,11 +22,24 @@
         <h2 class="text-2xl md:text-3xl font-bold mb-6">Laporan</h2>
 
         <!-- API Error Banner -->
-        <div v-if="apiError" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+        <div
+          v-if="apiError"
+          class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6"
+        >
           <div class="flex items-center">
             <div class="py-1 mr-2">
-              <svg class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              <svg
+                class="h-6 w-6 text-red-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
               </svg>
             </div>
             <div>
@@ -38,11 +51,16 @@
 
         <!-- Loading state -->
         <div v-if="loading && !apiError" class="flex justify-center items-center py-20">
-          <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"></div>
+          <div
+            class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600"
+          ></div>
         </div>
 
         <!-- Demo mode notice -->
-        <div v-if="demoMode" class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
+        <div
+          v-if="demoMode"
+          class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6"
+        >
           <p class="font-medium">Mode Demo Aktif</p>
           <p class="text-sm">Menampilkan data contoh karena API tidak tersedia.</p>
         </div>
@@ -71,7 +89,9 @@
           <!-- Grafik Statistik -->
           <div class="bg-white p-4 sm:p-6 lg:p-8 rounded-lg shadow-md mb-8">
             <div class="flex flex-col sm:flex-row justify-between items-center mb-4">
-              <h3 class="text-base sm:text-lg lg:text-xl font-bold mb-4 sm:mb-0">Grafik Penjualan</h3>
+              <h3 class="text-base sm:text-lg lg:text-xl font-bold mb-4 sm:mb-0">
+                Grafik Penjualan
+              </h3>
               <select
                 v-model="selectedYear"
                 class="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring focus:ring-red-600"
@@ -82,14 +102,30 @@
             <div class="chart-container relative h-96 w-full">
               <canvas ref="salesChart"></canvas>
               <!-- Fallback message if chart fails to load -->
-              <div v-if="chartError" class="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80">
+              <div
+                v-if="chartError"
+                class="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-80"
+              >
                 <div class="text-center p-4">
-                  <svg class="h-10 w-10 text-red-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                  <svg
+                    class="h-10 w-10 text-red-500 mx-auto mb-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
                   </svg>
                   <p class="font-medium">Grafik tidak dapat ditampilkan</p>
                   <p class="text-sm">Silakan muat ulang halaman atau hubungi administrator.</p>
-                  <button @click="tryRenderChart" class="mt-3 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                  <button
+                    @click="tryRenderChart"
+                    class="mt-3 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                  >
                     Coba Lagi
                   </button>
                 </div>
@@ -124,7 +160,7 @@ export default {
         Total_pendapatan: 0,
         Saldo_aktif: 0,
         Saldo_tercairkan: 0,
-        grafik_penjualan: {}
+        grafik_penjualan: {},
       },
       salesChart: null,
       loading: true,
@@ -135,8 +171,8 @@ export default {
       apiUrls: [
         'http://127.0.0.1:8000/api/seller/laporan',
         '/api/seller/laporan',
-        'http://localhost:8000/api/seller/laporan'
-      ]
+        'http://localhost:8000/api/seller/laporan',
+      ],
     }
   },
   mounted() {
@@ -167,8 +203,8 @@ export default {
       // Try each API URL in sequence
       for (const apiUrl of this.apiUrls) {
         try {
-          const token = localStorage.getItem('token');
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          const token = localStorage.getItem('token')
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
           const response = await axios.get(apiUrl)
 
           if (response.data && response.data.status === 'success') {
@@ -194,73 +230,6 @@ export default {
       // If we get here, all API attempts failed
       this.apiError = true
       this.loading = false
-
-      // Fall back to demo mode with sample data
-      this.activateDemoMode()
-    },
-    activateDemoMode() {
-      this.demoMode = true
-      // Sample data for demo mode
-      this.reportData = {
-        Total_pendapatan: 287482000,
-        Saldo_aktif: 287482000,
-        Saldo_tercairkan: 0,
-        grafik_penjualan: {
-          "2024": {
-            "01": { "penjualan": 3133000 },
-            "02": { "penjualan": 5309000 },
-            "03": { "penjualan": 16972000 },
-            "04": { "penjualan": 1807000 },
-            "05": { "penjualan": 1443000 },
-            "06": { "penjualan": 4139000 },
-            "07": { "penjualan": 2354000 },
-            "08": { "penjualan": 3066000 },
-            "09": { "penjualan": 14433000 },
-            "10": { "penjualan": 4921000 },
-            "11": { "penjualan": 13174000 },
-            "12": { "penjualan": 5408000 }
-          },
-          "2023": {
-            "01": { "penjualan": 1930000 },
-            "02": { "penjualan": 3936000 },
-            "03": { "penjualan": 11946000 },
-            "04": { "penjualan": 1877000 },
-            "05": { "penjualan": 1954000 },
-            "06": { "penjualan": 5593000 },
-            "07": { "penjualan": 3726000 },
-            "08": { "penjualan": 2228000 },
-            "09": { "penjualan": 0 },
-            "10": { "penjualan": 0 },
-            "11": { "penjualan": 3532000 },
-            "12": { "penjualan": 3938000 }
-          },
-          "2025": {
-            "01": { "penjualan": 7419000 },
-            "02": { "penjualan": 6704000 },
-            "03": { "penjualan": 4107000 },
-            "04": { "penjualan": 7104000 },
-            "05": { "penjualan": 6558000 },
-            "06": { "penjualan": 12033000 },
-            "07": { "penjualan": 8874000 },
-            "08": { "penjualan": 4222000 },
-            "09": { "penjualan": 5875000 },
-            "10": { "penjualan": 2189000 },
-            "11": { "penjualan": 2788000 },
-            "12": { "penjualan": 6339000 }
-          }
-        }
-      }
-
-      this.availableYears = Object.keys(this.reportData.grafik_penjualan).sort().reverse()
-
-      if (this.availableYears.length > 0) {
-        this.selectedYear = this.availableYears[0]
-      }
-
-      // Ensure DOM is updated before rendering chart
-      this.$nextTick(() => {
-        this.tryRenderChart()
-      })
     },
     toggleSidebar() {
       this.isSidebarActive = !this.isSidebarActive
@@ -279,8 +248,18 @@ export default {
     getMonthlyData(year) {
       const yearData = this.reportData.grafik_penjualan[year] || {}
       const monthNames = [
-        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        'Januari',
+        'Februari',
+        'Maret',
+        'April',
+        'Mei',
+        'Juni',
+        'Juli',
+        'Agustus',
+        'September',
+        'Oktober',
+        'November',
+        'Desember',
       ]
 
       return monthNames.map((_, index) => {
@@ -323,8 +302,18 @@ export default {
         type: 'line',
         data: {
           labels: [
-            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+            'Januari',
+            'Februari',
+            'Maret',
+            'April',
+            'Mei',
+            'Juni',
+            'Juli',
+            'Agustus',
+            'September',
+            'Oktober',
+            'November',
+            'Desember',
           ],
           datasets: [
             {

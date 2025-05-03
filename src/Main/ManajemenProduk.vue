@@ -38,7 +38,9 @@
       :class="{ 'lg:ml-64': isSidebarActive }"
     >
       <div class="p-4 md:p-6 lg:p-8">
-        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6">Manajemen Produk</h2>
+        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6 mt-12 lg:mt-3">
+          Manajemen Produk
+        </h2>
 
         <div class="flex justify-between items-center mb-4">
           <!-- Filter Dropdown -->

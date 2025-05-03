@@ -36,13 +36,15 @@
           <div class="flex justify-between items-center">
             <div>
               <h3 class="text-lg font-semibold">Saldo Tersedia</h3>
-              <p class="text-2xl font-bold text-red-600">Rp{{ userBalance.toLocaleString() }}</p>
+              <p class="text-2xl font-bold text-red-600">Rp{{ formatCurrency(userBalance) }}</p>
             </div>
             <button
               @click="showWithdrawalModal"
               class="bg-red-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-red-700 transition"
+              :disabled="isLoadingBalance"
             >
-              <span>Tarik Dana</span>
+              <span v-if="!isLoadingBalance">Tarik Dana</span>
+              <span v-else>Memuat...</span>
             </button>
           </div>
         </div>
@@ -54,8 +56,9 @@
             class="block w-54 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
           >
             <option value="all">Semua</option>
-            <option value="active">Berhasil</option>
-            <option value="inactive">Ditolak</option>
+            <option value="Disetujui">Berhasil</option>
+            <option value="Ditolak">Ditolak</option>
+            <option value="Menunggu">Menunggu</option>
           </select>
         </div>
 
@@ -65,7 +68,7 @@
           <select
             v-model="entriesPerPage"
             class="p-2 border border-gray-300 rounded-md"
-            @change="changeEntriesPerPage"
+            @change="fetchWithdrawals"
           >
             <option value="10">10</option>
             <option value="25" selected>25</option>
@@ -74,8 +77,21 @@
           </select>
         </div>
 
+        <!-- Loading State -->
+        <div v-if="isLoadingWithdrawals" class="text-center py-8">
+          <p>Memuat data penarikan...</p>
+        </div>
+
+        <!-- Error State -->
+        <div
+          v-else-if="errorWithdrawals"
+          class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
+        >
+          {{ errorWithdrawals }}
+        </div>
+
         <!-- Responsive Table -->
-        <div class="overflow-auto rounded-lg shadow-md">
+        <div v-else class="overflow-auto rounded-lg shadow-md">
           <table class="w-full table-auto border-collapse border border-gray-300">
             <thead class="bg-red-600 text-white">
               <tr>
@@ -89,23 +105,27 @@
             </thead>
             <tbody>
               <tr
-                v-for="(withdrawal, index) in filteredWithdrawals"
+                v-for="withdrawal in filteredWithdrawals"
                 :key="withdrawal.id"
                 class="border-b border-gray-300 hover:bg-gray-50"
               >
                 <td class="p-4 text-center border-r border-gray-300">{{ withdrawal.id }}</td>
-                <td class="p-4 text-center border-r border-gray-300">{{ withdrawal.bank }}</td>
                 <td class="p-4 text-center border-r border-gray-300">
-                  {{ withdrawal.accountNumber }}
+                  {{ getBankName(withdrawal.bank_id) }}
                 </td>
                 <td class="p-4 text-center border-r border-gray-300">
-                  Rp{{ withdrawal.amount.toLocaleString() }}
+                  {{ withdrawal.no_rekening }}
                 </td>
-                <td class="p-4 text-center border-r border-gray-300">{{ withdrawal.date }}</td>
+                <td class="p-4 text-center border-r border-gray-300">
+                  Rp{{ formatCurrency(withdrawal.jumlah) }}
+                </td>
+                <td class="p-4 text-center border-r border-gray-300">
+                  {{ formatDate(withdrawal.created_at) }}
+                </td>
                 <td
                   class="p-4 text-center"
                   :class="{
-                    'text-green-500': withdrawal.status === 'Berhasil',
+                    'text-green-500': withdrawal.status === 'Disetujui',
                     'text-red-600': withdrawal.status === 'Ditolak',
                     'text-yellow-500': withdrawal.status === 'Menunggu',
                   }"
@@ -122,7 +142,27 @@
           </table>
         </div>
 
-        <!-- Pagination can be added here -->
+        <!-- Pagination -->
+        <div
+          class="flex justify-between items-center mt-4"
+          v-if="totalWithdrawals > entriesPerPage"
+        >
+          <button
+            @click="prevPage"
+            :disabled="currentPage === 1"
+            class="px-4 py-2 border rounded-md"
+          >
+            Previous
+          </button>
+          <span>Page {{ currentPage }} of {{ totalPages }}</span>
+          <button
+            @click="nextPage"
+            :disabled="currentPage === totalPages"
+            class="px-4 py-2 border rounded-md"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
 
@@ -135,6 +175,7 @@ import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
 import Swal from 'sweetalert2'
+import axios from 'axios'
 
 export default {
   components: { HeaderSeller, SidebarSeller, FooterSeller },
@@ -144,70 +185,126 @@ export default {
       isMobile: window.innerWidth < 1024,
       statusFilter: 'all',
       entriesPerPage: 25,
+      currentPage: 1,
+      totalWithdrawals: 0,
       searchQuery: '',
-      withdrawals: [],
+      userBalance: 0,
+      banks: [],
       userBankAccounts: [],
-      userBalance: 10000000, // Default balance in Rupiah
-      products: [
-        {
-          id: 1,
-          category: 'Merchandise',
-          name: 'PIN PENITI 58mm',
-          description: 'Temukan solusi praktis untuk kebutuhan promosi.',
-          stock: 250,
-          price: 4500,
-          images: [
-            'https://placehold.co/400x400/red/white?text=PIN+1',
-            'https://placehold.co/400x400/blue/white?text=PIN+2',
-            'https://placehold.co/400x400/green/white?text=PIN+3',
-          ],
-          status: 'aktif',
-        },
-        // More products as needed
-      ],
+      withdrawals: [],
+      isLoadingBalance: false,
+      isLoadingWithdrawals: false,
+      isLoadingBankAccounts: false,
+      errorWithdrawals: null,
+      baseUrl: 'http://127.0.0.1:8000/api',
     }
-  },
-  mounted() {
-    this.isSidebarActive = window.innerWidth >= 1024
-    window.addEventListener('resize', this.handleResize)
-
-    // Load withdrawal data
-    this.fetchWithdrawals()
-
-    // Load user bank accounts
-    this.fetchUserBankAccounts()
-  },
-  beforeUnmount() {
-    window.removeEventListener('resize', this.handleResize)
   },
   computed: {
     filteredWithdrawals() {
       let filtered = [...this.withdrawals]
 
-      // Apply status filter
       if (this.statusFilter !== 'all') {
-        filtered = filtered.filter((w) => {
-          if (this.statusFilter === 'active') return w.status === 'Berhasil'
-          if (this.statusFilter === 'inactive') return w.status === 'Ditolak'
-          return true
-        })
+        filtered = filtered.filter((w) => w.status === this.statusFilter)
       }
 
-      // Apply search filter
       if (this.searchQuery.trim() !== '') {
         const query = this.searchQuery.toLowerCase()
         filtered = filtered.filter(
           (w) =>
-            w.bank.toLowerCase().includes(query) ||
-            w.accountNumber.includes(query) ||
-            w.amount.toString().includes(query),
+            this.getBankName(w.bank_id).toLowerCase().includes(query) ||
+            w.no_rekening.includes(query) ||
+            w.jumlah.toString().includes(query),
         )
       }
 
       return filtered
     },
+    totalPages() {
+      return Math.ceil(this.totalWithdrawals / this.entriesPerPage)
+    },
+  },
+  async mounted() {
+    this.isSidebarActive = window.innerWidth >= 1024
+    window.addEventListener('resize', this.handleResize)
+
+    // Setup interceptors first
+    this.setupAxiosInterceptors()
+
+    // Then load initial data
+    try {
+      await Promise.all([
+        this.fetchUserBalance(),
+        this.fetchBanks(),
+        this.fetchUserBankAccounts(),
+        this.fetchWithdrawals(),
+      ])
+    } catch (error) {
+      console.error('Initialization error:', error)
+      this.handleApiError(error)
+    }
+  },
+  beforeUnmount() {
+    window.removeEventListener('resize', this.handleResize)
   },
   methods: {
+    setupAxiosInterceptors() {
+      // Request interceptor
+      axios.interceptors.request.use(
+        (config) => {
+          const token = localStorage.getItem('auth_token')
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`
+          }
+          return config
+        },
+        (error) => {
+          return Promise.reject(error)
+        },
+      )
+
+      // Response interceptor
+      axios.interceptors.response.use(
+        (response) => {
+          return response
+        },
+        (error) => {
+          if (error.response && error.response.status === 401) {
+            // Only handle unauthorized if it's not a login request
+            if (!error.config.url.includes('/login')) {
+              this.handleUnauthorized()
+            }
+          }
+          return Promise.reject(error)
+        },
+      )
+    },
+    handleUnauthorized() {
+      // Show notification first
+      Swal.fire({
+        title: 'Sesi Habis',
+        text: 'Silakan login kembali',
+        icon: 'warning',
+        confirmButtonColor: '#3085d6',
+      }).then(() => {
+        // Then clear storage and redirect
+        localStorage.removeItem('auth_token')
+        this.$router.push('/login')
+      })
+    },
+    handleApiError(error) {
+      console.error('API Error:', error)
+
+      // Skip showing error if it's 401 (already handled by interceptor)
+      if (error.response?.status === 401) return
+
+      const message = error.response?.data?.message || 'Terjadi kesalahan pada server'
+      Swal.fire({
+        title: 'Error!',
+        text: message,
+        icon: 'error',
+        confirmButtonColor: '#d33',
+      })
+    },
     toggleSidebar() {
       if (this.isMobile) {
         this.isSidebarActive = !this.isSidebarActive
@@ -217,70 +314,98 @@ export default {
       this.isMobile = window.innerWidth < 1024
       this.isSidebarActive = !this.isMobile
     },
-    changeEntriesPerPage() {
-      // Logic to handle entries per page change
+    formatCurrency(value) {
+      return new Intl.NumberFormat('id-ID').format(value)
     },
-
-    // Fetch withdrawal history from API
-    fetchWithdrawals() {
-      // For demo purposes, we'll add sample data
-      // In real app, this would be an API call
-      this.withdrawals = [
-        {
-          id: 1,
-          bank: 'BCA',
-          accountNumber: '1234567890',
-          accountName: 'John Doe',
-          amount: 1000000,
-          status: 'Berhasil',
-          date: '2025-03-05',
-        },
-        {
-          id: 2,
-          bank: 'BNI',
-          accountNumber: '0987654321',
-          accountName: 'Jane Smith',
-          amount: 1500000,
-          status: 'Ditolak',
-          date: '2025-03-01',
-        },
-        // Add more sample data as needed
-      ]
+    formatDate(dateString) {
+      if (!dateString) return '-'
+      const options = { year: 'numeric', month: 'long', day: 'numeric' }
+      return new Date(dateString).toLocaleDateString('id-ID', options)
     },
-
-    // Fetch user bank accounts from API
-    fetchUserBankAccounts() {
-      // For demo purposes, we'll add sample data
-      // In real app, this would be an API call
-      this.userBankAccounts = [
-        {
-          id: 1,
-          bank: 'BCA',
-          accountNumber: '1234567890',
-          accountName: 'John Doe',
-        },
-        {
-          id: 2,
-          bank: 'BNI',
-          accountNumber: '0987654321',
-          accountName: 'Jane Smith',
-        },
-        // Add more sample data as needed
-      ]
+    getBankName(bankId) {
+      const bank = this.banks.find((b) => b.id === bankId)
+      return bank ? bank.nama : 'Unknown Bank'
     },
-
-    // Show withdrawal request modal
+    nextPage() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++
+        this.fetchWithdrawals()
+      }
+    },
+    prevPage() {
+      if (this.currentPage > 1) {
+        this.currentPage--
+        this.fetchWithdrawals()
+      }
+    },
+    async fetchUserBalance() {
+      this.isLoadingBalance = true
+      try {
+        const response = await axios.get(`${this.baseUrl}/seller/saldo`)
+        if (response.data.status === 'success') {
+          this.userBalance = response.data.data.Saldo
+        }
+      } catch (error) {
+        this.handleApiError(error)
+      } finally {
+        this.isLoadingBalance = false
+      }
+    },
+    async fetchBanks() {
+      try {
+        const response = await axios.get(`${this.baseUrl}/seller/banks`)
+        if (response.data.status === 'success') {
+          this.banks = response.data.data
+        }
+      } catch (error) {
+        this.handleApiError(error)
+      }
+    },
+    async fetchUserBankAccounts() {
+      this.isLoadingBankAccounts = true
+      try {
+        const response = await axios.get(`${this.baseUrl}/seller/rekening`)
+        if (response.data.status === 'success') {
+          this.userBankAccounts = response.data.data
+        }
+      } catch (error) {
+        this.handleApiError(error)
+      } finally {
+        this.isLoadingBankAccounts = false
+      }
+    },
+    async fetchWithdrawals() {
+      this.isLoadingWithdrawals = true
+      this.errorWithdrawals = null
+      try {
+        const response = await axios.get(`${this.baseUrl}/seller/withdrawals`, {
+          params: {
+            per_page: this.entriesPerPage,
+            page: this.currentPage,
+          },
+        })
+        if (response.data.status === 'success') {
+          this.withdrawals = response.data.data
+          // If API provides total count for pagination:
+          // this.totalWithdrawals = response.data.meta.total
+        }
+      } catch (error) {
+        this.errorWithdrawals = 'Gagal memuat data penarikan'
+        this.handleApiError(error)
+      } finally {
+        this.isLoadingWithdrawals = false
+      }
+    },
     showWithdrawalModal() {
       if (this.userBankAccounts.length === 0) {
-        // If no bank accounts, prompt to add one first
         this.showAddBankAccountModal()
         return
       }
 
-      // Create bank accounts dropdown options
       const bankOptions = this.userBankAccounts
         .map((account) => {
-          return `<option value="${account.id}">${account.bank} - ${account.accountNumber}</option>`
+          const bankName = this.getBankName(account.bank_id)
+          return `<option value="${account.id}">${bankName} - ${account.rekening}</option>`
         })
         .join('')
 
@@ -295,36 +420,20 @@ export default {
           <form id="withdrawalForm" class="text-left form-compact">
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1" for="bank">
-                Nama Bank
+                Rekening Tujuan
               </label>
-              <select id="bank-select" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
-                <option value="">Pilih Bank</option>
+              <select id="account-select" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
+                <option value="">Pilih Rekening</option>
                 ${bankOptions}
               </select>
             </div>
-            
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1" for="account">
-                Rekening Tujuan
-              </label>
-              <select id="account-select" class="w-full text-sm p-2 border border-gray-300 rounded-lg" disabled>
-                <option value="">Pilih Rekening</option>
-              </select>
-            </div>
-            
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1" for="accountName">
-                Nama Pemilik Rekening
-              </label>
-              <input id="account-name" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" readonly>
-            </div>
-            
+
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1" for="amount">
                 Jumlah Penarikan
               </label>
               <input id="amount" type="number" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan jumlah penarikan">
-              <p class="text-sm text-gray-500 mt-1">Jumlah maksimal: Rp${this.userBalance.toLocaleString()}</p>
+              <p class="text-sm text-gray-500 mt-1">Jumlah maksimal: Rp${this.formatCurrency(this.userBalance)}</p>
             </div>
           </form>
         `,
@@ -335,59 +444,38 @@ export default {
             'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
           cancelButton:
             'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          actions: 'flex justify-center space-x-6', // Add spacing between buttons
+          actions: 'flex justify-center space-x-6',
         },
         cancelButtonText: 'Batal',
         confirmButtonText: 'Ajukan Penarikan',
         width: 600,
         preConfirm: () => {
-          const bankId = document.getElementById('bank-select').value
+          const accountId = document.getElementById('account-select').value
           const amount = document.getElementById('amount').value
 
-          // Validation
-          if (!bankId) {
-            Swal.showValidationMessage('Silakan pilih bank')
+          if (!accountId) {
+            Swal.showValidationMessage('Silakan pilih rekening tujuan')
             return false
           }
 
           if (!amount || amount <= 0) {
-            Swal.showValidationMessage('Silakan masukkan jumlah penarikan')
+            Swal.showValidationMessage('Silakan masukkan jumlah penarikan yang valid')
             return false
           }
 
           if (parseFloat(amount) > this.userBalance) {
-            Swal.showValidationMessage('Jumlah penarikan melebihi saldo')
+            Swal.showValidationMessage('Jumlah penarikan melebihi saldo tersedia')
             return false
           }
 
           return {
-            bankId: parseInt(bankId),
-            amount: parseFloat(amount),
+            rekening_id: accountId,
+            jumlah: amount,
           }
         },
       }).then((result) => {
         if (result.isConfirmed) {
-          // Process withdrawal request
           this.submitWithdrawalRequest(result.value)
-        }
-      })
-
-      // Setup event listeners for the modal
-      document.getElementById('bank-select').addEventListener('change', (e) => {
-        const accountId = e.target.value
-        if (accountId) {
-          const selectedAccount = this.userBankAccounts.find(
-            (acc) => acc.id === parseInt(accountId),
-          )
-          if (selectedAccount) {
-            document.getElementById('account-select').innerHTML =
-              `<option value="${selectedAccount.id}">${selectedAccount.accountNumber}</option>`
-            document.getElementById('account-name').value = selectedAccount.accountName
-          }
-        } else {
-          document.getElementById('account-select').innerHTML =
-            '<option value="">Pilih Rekening</option>'
-          document.getElementById('account-name').value = ''
         }
       })
 
@@ -396,9 +484,11 @@ export default {
         this.showAddBankAccountModal()
       })
     },
-
-    // Show add bank account modal
     showAddBankAccountModal() {
+      const bankOptions = this.banks
+        .map((bank) => `<option value="${bank.id}">${bank.nama}</option>`)
+        .join('')
+
       Swal.fire({
         title: `<h3 class="text-lg font-bold">Tambah Rekening Baru</h3>`,
         html: `
@@ -409,21 +499,17 @@ export default {
               </label>
               <select id="new-bank" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
                 <option value="">Pilih Bank</option>
-                <option value="BCA">BCA</option>
-                <option value="BNI">BNI</option>
-                <option value="BRI">BRI</option>
-                <option value="Mandiri">Mandiri</option>
-                <option value="BSI">BSI</option>
+                ${bankOptions}
               </select>
             </div>
-            
+
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1" for="new-account-number">
                 Nomor Rekening
               </label>
-              <input id="new-account-number" type="number" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan Nomor Rekening">
+              <input id="new-account-number" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan Nomor Rekening">
             </div>
-            
+
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1" for="new-account-name">
                 Nama Pemilik Rekening
@@ -439,18 +525,17 @@ export default {
             'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
           cancelButton:
             'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          actions: 'flex justify-center space-x-6', // Add spacing between buttons
+          actions: 'flex justify-center space-x-6',
         },
         cancelButtonText: 'Batal',
         confirmButtonText: 'Simpan',
         width: 600,
         preConfirm: () => {
-          const bank = document.getElementById('new-bank').value
+          const bankId = document.getElementById('new-bank').value
           const accountNumber = document.getElementById('new-account-number').value
           const accountName = document.getElementById('new-account-name').value
 
-          // Validation
-          if (!bank) {
+          if (!bankId) {
             Swal.showValidationMessage('Silakan pilih bank')
             return false
           }
@@ -466,73 +551,53 @@ export default {
           }
 
           return {
-            bank,
-            accountNumber,
-            accountName,
+            bank_id: bankId,
+            rekening: accountNumber,
+            nama: accountName,
           }
         },
       }).then((result) => {
         if (result.isConfirmed) {
-          // Save new bank account
           this.saveNewBankAccount(result.value)
         }
       })
     },
-
-    // Save new bank account
-    saveNewBankAccount(accountData) {
-      // In a real app, this would be an API call
-      const newAccount = {
-        id: this.userBankAccounts.length + 1,
-        bank: accountData.bank,
-        accountNumber: accountData.accountNumber,
-        accountName: accountData.accountName,
+    async saveNewBankAccount(accountData) {
+      try {
+        const response = await axios.post(`${this.baseUrl}/seller/rekening`, accountData)
+        if (response.data.status === 'success') {
+          Swal.fire({
+            title: 'Berhasil!',
+            text: response.data.message,
+            icon: 'success',
+            confirmButtonColor: '#3085d6',
+          })
+          await this.fetchUserBankAccounts()
+          this.showWithdrawalModal()
+        }
+      } catch (error) {
+        this.handleApiError(error)
       }
-
-      this.userBankAccounts.push(newAccount)
-
-      Swal.fire({
-        title: 'Berhasil!',
-        text: 'Rekening baru berhasil ditambahkan',
-        icon: 'success',
-        confirmButtonColor: '#d9534f',
-      }).then(() => {
-        // Reopen withdrawal form with the new account selected
-        this.showWithdrawalModal()
-      })
     },
+    async submitWithdrawalRequest(data) {
+      try {
+        const response = await axios.post(`${this.baseUrl}/seller/withdrawal`, {
+          jumlah: data.jumlah,
+          rekening_id: data.rekening_id,
+        })
 
-    // Submit withdrawal request
-    submitWithdrawalRequest(data) {
-      // Get selected account details
-      const selectedAccount = this.userBankAccounts.find((acc) => acc.id === data.bankId)
-
-      // In a real app, this would be an API call
-      const newWithdrawal = {
-        id: this.withdrawals.length + 1,
-        bank: selectedAccount.bank,
-        accountNumber: selectedAccount.accountNumber,
-        accountName: selectedAccount.accountName,
-        amount: data.amount,
-        status: 'Menunggu', // Initial status
-        date: new Date().toISOString().split('T')[0],
+        if (response.data.status === 'success') {
+          Swal.fire({
+            title: 'Berhasil!',
+            text: response.data.message,
+            icon: 'success',
+            confirmButtonColor: '#3085d6',
+          })
+          await Promise.all([this.fetchUserBalance(), this.fetchWithdrawals()])
+        }
+      } catch (error) {
+        this.handleApiError(error)
       }
-
-      this.withdrawals.unshift(newWithdrawal)
-
-      // Reduce user balance
-      this.userBalance -= data.amount
-
-      Swal.fire({
-        title: "<span class='text-lg font-bold'>Berhasil!</span>",
-        text: 'Permintaan penarikan berhasil diajukan',
-        icon: 'success',
-        buttonsStyling: false,
-        customClass: {
-          icon: 'custom-icon',
-          confirmButton: 'bg-red-600 hover:bg-red-600 text-white py-2 w-28 rounded-md',
-        },
-      })
     },
   },
 }
