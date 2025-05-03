@@ -83,7 +83,7 @@
                 <td class="p-4 text-center border-r border-gray-300">{{ delivery.resi }}</td>
                 <td class="p-4 text-center">
                   <span class="px-3 py-1 rounded-full text-sm" :class="getStatusClass(delivery.status)">
-                    Dalam Perjalanan
+                    {{ delivery.original_status }}
                   </span>
                 </td>
               </tr>
