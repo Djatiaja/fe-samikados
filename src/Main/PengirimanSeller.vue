@@ -208,6 +208,7 @@
 import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
+import Swal from 'sweetalert2'
 import axios from 'axios'
 
 export default {
@@ -219,106 +220,122 @@ export default {
       statusFilter: 'all',
       entriesPerPage: 25,
       currentPage: 1,
+      totalWithdrawals: 0,
       searchQuery: '',
-      deliveries: [],
-      isLoading: true,
+      userBalance: 0,
+      banks: [],
+      userBankAccounts: [],
+      withdrawals: [],
+      isLoadingBalance: false,
+      isLoadingWithdrawals: false,
+      isLoadingBankAccounts: false,
+      errorWithdrawals: null,
       baseUrl: 'http://127.0.0.1:8000/api',
-      maxPageButtons: 5, // Maximum number of page buttons to display
     }
   },
   computed: {
-    filteredDeliveries() {
-      let filtered = [...this.deliveries]
+    filteredWithdrawals() {
+      let filtered = [...this.withdrawals]
 
-      // Apply status filter
       if (this.statusFilter !== 'all') {
-        filtered = filtered.filter(
-          (delivery) => (delivery.status || 'perjalanan') === this.statusFilter,
-        )
+        filtered = filtered.filter((w) => w.status === this.statusFilter)
       }
 
-      // Apply search filter
-      if (this.searchQuery) {
+      if (this.searchQuery.trim() !== '') {
         const query = this.searchQuery.toLowerCase()
         filtered = filtered.filter(
-          (delivery) =>
-            delivery.user.name.toLowerCase().includes(query) ||
-            delivery.resi.toLowerCase().includes(query) ||
-            delivery.id.toString().includes(query),
+          (w) =>
+            this.getBankName(w.bank_id).toLowerCase().includes(query) ||
+            w.no_rekening.includes(query) ||
+            w.jumlah.toString().includes(query),
         )
       }
 
       return filtered
     },
-    paginatedDeliveries() {
-      // Apply pagination
-      const startIndex = (this.currentPage - 1) * this.entriesPerPage
-      const endIndex = startIndex + parseInt(this.entriesPerPage)
-      return this.filteredDeliveries.slice(startIndex, endIndex)
-    },
     totalPages() {
-      return Math.ceil(this.filteredDeliveries.length / this.entriesPerPage) || 1
+      return Math.ceil(this.totalWithdrawals / this.entriesPerPage)
     },
-    paginationInfo() {
-      const from =
-        this.filteredDeliveries.length === 0 ? 0 : (this.currentPage - 1) * this.entriesPerPage + 1
-      const to = Math.min(from + parseInt(this.entriesPerPage) - 1, this.filteredDeliveries.length)
-      return { from, to }
+    paginatedWithdrawals() {
+      const start = (this.currentPage - 1) * this.entriesPerPage
+      const end = start + parseInt(this.entriesPerPage)
+      return this.filteredWithdrawals.slice(start, end)
+    },
+    paginationStart() {
+      return this.filteredWithdrawals.length === 0
+        ? 0
+        : (this.currentPage - 1) * this.entriesPerPage + 1
+    },
+    paginationEnd() {
+      const calculatedEnd = this.currentPage * this.entriesPerPage
+      return calculatedEnd > this.filteredWithdrawals.length
+        ? this.filteredWithdrawals.length
+        : calculatedEnd
     },
     displayedPages() {
-      if (this.totalPages <= this.maxPageButtons) {
-        // If we have fewer pages than maxPageButtons, show all page numbers
-        return Array.from({ length: this.totalPages }, (_, i) => i + 1)
-      }
+      const totalVisiblePages = 5
+      const pages = []
 
-      let pages = []
-      const halfMax = Math.floor(this.maxPageButtons / 2)
-
-      // Always show first page
-      pages.push(1)
-
-      // Show ellipsis if current page is more than halfMax + 2 from start
-      if (this.currentPage > halfMax + 2) {
-        pages.push('...')
-      }
-
-      // Pages around current page
-      const startPage = Math.max(2, this.currentPage - halfMax)
-      const endPage = Math.min(this.totalPages - 1, this.currentPage + halfMax)
-
-      for (let i = startPage; i <= endPage; i++) {
-        if (i !== 1 && i !== this.totalPages) {
+      if (this.totalPages <= totalVisiblePages) {
+        for (let i = 1; i <= this.totalPages; i++) {
           pages.push(i)
         }
-      }
+      } else {
+        pages.push(1)
 
-      // Show ellipsis if current page is more than halfMax + 2 from end
-      if (this.currentPage < this.totalPages - halfMax - 1) {
-        pages.push('...')
-      }
+        let startPage = Math.max(2, this.currentPage - Math.floor((totalVisiblePages - 3) / 2))
+        let endPage = Math.min(this.totalPages - 1, startPage + totalVisiblePages - 4)
 
-      // Always show last page if it's not page 1
-      if (this.totalPages > 1) {
+        if (endPage === this.totalPages - 1) {
+          startPage = Math.max(2, endPage - (totalVisiblePages - 4))
+        }
+
+        if (startPage > 2) {
+          pages.push('...')
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+          pages.push(i)
+        }
+
+        if (endPage < this.totalPages - 1) {
+          pages.push('...')
+        }
+
         pages.push(this.totalPages)
       }
 
       return pages
     },
   },
-  mounted() {
-    this.isSidebarActive = window.innerWidth >= 1024
-    window.addEventListener('resize', this.handleResize)
-
-    // Set authentication token
-    const token = localStorage.getItem('token')
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-
-    this.fetchDeliveries()
-  },
-  beforeUnmount() {
-    window.removeEventListener('resize', this.handleResize)
-  },
   methods: {
+    handleUnauthorized() {
+      Swal.fire({
+        title: 'Sesi Habis',
+        text: 'Silakan login kembali',
+        icon: 'warning',
+        confirmButtonColor: '#3085d6',
+      }).then(() => {
+        localStorage.removeItem('auth_token')
+        this.$router.push('/login')
+      })
+    },
+    handleApiError(error) {
+      console.error('API Error:', error)
+
+      if (error.response?.status === 401) {
+        this.handleUnauthorized()
+        return
+      }
+
+      const message = error.response?.data?.message || 'Terjadi kesalahan pada server'
+      Swal.fire({
+        title: 'Error!',
+        text: message,
+        icon: 'error',
+        confirmButtonColor: '#d33',
+      })
+    },
     toggleSidebar() {
       if (this.isMobile) {
         this.isSidebarActive = !this.isSidebarActive
@@ -328,46 +345,321 @@ export default {
       this.isMobile = window.innerWidth < 1024
       this.isSidebarActive = !this.isMobile
     },
-    fetchDeliveries() {
-      this.isLoading = true
-      axios
-        .get(`${this.baseUrl}/seller/pengiriman`)
-        .then((response) => {
-          if (response.data.status === 'success') {
-            // Save all deliveries and set status as status
-            this.deliveries = response.data.data.map((delivery) => {
-              return {
-                ...delivery,
-                // Use status as status but always display as "perjalanan"
-                status: 'perjalanan',
-                original_status: delivery.status,
-              }
-            })
-          } else {
-            console.error('Failed to fetch deliveries:', response.data.error)
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching deliveries:', error)
-        })
-        .finally(() => {
-          this.isLoading = false
-        })
+    formatCurrency(value) {
+      return new Intl.NumberFormat('id-ID').format(value)
     },
-    changeEntriesPerPage() {
-      this.currentPage = 1 // Reset to first page when changing entries per page
+    formatDate(dateString) {
+      if (!dateString) return '-'
+      const options = { year: 'numeric', month: 'long', day: 'numeric' }
+      return new Date(dateString).toLocaleDateString('id-ID', options)
+    },
+    getBankName(bankId) {
+      const bank = this.banks.find((b) => b.id === bankId)
+      return bank ? bank.nama : 'Unknown Bank'
     },
     goToPage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page
-        window.scrollTo({ top: 0, behavior: 'smooth' })
+        this.fetchWithdrawals()
       }
     },
-    getStatusClass(status) {
-      // Always return yellow color for now
-      return 'bg-yellow-100 text-yellow-800'
+    async fetchUserBalance() {
+      this.isLoadingBalance = true
+      try {
+        const response = await axios.get(`${this.baseUrl}/seller/saldo`)
+        if (response.data.status === 'success') {
+          this.userBalance = response.data.data.Saldo
+        }
+      } catch (error) {
+        this.handleApiError(error)
+      } finally {
+        this.isLoadingBalance = false
+      }
     },
-    // Method removed as action button is no longer needed
+    async fetchBanks() {
+      try {
+        const response = await axios.get(`${this.baseUrl}/seller/banks`)
+        if (response.data.status === 'success') {
+          this.banks = response.data.data
+        }
+      } catch (error) {
+        this.handleApiError(error)
+      }
+    },
+    async fetchUserBankAccounts() {
+      this.isLoadingBankAccounts = true
+      try {
+        const response = await axios.get(`${this.baseUrl}/seller/rekening`)
+        if (response.data.status === 'success') {
+          this.userBankAccounts = response.data.data
+        }
+      } catch (error) {
+        this.handleApiError(error)
+      } finally {
+        this.isLoadingBankAccounts = false
+      }
+    },
+    async fetchWithdrawals() {
+      this.isLoadingWithdrawals = true
+      this.errorWithdrawals = null
+      try {
+        const response = await axios.get(`${this.baseUrl}/seller/withdrawals`, {
+          params: {
+            per_page: this.entriesPerPage,
+            page: this.currentPage,
+          },
+        })
+        if (response.data.status === 'success') {
+          this.withdrawals = response.data.data
+          this.totalWithdrawals = response.data.meta?.total || this.withdrawals.length
+        }
+      } catch (error) {
+        this.errorWithdrawals = 'Gagal memuat data penarikan'
+        this.handleApiError(error)
+      } finally {
+        this.isLoadingWithdrawals = false
+      }
+    },
+    showWithdrawalModal() {
+      if (this.userBankAccounts.length === 0) {
+        this.showAddBankAccountModal()
+        return
+      }
+
+      const bankOptions = this.userBankAccounts
+        .map((account) => {
+          const bankName = this.getBankName(account.bank_id)
+          return `<option value="${account.id}">${bankName} - ${account.rekening}</option>`
+        })
+        .join('')
+
+      Swal.fire({
+        title: `<h3 class="text-lg font-bold">Formulir Penarikan</h3>`,
+        html: `
+          <div class="text-right mb-3">
+            <button id="add-account-btn" type="button" class="bg-white text-gray-700 font-bold py-2 px-3 rounded-lg border border-gray-300 hover:bg-gray-100 text-sm">
+              + Tujuan Baru
+            </button>
+          </div>
+          <form id="withdrawalForm" class="text-left form-compact">
+            <div class="mb-3">
+              <label class="block text-gray-700 font-medium text-sm mb-1" for="bank">
+                Rekening Tujuan
+              </label>
+              <select id="account-select" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
+                <option value="">Pilih Rekening</option>
+                ${bankOptions}
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="block text-gray-700 font-medium text-sm mb-1" for="amount">
+                Jumlah Penarikan
+              </label>
+              <input id="amount" type="number" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan jumlah penarikan">
+              <p class="text-sm text-gray-500 mt-1">Jumlah maksimal: Rp${this.formatCurrency(this.userBalance)}</p>
+            </div>
+          </form>
+        `,
+        showCancelButton: true,
+        buttonsStyling: false,
+        customClass: {
+          confirmButton:
+            'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          cancelButton:
+            'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          actions: 'flex justify-center space-x-6',
+        },
+        cancelButtonText: 'Batal',
+        confirmButtonText: 'Ajukan Penarikan',
+        width: 600,
+        preConfirm: () => {
+          const accountId = document.getElementById('account-select').value
+          const amount = document.getElementById('amount').value
+
+          if (!accountId) {
+            Swal.showValidationMessage('Silakan pilih rekening tujuan')
+            return false
+          }
+
+          if (!amount || amount <= 0) {
+            Swal.showValidationMessage('Silakan masukkan jumlah penarikan yang valid')
+            return false
+          }
+
+          if (parseFloat(amount) > this.userBalance) {
+            Swal.showValidationMessage('Jumlah penarikan melebihi saldo tersedia')
+            return false
+          }
+
+          return {
+            rekening_id: accountId,
+            jumlah: amount,
+          }
+        },
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.submitWithdrawalRequest(result.value)
+        }
+      })
+
+      document.getElementById('add-account-btn').addEventListener('click', () => {
+        Swal.close()
+        this.showAddBankAccountModal()
+      })
+    },
+    showAddBankAccountModal() {
+      const bankOptions = this.banks
+        .map((bank) => `<option value="${bank.id}">${bank.nama}</option>`)
+        .join('')
+
+      Swal.fire({
+        title: `<h3 class="text-lg font-bold">Tambah Rekening Baru</h3>`,
+        html: `
+          <form id="bankAccountForm" class="text-left form-compact">
+            <div class="mb-3">
+              <label class="block text-gray-700 font-medium text-sm mb-1" for="new-bank">
+                Nama Bank
+              </label>
+              <select id="new-bank" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
+                <option value="">Pilih Bank</option>
+                ${bankOptions}
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="block text-gray-700 font-medium text-sm mb-1" for="new-account-number">
+                Nomor Rekening
+              </label>
+              <input id="new-account-number" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan Nomor Rekening">
+            </div>
+
+            <div class="mb-3">
+              <label class="block text-gray-700 font-medium text-sm mb-1" for="new-account-name">
+                Nama Pemilik Rekening
+              </label>
+              <input id="new-account-name" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan Nama Pemilik Rekening">
+            </div>
+          </form>
+        `,
+        showCancelButton: true,
+        buttonsStyling: false,
+        customClass: {
+          confirmButton:
+            'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          cancelButton:
+            'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          actions: 'flex justify-center space-x-6',
+        },
+        cancelButtonText: 'Batal',
+        confirmButtonText: 'Simpan',
+        width: 600,
+        preConfirm: () => {
+          const bankId = document.getElementById('new-bank').value
+          const accountNumber = document.getElementById('new-account-number').value
+          const accountName = document.getElementById('new-account-name').value
+
+          if (!bankId) {
+            Swal.showValidationMessage('Silakan pilih bank')
+            return false
+          }
+
+          if (!accountNumber) {
+            Swal.showValidationMessage('Silakan masukkan nomor rekening')
+            return false
+          }
+
+          if (!accountName) {
+            Swal.showValidationMessage('Silakan masukkan nama pemilik rekening')
+            return false
+          }
+
+          return {
+            bank_id: bankId,
+            rekening: accountNumber,
+            nama: accountName,
+          }
+        },
+      }).then((result) => {
+        if (result.isConfirmed) {
+          this.saveNewBankAccount(result.value)
+        }
+      })
+    },
+    async saveNewBankAccount(accountData) {
+      try {
+        const response = await axios.post(`${this.baseUrl}/seller/rekening`, accountData)
+        if (response.data.status === 'success') {
+          Swal.fire({
+            title: 'Berhasil!',
+            text: response.data.message,
+            icon: 'success',
+            confirmButtonColor: '#3085d6',
+          })
+          await this.fetchUserBankAccounts()
+          this.showWithdrawalModal()
+        }
+      } catch (error) {
+        this.handleApiError(error)
+      }
+    },
+    async submitWithdrawalRequest(data) {
+      try {
+        const response = await axios.post(`${this.baseUrl}/seller/withdrawal`, {
+          jumlah: data.jumlah,
+          rekening_id: data.rekening_id,
+        })
+
+        if (response.data.status === 'success') {
+          Swal.fire({
+            title: 'Berhasil!',
+            text: response.data.message,
+            icon: 'success',
+            confirmButtonColor: '#3085d6',
+          })
+          await Promise.all([this.fetchUserBalance(), this.fetchWithdrawals()])
+        }
+      } catch (error) {
+        this.handleApiError(error)
+      }
+    },
+    updatePagination() {
+      if (this.currentPage > this.totalPages && this.totalPages > 0) {
+        this.currentPage = this.totalPages
+      }
+    },
+  },
+  watch: {
+    statusFilter() {
+      this.currentPage = 1
+      this.updatePagination()
+    },
+    searchQuery() {
+      this.currentPage = 1
+      this.updatePagination()
+    },
+  },
+  async mounted() {
+    this.isSidebarActive = window.innerWidth >= 1024
+    window.addEventListener('resize', this.handleResize)
+
+    try {
+      const token = localStorage.getItem('auth_token')
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+
+      await Promise.all([
+        this.fetchUserBalance(),
+        this.fetchBanks(),
+        this.fetchUserBankAccounts(),
+        this.fetchWithdrawals(),
+      ])
+    } catch (error) {
+      console.error('Error initializing data:', error)
+      this.handleApiError(error)
+    }
+  },
+  beforeUnmount() {
+    window.removeEventListener('resize', this.handleResize)
   },
 }
 </script>

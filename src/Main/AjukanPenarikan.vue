@@ -68,10 +68,10 @@
           <select
             v-model="entriesPerPage"
             class="p-2 border border-gray-300 rounded-md"
-            @change="fetchWithdrawals"
+            @change="updatePagination"
           >
             <option value="10">10</option>
-            <option value="25" selected>25</option>
+            <option value="25">25</option>
             <option value="50">50</option>
             <option value="100">100</option>
           </select>
@@ -96,31 +96,23 @@
             <thead class="bg-red-600 text-white">
               <tr>
                 <th class="p-4 text-center border-r border-gray-300">Penarikan Ke -</th>
-                <th class="p-4 text-center border-r border-gray-300">Bank Tujuan</th>
                 <th class="p-4 text-center border-r border-gray-300">Rekening Tujuan</th>
                 <th class="p-4 text-center border-r border-gray-300">Jumlah Penarikan</th>
-                <th class="p-4 text-center border-r border-gray-300">Tanggal</th>
                 <th class="p-4 text-center">Status</th>
               </tr>
             </thead>
             <tbody>
               <tr
-                v-for="withdrawal in filteredWithdrawals"
+                v-for="withdrawal in paginatedWithdrawals"
                 :key="withdrawal.id"
                 class="border-b border-gray-300 hover:bg-gray-50"
               >
                 <td class="p-4 text-center border-r border-gray-300">{{ withdrawal.id }}</td>
                 <td class="p-4 text-center border-r border-gray-300">
-                  {{ getBankName(withdrawal.bank_id) }}
-                </td>
-                <td class="p-4 text-center border-r border-gray-300">
                   {{ withdrawal.no_rekening }}
                 </td>
                 <td class="p-4 text-center border-r border-gray-300">
                   Rp{{ formatCurrency(withdrawal.jumlah) }}
-                </td>
-                <td class="p-4 text-center border-r border-gray-300">
-                  {{ formatDate(withdrawal.created_at) }}
                 </td>
                 <td
                   class="p-4 text-center"
@@ -135,8 +127,8 @@
               </tr>
 
               <!-- Empty state -->
-              <tr v-if="filteredWithdrawals.length === 0">
-                <td colspan="6" class="p-4 text-center text-gray-500">Tidak ada data penarikan</td>
+              <tr v-if="paginatedWithdrawals.length === 0">
+                <td colspan="4" class="p-4 text-center text-gray-500">Tidak ada data penarikan</td>
               </tr>
             </tbody>
           </table>
@@ -144,24 +136,89 @@
 
         <!-- Pagination -->
         <div
-          class="flex justify-between items-center mt-4"
-          v-if="totalWithdrawals > entriesPerPage"
+          v-if="filteredWithdrawals.length > 0"
+          class="mt-6 flex flex-col md:flex-row justify-between items-center"
         >
-          <button
-            @click="prevPage"
-            :disabled="currentPage === 1"
-            class="px-4 py-2 border rounded-md"
-          >
-            Previous
-          </button>
-          <span>Page {{ currentPage }} of {{ totalPages }}</span>
-          <button
-            @click="nextPage"
-            :disabled="currentPage === totalPages"
-            class="px-4 py-2 border rounded-md"
-          >
-            Next
-          </button>
+          <div class="text-sm text-gray-600 mb-4 md:mb-0">
+            Showing {{ paginationStart }} to {{ paginationEnd }} of
+            {{ filteredWithdrawals.length }} entries
+          </div>
+          <div class="flex justify-center items-center space-x-2">
+            <!-- First Page -->
+            <button
+              @click="goToPage(1)"
+              :disabled="currentPage === 1"
+              class="px-3 py-1 rounded-md border"
+              :class="
+                currentPage === 1
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'border-gray-300 hover:bg-gray-100'
+              "
+            >
+              &laquo;
+            </button>
+
+            <!-- Previous Page -->
+            <button
+              @click="goToPage(currentPage - 1)"
+              :disabled="currentPage === 1"
+              class="px-3 py-1 rounded-md border"
+              :class="
+                currentPage === 1
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'border-gray-300 hover:bg-gray-100'
+              "
+            >
+              &lsaquo;
+            </button>
+
+            <!-- Page Numbers -->
+            <div class="flex space-x-1">
+              <template v-for="page in displayedPages" :key="page">
+                <button
+                  v-if="page !== '...'"
+                  @click="goToPage(page)"
+                  class="w-8 h-8 flex items-center justify-center rounded-md"
+                  :class="
+                    currentPage === page
+                      ? 'bg-red-600 text-white'
+                      : 'hover:bg-gray-100 border border-gray-300'
+                  "
+                >
+                  {{ page }}
+                </button>
+                <span v-else class="w-8 h-8 flex items-center justify-center">...</span>
+              </template>
+            </div>
+
+            <!-- Next Page -->
+            <button
+              @click="goToPage(currentPage + 1)"
+              :disabled="currentPage === totalPages || totalPages === 0"
+              class="px-3 py-1 rounded-md border"
+              :class="
+                currentPage === totalPages || totalPages === 0
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'border-gray-300 hover:bg-gray-100'
+              "
+            >
+              &rsaquo;
+            </button>
+
+            <!-- Last Page -->
+            <button
+              @click="goToPage(totalPages)"
+              :disabled="currentPage === totalPages || totalPages === 0"
+              class="px-3 py-1 rounded-md border"
+              :class="
+                currentPage === totalPages || totalPages === 0
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'border-gray-300 hover:bg-gray-100'
+              "
+            >
+              &raquo;
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -186,7 +243,6 @@ export default {
       statusFilter: 'all',
       entriesPerPage: 25,
       currentPage: 1,
-      totalWithdrawals: 0,
       searchQuery: '',
       userBalance: 0,
       banks: [],
@@ -220,18 +276,70 @@ export default {
       return filtered
     },
     totalPages() {
-      return Math.ceil(this.totalWithdrawals / this.entriesPerPage)
+      return Math.ceil(this.filteredWithdrawals.length / parseInt(this.entriesPerPage))
+    },
+    paginatedWithdrawals() {
+      const start = (this.currentPage - 1) * parseInt(this.entriesPerPage)
+      const end = start + parseInt(this.entriesPerPage)
+      return this.filteredWithdrawals.slice(start, end)
+    },
+    paginationStart() {
+      return this.filteredWithdrawals.length === 0
+        ? 0
+        : (this.currentPage - 1) * parseInt(this.entriesPerPage) + 1
+    },
+    paginationEnd() {
+      const calculatedEnd = this.currentPage * parseInt(this.entriesPerPage)
+      return calculatedEnd > this.filteredWithdrawals.length
+        ? this.filteredWithdrawals.length
+        : calculatedEnd
+    },
+    displayedPages() {
+      const totalVisiblePages = 5
+      const pages = []
+
+      if (this.totalPages <= totalVisiblePages) {
+        for (let i = 1; i <= this.totalPages; i++) {
+          pages.push(i)
+        }
+      } else {
+        pages.push(1)
+
+        let startPage = Math.max(2, this.currentPage - Math.floor((totalVisiblePages - 3) / 2))
+        let endPage = Math.min(this.totalPages - 1, startPage + totalVisiblePages - 4)
+
+        if (endPage === this.totalPages - 1) {
+          startPage = Math.max(2, endPage - (totalVisiblePages - 4))
+        }
+
+        if (startPage > 2) {
+          pages.push('...')
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+          pages.push(i)
+        }
+
+        if (endPage < this.totalPages - 1) {
+          pages.push('...')
+        }
+
+        pages.push(this.totalPages)
+      }
+
+      return pages
     },
   },
   async mounted() {
     this.isSidebarActive = window.innerWidth >= 1024
     window.addEventListener('resize', this.handleResize)
 
-    // Setup interceptors first
-    this.setupAxiosInterceptors()
-
-    // Then load initial data
     try {
+      // Set authorization header first, like in code 2
+      const token = localStorage.getItem('token')
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+
+      // Then load initial data
       await Promise.all([
         this.fetchUserBalance(),
         this.fetchBanks(),
@@ -247,37 +355,6 @@ export default {
     window.removeEventListener('resize', this.handleResize)
   },
   methods: {
-    setupAxiosInterceptors() {
-      // Request interceptor
-      axios.interceptors.request.use(
-        (config) => {
-          const token = localStorage.getItem('auth_token')
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`
-          }
-          return config
-        },
-        (error) => {
-          return Promise.reject(error)
-        },
-      )
-
-      // Response interceptor
-      axios.interceptors.response.use(
-        (response) => {
-          return response
-        },
-        (error) => {
-          if (error.response && error.response.status === 401) {
-            // Only handle unauthorized if it's not a login request
-            if (!error.config.url.includes('/login')) {
-              this.handleUnauthorized()
-            }
-          }
-          return Promise.reject(error)
-        },
-      )
-    },
     handleUnauthorized() {
       // Show notification first
       Swal.fire({
@@ -287,15 +364,18 @@ export default {
         confirmButtonColor: '#3085d6',
       }).then(() => {
         // Then clear storage and redirect
-        localStorage.removeItem('auth_token')
+        localStorage.removeItem('token')
         this.$router.push('/login')
       })
     },
     handleApiError(error) {
       console.error('API Error:', error)
 
-      // Skip showing error if it's 401 (already handled by interceptor)
-      if (error.response?.status === 401) return
+      // Check for unauthorized error (401)
+      if (error.response && error.response.status === 401) {
+        this.handleUnauthorized()
+        return
+      }
 
       const message = error.response?.data?.message || 'Terjadi kesalahan pada server'
       Swal.fire({
@@ -326,22 +406,31 @@ export default {
       const bank = this.banks.find((b) => b.id === bankId)
       return bank ? bank.nama : 'Unknown Bank'
     },
-    nextPage() {
-      if (this.currentPage < this.totalPages) {
-        this.currentPage++
-        this.fetchWithdrawals()
+    updatePagination() {
+      if (this.currentPage > this.totalPages && this.totalPages > 0) {
+        this.currentPage = this.totalPages
       }
+      // No need to call fetchWithdrawals() here as we're doing client-side pagination
     },
-    prevPage() {
-      if (this.currentPage > 1) {
-        this.currentPage--
-        this.fetchWithdrawals()
+    goToPage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page
       }
     },
     async fetchUserBalance() {
       this.isLoadingBalance = true
       try {
-        const response = await axios.get(`${this.baseUrl}/seller/saldo`)
+        // Ensure token is set before making request
+        const token = localStorage.getItem('token')
+        if (!token) {
+          this.handleUnauthorized()
+          return
+        }
+
+        const response = await axios.get(`${this.baseUrl}/seller/saldo`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
         if (response.data.status === 'success') {
           this.userBalance = response.data.data.Saldo
         }
@@ -353,7 +442,17 @@ export default {
     },
     async fetchBanks() {
       try {
-        const response = await axios.get(`${this.baseUrl}/seller/banks`)
+        // Ensure token is set before making request
+        const token = localStorage.getItem('token')
+        if (!token) {
+          this.handleUnauthorized()
+          return
+        }
+
+        const response = await axios.get(`${this.baseUrl}/seller/banks`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
         if (response.data.status === 'success') {
           this.banks = response.data.data
         }
@@ -364,7 +463,17 @@ export default {
     async fetchUserBankAccounts() {
       this.isLoadingBankAccounts = true
       try {
-        const response = await axios.get(`${this.baseUrl}/seller/rekening`)
+        // Ensure token is set before making request
+        const token = localStorage.getItem('token')
+        if (!token) {
+          this.handleUnauthorized()
+          return
+        }
+
+        const response = await axios.get(`${this.baseUrl}/seller/rekening`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
         if (response.data.status === 'success') {
           this.userBankAccounts = response.data.data
         }
@@ -378,16 +487,21 @@ export default {
       this.isLoadingWithdrawals = true
       this.errorWithdrawals = null
       try {
+        // Ensure token is set before making request
+        const token = localStorage.getItem('token')
+        if (!token) {
+          this.handleUnauthorized()
+          return
+        }
+
+        // Fetch all withdrawals at once instead of paginating on server
+        // We'll handle pagination client-side
         const response = await axios.get(`${this.baseUrl}/seller/withdrawals`, {
-          params: {
-            per_page: this.entriesPerPage,
-            page: this.currentPage,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         })
+
         if (response.data.status === 'success') {
           this.withdrawals = response.data.data
-          // If API provides total count for pagination:
-          // this.totalWithdrawals = response.data.meta.total
         }
       } catch (error) {
         this.errorWithdrawals = 'Gagal memuat data penarikan'
@@ -564,7 +678,17 @@ export default {
     },
     async saveNewBankAccount(accountData) {
       try {
-        const response = await axios.post(`${this.baseUrl}/seller/rekening`, accountData)
+        // Ensure token is set before making request
+        const token = localStorage.getItem('token')
+        if (!token) {
+          this.handleUnauthorized()
+          return
+        }
+
+        const response = await axios.post(`${this.baseUrl}/seller/rekening`, accountData, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
         if (response.data.status === 'success') {
           Swal.fire({
             title: 'Berhasil!',
@@ -581,10 +705,23 @@ export default {
     },
     async submitWithdrawalRequest(data) {
       try {
-        const response = await axios.post(`${this.baseUrl}/seller/withdrawal`, {
-          jumlah: data.jumlah,
-          rekening_id: data.rekening_id,
-        })
+        // Ensure token is set before making request
+        const token = localStorage.getItem('token')
+        if (!token) {
+          this.handleUnauthorized()
+          return
+        }
+
+        const response = await axios.post(
+          `${this.baseUrl}/seller/withdrawal`,
+          {
+            jumlah: data.jumlah,
+            rekening_id: data.rekening_id,
+          },
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
 
         if (response.data.status === 'success') {
           Swal.fire({
@@ -600,5 +737,25 @@ export default {
       }
     },
   },
+  watch: {
+    // Reset to page 1 when filter or search changes
+    statusFilter() {
+      this.currentPage = 1
+    },
+    searchQuery() {
+      this.currentPage = 1
+    },
+  },
 }
 </script>
+
+<style scoped>
+.content-wrapper {
+  transition: margin-left 0.3s ease;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>
