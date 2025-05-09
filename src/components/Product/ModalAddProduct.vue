@@ -195,8 +195,8 @@ export default {
         cancelButtonText: 'Batal',
         confirmButtonText: title === 'Tambah Produk Baru' ? 'Tambah' : 'Simpan',
         focusConfirm: false,
-        width: 'auto',
-        maxWidth: '600px',
+        width: '650px',
+        maxWidth: '750px',
         buttonsStyling: false,
         customClass: {
           container: 'swal-container',
