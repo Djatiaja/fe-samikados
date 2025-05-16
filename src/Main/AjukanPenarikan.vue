@@ -693,8 +693,8 @@ export default {
           Swal.fire({
             title: 'Berhasil!',
             text: response.data.message,
-            icon: 'success',
-            confirmButtonColor: '#3085d6',
+            timer: 1500,
+            showConfirmButton: false,
           })
           await this.fetchUserBankAccounts()
           this.showWithdrawalModal()

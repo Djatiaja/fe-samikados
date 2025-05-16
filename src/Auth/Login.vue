@@ -121,6 +121,10 @@ export default {
           text: 'Periksa kembali email/username dan password Anda.',
           icon: 'error',
           confirmButtonText: 'Coba Lagi',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base',
+          },
         })
       }
     }

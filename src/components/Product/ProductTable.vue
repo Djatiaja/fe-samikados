@@ -78,11 +78,11 @@
             </select>
           </td>
           <td class="p-4 text-center min-w-24">
-            <button class="text-blue-500 mr-2" @click="$emit('edit-product', product)">
-              <img src="/icon/edit-btn.svg" alt="Edit Icon" class="w-6 h-6" />
+            <button class="text-black-500 mr-2" @click="$emit('edit-product', product)">
+              <i class="fa-solid fa-pen-to-square fa-lg"></i>
             </button>
-            <button @click="$emit('delete-product', product)">
-              <img src="/icon/delete-btn.svg" alt="Delete Icon" class="w-6 h-6" />
+            <button class="text-black-500" @click="$emit('delete-product', product)">
+              <i class="fa-solid fa-trash fa-lg"></i>
             </button>
           </td>
         </tr>
