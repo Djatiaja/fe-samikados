@@ -20,7 +20,7 @@
           <td class="p-4 text-center border-r border-gray-300">{{ product.category }}</td>
           <td class="p-4 text-center border-r border-gray-300">{{ product.name }}</td>
           <td class="p-4 text-center border-r border-gray-300">{{ product.description }}</td>
-          <td class="p-4 text-center border-r border-gray-300">{{ product.stock }}</td>
+          <td class="p-4 text-center border-r border-gray-300">{{ product.stock_total }}</td>
           <td class="p-4 text-center border-r border-gray-300">
             Rp{{ product.price.toLocaleString('id-ID') }}
           </td>
