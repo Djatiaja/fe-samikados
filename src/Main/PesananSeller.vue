@@ -1193,7 +1193,7 @@ export default {
                         variants.forEach((variant) => {
                           const option = document.createElement('option')
                           option.value = variant.id
-                          option.textContent = variant.variant_name
+                          option.textContent = variant.name
                           variantSelect.appendChild(option)
                         })
                         variantSelect.disabled = false
