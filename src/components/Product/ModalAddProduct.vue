@@ -3,7 +3,7 @@
 </template>
 
 <script>
-import Swal from 'sweetalert2';
+import Swal from 'sweetalert2'
 
 export default {
   name: 'ModalAddProduct',
@@ -15,6 +15,17 @@ export default {
   },
   methods: {
     open() {
+      if (!this.categories || this.categories.length === 0) {
+        Swal.fire({
+          title: 'Error!',
+          text: 'Kategori belum tersedia. Silakan coba lagi.',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+        return
+      }
+
       const productForm = {
         id: null,
         category_id: this.categories[0]?.id || 1,
@@ -22,16 +33,17 @@ export default {
         description: '',
         unit: 'unit',
         is_publish: 1,
-        variations: [],
-        finishing: [],
-      };
+        thumbnail: null,
+        product_variants: [],
+        product_finishing: [],
+      }
 
-      this.showProductModal('Tambah Produk Baru', productForm);
+      this.showProductModal('Tambah Produk Baru', productForm)
     },
 
     showProductModal(title, productForm) {
-      let variationsHtml = this.generateVariationsHtml(productForm.variations);
-      let finishingHtml = this.generateFinishingHtml(productForm.finishing);
+      let variationsHtml = this.generateVariationsHtml(productForm.product_variants)
+      let finishingHtml = this.generateFinishingHtml(productForm.product_finishing)
 
       Swal.fire({
         title: `<h3 class="text-lg font-bold">${title}</h3>`,
@@ -40,14 +52,18 @@ export default {
             <div class="mb-4">
               <label class="block text-gray-700 font-medium text-sm mb-1">Kategori</label>
               <select id="category_id" class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all">
-                ${this.categories
-                  .map(
-                    (cat) =>
-                      `<option value="${cat.id}" ${
-                        productForm.category_id === cat.id ? 'selected' : ''
-                      }>${cat.name}</option>`,
-                  )
-                  .join('')}
+                ${
+                  this.categories.length > 0
+                    ? this.categories
+                        .map(
+                          (cat) =>
+                            `<option value="${cat.id}" ${
+                              productForm.category_id === cat.id ? 'selected' : ''
+                            }>${cat.name}</option>`,
+                        )
+                        .join('')
+                    : '<option value="">Tidak ada kategori tersedia</option>'
+                }
               </select>
             </div>
 
@@ -80,6 +96,16 @@ export default {
                 placeholder="Contoh: unit, pack"
                 class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
                 value="${productForm.unit || 'unit'}"
+              >
+            </div>
+
+            <div class="mb-4">
+              <label class="block text-gray-700 font-medium text-sm mb-1">Thumbnail Produk</label>
+              <input
+                type="file"
+                id="thumbnail"
+                accept="image/*"
+                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
               >
             </div>
 
@@ -155,15 +181,15 @@ export default {
           actions: 'flex justify-center space-x-6',
         },
         didOpen: () => {
-          this.setupVariationAndFinishingButtons();
-          const modalContent = document.querySelector('.swal2-content');
+          this.setupVariationAndFinishingButtons()
+          const modalContent = document.querySelector('.swal2-content')
           if (modalContent) {
-            modalContent.style.maxHeight = '70vh';
-            modalContent.style.overflowY = 'auto';
-            modalContent.style.overflowX = 'hidden';
+            modalContent.style.maxHeight = '70vh'
+            modalContent.style.overflowY = 'auto'
+            modalContent.style.overflowX = 'hidden'
           }
 
-          const styleElement = document.createElement('style');
+          const styleElement = document.createElement('style')
           styleElement.textContent = `
             .swal2-content::-webkit-scrollbar {
               width: 6px;
@@ -179,98 +205,104 @@ export default {
             .swal2-content::-webkit-scrollbar-thumb:hover {
               background: #b91c1c;
             }
-          `;
-          document.head.appendChild(styleElement);
+          `
+          document.head.appendChild(styleElement)
         },
         preConfirm: () => {
-          const category_id = parseInt(document.getElementById('category_id').value);
-          const name = document.getElementById('productName').value;
-          const description = document.getElementById('description').value;
-          const unit = document.getElementById('unit').value;
-          const is_publish = parseInt(document.getElementById('is_publish').value);
+          const category_id = parseInt(document.getElementById('category_id').value)
+          const name = document.getElementById('productName').value
+          const description = document.getElementById('description').value
+          const unit = document.getElementById('unit').value
+          const is_publish = parseInt(document.getElementById('is_publish').value)
+          const thumbnail = document.getElementById('thumbnail').files[0]
 
-          if (!name || !description || !unit) {
-            Swal.showValidationMessage('Nama, deskripsi, dan unit harus diisi');
-            return false;
+          if (!name || !description || !unit || !thumbnail) {
+            Swal.showValidationMessage('Nama, deskripsi, unit, dan thumbnail harus diisi')
+            return false
           }
 
-          const variationBoxes = document.querySelectorAll('.variation-box:not(.finishing-box)');
-          let hasStock = false;
-          let hasDefaultVariation = false;
-          let invalidWeight = false;
-          let invalidMinQty = false;
+          if (!category_id) {
+            Swal.showValidationMessage('Kategori harus dipilih')
+            return false
+          }
+
+          const variationBoxes = document.querySelectorAll('.variation-box:not(.finishing-box)')
+          let hasStock = false
+          let hasDefaultVariation = false
+          let invalidWeight = false
+          let invalidMinQty = false
 
           if (variationBoxes.length === 0) {
-            Swal.showValidationMessage('Produk harus memiliki minimal satu variasi');
-            return false;
+            Swal.showValidationMessage('Produk harus memiliki minimal satu variasi')
+            return false
           }
 
-          const variations = [];
+          const variations = []
           variationBoxes.forEach((box, index) => {
-            const nameInput = box.querySelector('.variation-name');
-            const priceInput = box.querySelector('.variation-price');
-            const stockInput = box.querySelector('.variation-stock');
-            const weightInput = box.querySelector('.variation-weight');
-            const minQtyInput = box.querySelector('.variation-min-qty');
-            const isDefault = box.querySelector('.variation-default')?.checked;
+            const nameInput = box.querySelector('.variation-name')
+            const priceInput = box.querySelector('.variation-price')
+            const stockInput = box.querySelector('.variation-stock')
+            const weightInput = box.querySelector('.variation-weight')
+            const minQtyInput = box.querySelector('.variation-min-qty')
+            const isDefault = box.querySelector('.variation-default')?.checked
 
             if (nameInput && nameInput.value) {
-              const stock = parseInt(stockInput.value) || 0;
-              const weight = parseInt(weightInput.value) || 0;
-              const minQty = parseInt(minQtyInput.value) || 1;
+              const stock = parseInt(stockInput.value) || 0
+              const weight = parseInt(weightInput.value) || 0
+              const minQty = parseInt(minQtyInput.value) || 1
 
-              if (stock > 0) hasStock = true;
-              if (isDefault) hasDefaultVariation = true;
-              if (weight <= 0) invalidWeight = true;
-              if (minQty <= 0) invalidMinQty = true;
+              if (stock > 0) hasStock = true
+              if (isDefault) hasDefaultVariation = true
+              if (weight <= 0) invalidWeight = true
+              if (minQty <= 0) invalidMinQty = true
 
               variations.push({
-                id: productForm.variations[index]?.id || Date.now() + index,
+                id: productForm.product_variants[index]?.id || Date.now() + index,
                 name: nameInput.value,
                 price: parseInt(priceInput.value) || 0,
                 stock: stock,
                 weight: weight,
                 min_qty: minQty,
                 is_default: isDefault ? 1 : 0,
-              });
+              })
             }
-          });
+          })
 
           if (!hasStock) {
-            Swal.showValidationMessage('Setidaknya satu variasi harus memiliki stok');
-            return false;
+            Swal.showValidationMessage('Setidaknya satu variasi harus memiliki stok')
+            return false
           }
 
           if (!hasDefaultVariation) {
-            Swal.showValidationMessage('Pilih satu variasi sebagai default');
-            return false;
+            Swal.showValidationMessage('Pilih satu variasi sebagai default')
+            return false
           }
 
           if (invalidWeight) {
-            Swal.showValidationMessage('Berat produk harus lebih dari 0 pada setiap variasi');
-            return false;
+            Swal.showValidationMessage('Berat produk harus lebih dari 0 pada setiap variasi')
+            return false
           }
 
           if (invalidMinQty) {
-            Swal.showValidationMessage('Jumlah minimum harus lebih dari 0 pada setiap variasi');
-            return false;
+            Swal.showValidationMessage('Jumlah minimum harus lebih dari 0 pada setiap variasi')
+            return false
           }
 
-          const finishing = [];
-          const finishingBoxes = document.querySelectorAll('.finishing-box');
+          const finishing = []
+          const finishingBoxes = document.querySelectorAll('.finishing-box')
           finishingBoxes.forEach((box, index) => {
-            const nameInput = box.querySelector('.finishing-name');
-            const priceInput = box.querySelector('.finishing-price');
-            const colorCodeInput = box.querySelector('.finishing-color-code');
+            const nameInput = box.querySelector('.finishing-name')
+            const priceInput = box.querySelector('.finishing-price')
+            const colorCodeInput = box.querySelector('.finishing-color-code')
             if (nameInput && nameInput.value && priceInput && priceInput.value) {
               finishing.push({
-                id: productForm.finishing[index]?.id || Date.now() + index,
+                id: productForm.product_finishing[index]?.id || Date.now() + index,
                 name: nameInput.value,
                 price: parseInt(priceInput.value) || 0,
                 color_code: colorCodeInput.value || '#000000',
-              });
+              })
             }
-          });
+          })
 
           const product = {
             id: productForm.id || Date.now(),
@@ -279,27 +311,28 @@ export default {
             description,
             unit,
             is_publish,
+            thumbnail,
             product_variants: variations,
             product_finishing: finishing,
-          };
+          }
 
-          return product;
+          return product
         },
       }).then((result) => {
         if (result.isConfirmed && result.value) {
-          this.$emit('save-product', result.value);
+          this.$emit('save-product', result.value)
         }
-      });
+      })
     },
 
     generateVariationsHtml(variations = []) {
       if (!variations || variations.length === 0) {
-        return '<div class="text-grey-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>';
+        return '<div class="text-grey-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
       }
 
       return variations
         .map((variation, index) => this.generateVariationBox(variation, index))
-        .join('');
+        .join('')
     },
 
     generateVariationBox(
@@ -373,17 +406,15 @@ export default {
             </div>
           </div>
         </div>
-      `;
+      `
     },
 
     generateFinishingHtml(finishing = []) {
       if (!finishing || finishing.length === 0) {
-        return '<div class="text-grey-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>';
+        return '<div class="text-grey-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
       }
 
-      return finishing
-        .map((fin, index) => this.generateFinishingBox(fin, index))
-        .join('');
+      return finishing.map((fin, index) => this.generateFinishingBox(fin, index)).join('')
     },
 
     generateFinishingBox(finishing = { name: '', price: 0, color_code: '#000000' }, index) {
@@ -424,94 +455,98 @@ export default {
             </div>
           </div>
         </div>
-      `;
+      `
     },
 
     setupVariationAndFinishingButtons() {
-      const addVariationBtn = document.getElementById('addVariationBtn');
+      window.handleDefaultVariationChange = this.handleDefaultVariationChange
+
+      const addVariationBtn = document.getElementById('addVariationBtn')
       if (addVariationBtn) {
         addVariationBtn.addEventListener('click', () => {
-          const container = document.getElementById('variationsContainer');
-          const variationsCount = container.querySelectorAll('.variation-box').length;
+          const container = document.getElementById('variationsContainer')
+          const variationsCount = container.querySelectorAll('.variation-box').length
 
           if (variationsCount === 0) {
-            container.innerHTML = '';
+            container.innerHTML = ''
           }
 
-          const newBox = document.createElement('div');
-          const isDefault = variationsCount === 0;
-          newBox.innerHTML = this.generateVariationBox({ is_default: isDefault }, variationsCount);
-          container.appendChild(newBox.firstElementChild);
+          const newBox = document.createElement('div')
+          const isDefault = variationsCount === 0
+          newBox.innerHTML = this.generateVariationBox({ is_default: isDefault }, variationsCount)
+          container.appendChild(newBox.firstElementChild)
 
-          this.setupCloseButtons();
-        });
+          this.setupCloseButtons()
+        })
       }
 
-      const addFinishingBtn = document.getElementById('addFinishingBtn');
+      const addFinishingBtn = document.getElementById('addFinishingBtn')
       if (addFinishingBtn) {
         addFinishingBtn.addEventListener('click', () => {
-          const container = document.getElementById('finishingContainer');
-          const finishingCount = container.querySelectorAll('.finishing-box').length;
+          const container = document.getElementById('finishingContainer')
+          const finishingCount = container.querySelectorAll('.finishing-box').length
 
           if (finishingCount === 0) {
-            container.innerHTML = '';
+            container.innerHTML = ''
           }
 
-          const newBox = document.createElement('div');
-          newBox.innerHTML = this.generateFinishingBox({}, finishingCount);
-          container.appendChild(newBox.firstElementChild);
+          const newBox = document.createElement('div')
+          newBox.innerHTML = this.generateFinishingBox({}, finishingCount)
+          container.appendChild(newBox.firstElementChild)
 
-          this.setupCloseButtons();
-        });
+          this.setupCloseButtons()
+        })
       }
 
-      this.setupCloseButtons();
+      this.setupCloseButtons()
     },
 
     setupCloseButtons() {
       document.querySelectorAll('.close-btn').forEach((btn) => {
         btn.addEventListener('click', (e) => {
-          const box = e.target.closest('.variation-box, .finishing-box');
+          const box = e.target.closest('.variation-box, .finishing-box')
           if (box) {
-            const isDefault = box.querySelector('.variation-default')?.checked;
+            const isDefault = box.querySelector('.variation-default')?.checked
             if (isDefault) {
-              const otherVariations = document.querySelectorAll('.variation-box:not(.finishing-box)');
+              const otherVariations = document.querySelectorAll(
+                '.variation-box:not(.finishing-box)',
+              )
               if (otherVariations.length > 1) {
                 for (let i = 0; i < otherVariations.length; i++) {
                   if (otherVariations[i] !== box) {
-                    otherVariations[i].querySelector('.variation-default').checked = true;
-                    break;
+                    otherVariations[i].querySelector('.variation-default').checked = true
+                    break
                   }
                 }
               }
             }
 
-            box.remove();
+            box.remove()
 
-            const varContainer = document.getElementById('variationsContainer');
+            const varContainer = document.getElementById('variationsContainer')
             if (varContainer && varContainer.children.length === 0) {
               varContainer.innerHTML =
-                '<div class="text-grey-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>';
+                '<div class="text-grey-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
             }
 
-            const finContainer = document.getElementById('finishingContainer');
+            const finContainer = document.getElementById('finishingContainer')
             if (finContainer && finContainer.children.length === 0) {
               finContainer.innerHTML =
-                '<div class="text-grey-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>';
+                '<div class="text-grey-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
             }
           }
-        });
-      });
+        })
+      })
     },
 
     handleDefaultVariationChange(radio) {
-      const allRadios = document.querySelectorAll('.variation-default');
+      const allRadios = document.querySelectorAll('.variation-default')
       allRadios.forEach((r) => {
-        if (r !== radio) r.checked = false;
-      });
+        if (r !== radio) r.checked = false
+      })
     },
   },
-};
+}
 </script>
 
 <style scoped>
