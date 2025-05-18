@@ -16,7 +16,10 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-for="product in products" :key="product.id" class="border-b border-gray-300">
+        <tr v-if="products.length === 0" class="border-b border-gray-300">
+          <td colspan="10" class="p-4 text-center">Tidak ada produk yang ditemukan</td>
+        </tr>
+        <tr v-else v-for="product in products" :key="product.id" class="border-b border-gray-300">
           <td class="p-4 text-center border-r border-gray-300">{{ product.category }}</td>
           <td class="p-4 text-center border-r border-gray-300">{{ product.name }}</td>
           <td class="p-4 text-center border-r border-gray-300">{{ product.description }}</td>
@@ -68,13 +71,13 @@
             <select
               :class="[
                 'status-dropdown w-40 text-white py-2 px-4 rounded-lg',
-                product.status === 'aktif' ? 'bg-green-500' : 'bg-red-600',
+                product.status === 'active' ? 'bg-green-500' : 'bg-red-600',
               ]"
               :value="product.status"
               @change="$emit('change-status', product, $event.target.value)"
             >
-              <option value="aktif">Aktif</option>
-              <option value="nonaktif">Nonaktif</option>
+              <option value="active">Aktif</option>
+              <option value="inactive">Nonaktif</option>
             </select>
           </td>
           <td class="p-4 text-center min-w-24">
@@ -103,3 +106,13 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.status-dropdown {
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+.status-dropdown:hover {
+  filter: brightness(90%);
+}
+</style>
