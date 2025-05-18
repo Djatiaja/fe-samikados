@@ -25,21 +25,21 @@
             Rp{{ product.price.toLocaleString('id-ID') }}
           </td>
           <td class="p-4 text-center border-r border-gray-300">
-            <div v-if="product.variations && product.variations.length > 0">
+            <div v-if="product.variant_count && product.variant_count > 0">
               <span
                 class="bg-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 mr-1 mb-1 inline-block"
               >
-                {{ product.variations.length }} variasi
+                {{ product.variant_count }} variasi
               </span>
             </div>
             <span v-else>-</span>
           </td>
           <td class="p-4 text-center border-r border-gray-300">
-            <div v-if="product.additionalOptions && product.additionalOptions.length > 0">
+            <div v-if="product.finishing_count && product.finishing_count > 0">
               <span
                 class="bg-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 mr-1 mb-1 inline-block"
               >
-                {{ product.additionalOptions.length }} opsi
+                {{ product.finishing_count }} opsi
               </span>
             </div>
             <span v-else>-</span>
