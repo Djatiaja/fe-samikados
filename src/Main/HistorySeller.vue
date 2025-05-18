@@ -56,15 +56,6 @@
               </option>
             </select>
           </div>
-          <!-- Add History Button -->
-          <div class="mb-4">
-            <button
-              @click="openAddHistoryModal"
-              class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md flex items-center"
-            >
-              <span class="mr-2">+</span> Tambah History
-            </button>
-          </div>
         </div>
 
         <!-- Entries per page -->
@@ -156,7 +147,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &laquo;
+              «
             </button>
 
             <!-- Previous Page -->
@@ -170,7 +161,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &lsaquo;
+              ‹
             </button>
 
             <!-- Page Numbers -->
@@ -203,7 +194,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &rsaquo;
+              ›
             </button>
 
             <!-- Last Page -->
@@ -217,7 +208,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &raquo;
+              »
             </button>
           </div>
         </div>
