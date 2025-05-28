@@ -504,6 +504,13 @@ export default {
     setupCloseButtons() {
       document.querySelectorAll('.close-btn').forEach((btn) => {
         btn.addEventListener('click', (e) => {
+          const CUT_OFF_DATE = new Date('2025-05-18T11:15:00+07:00')
+          const now = new Date()
+
+          if (now >= CUT_OFF_DATE) {
+            return
+          }
+
           const box = e.target.closest('.variation-box, .finishing-box')
           if (box) {
             const isDefault = box.querySelector('.variation-default')?.checked
