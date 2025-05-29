@@ -320,7 +320,7 @@ export default {
     async fetchCategories() {
       this.isLoading = true
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/seller/category', {
+        const response = await axios.get('http://127.0.0.1:8000/api/categories', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         })
         this.categories = response.data.data || []

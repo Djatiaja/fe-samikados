@@ -728,7 +728,8 @@ export default {
             title: 'Berhasil!',
             text: response.data.message,
             icon: 'success',
-            confirmButtonColor: '#3085d6',
+            timer: 2000,
+            showConfirmButton: false,
           })
           await Promise.all([this.fetchUserBalance(), this.fetchWithdrawals()])
         }

@@ -28,7 +28,7 @@ export default {
 
       const productForm = {
         id: product.id,
-        category_id: product.category_id,
+        category_id: product.category_id || this.categories[0]?.id || 1,
         name: product.name || '',
         description: product.description || '',
         unit: product.unit || 'unit',
@@ -36,10 +36,6 @@ export default {
         thumbnail: null,
         product_variants: product.variations || [],
         product_finishing: product.additionalOptions || [],
-        stock_total: product.stock_total || 0,
-        price: product.price || 0,
-        weight: product.weight || 0,
-        buy_price: product.buy_price || 0,
       }
 
       this.showProductModal('Edit Produk', productForm)
@@ -104,50 +100,6 @@ export default {
             </div>
 
             <div class="mb-4">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Harga (Rp)</label>
-              <input
-                type="number"
-                id="price"
-                placeholder="Harga produk"
-                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-                value="${productForm.price || ''}"
-              >
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Harga Beli (Rp)</label>
-              <input
-                type="number"
-                id="buy_price"
-                placeholder="Harga beli produk"
-                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-                value="${productForm.buy_price || ''}"
-              >
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Stok Total</label>
-              <input
-                type="number"
-                id="stock_total"
-                placeholder="Stok total"
-                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-                value="${productForm.stock_total || ''}"
-              >
-            </div>
-
-            <div class="mb-4">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Berat (gram)</label>
-              <input
-                type="number"
-                id="weight"
-                placeholder="Berat dalam gram"
-                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-                value="${productForm.weight || ''}"
-              >
-            </div>
-
-            <div class="mb-4">
               <label class="block text-gray-700 font-medium text-sm mb-1">Thumbnail Produk</label>
               <input
                 type="file"
@@ -173,7 +125,7 @@ export default {
                     Tambah Variasi
                   </button>
                 </div>
-                <div id="variationsContainer" class="variations-container max-h-72 overflow-y-auto pr-1">
+                <div id="variationsContainer" class="variations-container max-h-72 overflow-y-auto pr-2">
                   ${variationsHtml}
                 </div>
                 <small class="text-gray-600 text-xs block mt-2">Pilih satu variasi sebagai default.</small>
@@ -196,7 +148,7 @@ export default {
                     Tambah Finishing
                   </button>
                 </div>
-                <div id="finishingContainer" class="finishing-container max-h-56 overflow-y-auto pr-1">
+                <div id="finishingContainer" class="finishing-container max-h-56 overflow-y-auto pr-2">
                   ${finishingHtml}
                 </div>
               </div>
@@ -261,15 +213,11 @@ export default {
           const name = document.getElementById('productName').value
           const description = document.getElementById('description').value
           const unit = document.getElementById('unit').value
-          const price = parseInt(document.getElementById('price').value) || 0
-          const buy_price = parseInt(document.getElementById('buy_price').value) || 0
-          const stock_total = parseInt(document.getElementById('stock_total').value) || 0
-          const weight = parseInt(document.getElementById('weight').value) || 0
           const is_publish = parseInt(document.getElementById('is_publish').value)
           const thumbnail = document.getElementById('thumbnail').files[0]
 
-          if (!name || !description || !unit) {
-            Swal.showValidationMessage('Nama, deskripsi, dan unit harus diisi')
+          if (!name || !description || !unit || !thumbnail) {
+            Swal.showValidationMessage('Nama, deskripsi, unit, dan thumbnail harus diisi')
             return false
           }
 
@@ -362,16 +310,10 @@ export default {
             name,
             description,
             unit,
-            price,
-            buy_price,
-            stock_total,
-            weight,
             is_publish,
             thumbnail,
             product_variants: variations,
-            additionalOptions: finishing,
-            category: this.categories.find((cat) => cat.id === category_id)?.name || '',
-            status: is_publish ? 'active' : 'inactive',
+            product_finishing: finishing,
           }
 
           return product
@@ -385,7 +327,7 @@ export default {
 
     generateVariationsHtml(variations = []) {
       if (!variations || variations.length === 0) {
-        return '<div class="text-grey-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
+        return '<div class="text-gray-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
       }
 
       return variations
@@ -404,8 +346,8 @@ export default {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
-            <div class="col-span-2 md:col-span-3">
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-12 sm:gap-3">
+            <div class="col-span-2 sm:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Nama Variasi</label>
               <input
                 type="text"
@@ -414,7 +356,7 @@ export default {
                 value="${variation.name || ''}"
               >
             </div>
-            <div class="col-span-1 md:col-span-2">
+            <div class="col-span-1 sm:col-span-2">
               <label class="block text-gray-700 text-xs mb-1">Harga (Rp)</label>
               <input
                 type="number"
@@ -423,7 +365,7 @@ export default {
                 value="${variation.price || ''}"
               >
             </div>
-            <div class="col-span-1 md:col-span-2">
+            <div class="col-span-1 sm:col-span-2">
               <label class="block text-gray-700 text-xs mb-1">Stok</label>
               <input
                 type="number"
@@ -432,7 +374,7 @@ export default {
                 value="${variation.stock || 0}"
               >
             </div>
-            <div class="col-span-1 md:col-span-2">
+            <div class="col-span-1 sm:col-span-2">
               <label class="block text-gray-700 text-xs mb-1">Berat (gram)</label>
               <input
                 type="number"
@@ -441,7 +383,7 @@ export default {
                 value="${variation.weight || 0}"
               >
             </div>
-            <div class="col-span-1 md:col-span-2">
+            <div class="col-span-1 sm:col-span-2">
               <label class="block text-gray-700 text-xs mb-1">Jumlah Minimum</label>
               <input
                 type="number"
@@ -450,7 +392,7 @@ export default {
                 value="${variation.min_qty || 1}"
               >
             </div>
-            <div class="col-span-1 md:col-span-1 flex items-end pb-2">
+            <div class="col-span-2 sm:col-span-2 flex items-end pb-2">
               <label class="inline-flex items-center">
                 <input
                   type="radio"
@@ -469,7 +411,7 @@ export default {
 
     generateFinishingHtml(finishing = []) {
       if (!finishing || finishing.length === 0) {
-        return '<div class="text-grey-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
+        return '<div class="text-gray-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
       }
 
       return finishing.map((fin, index) => this.generateFinishingBox(fin, index)).join('')
@@ -483,8 +425,8 @@ export default {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-12 gap-2">
-            <div class="col-span-1 md:col-span-4">
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-12 sm:gap-3">
+            <div class="col-span-1 sm:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Nama Finishing</label>
               <input
                 type="text"
@@ -493,7 +435,7 @@ export default {
                 value="${finishing.name || ''}"
               >
             </div>
-            <div class="col-span-1 md:col-span-4">
+            <div class="col-span-1 sm:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Harga Tambahan (Rp)</label>
               <input
                 type="number"
@@ -502,7 +444,7 @@ export default {
                 value="${finishing.price || ''}"
               >
             </div>
-            <div class="col-span-1 md:col-span-4">
+            <div class="col-span-1 sm:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Kode Warna</label>
               <input
                 type="text"
@@ -584,13 +526,13 @@ export default {
             const varContainer = document.getElementById('variationsContainer')
             if (varContainer && varContainer.children.length === 0) {
               varContainer.innerHTML =
-                '<div class="text-grey-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
+                '<div class="text-gray-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
             }
 
             const finContainer = document.getElementById('finishingContainer')
             if (finContainer && finContainer.children.length === 0) {
               finContainer.innerHTML =
-                '<div class="text-grey-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
+                '<div class="text-gray-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
             }
           }
         })
@@ -671,5 +613,17 @@ export default {
 
 .finishing-container::-webkit-scrollbar-thumb:hover {
   background: #2563eb;
+}
+
+.form-compact input,
+.form-compact select,
+.form-compact textarea {
+  font-size: 0.875rem;
+  padding: 0.5rem;
+}
+
+.form-compact label {
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
 }
 </style>
