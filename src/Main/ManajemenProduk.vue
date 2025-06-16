@@ -423,8 +423,8 @@ export default {
           min_qty: product.min_qty || null,
           images: [product.thumbnail_url || 'https://placehold.co/1000x1000'],
           status: product.is_publish ? 'active' : 'inactive',
-          variant_count: product.variant_count || 0,
-          finishing_count: product.finishing_count || 0,
+          variant_count: product.variants_count || 0,
+          finishing_count: product.finishings_count || 0,
           variations: [],
           additionalOptions: [],
         }))
