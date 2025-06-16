@@ -76,7 +76,6 @@
               <option value="100">100</option>
             </select>
           </div>
-          <div v-if="isLoading" class="text-gray-600">Loading data...</div>
         </div>
 
         <!-- Loading State -->
@@ -86,10 +85,11 @@
           ></div>
         </div>
 
-        <!-- Product Table Component -->
+        <!-- Product Table or No Products -->
         <div v-else>
           <ProductTable
             :products="products"
+            :isLoading="isLoading"
             @edit-product="handleEditProduct"
             @delete-product="handleDeleteProduct"
             @change-status="handleStatusChange"
@@ -408,38 +408,34 @@ export default {
           data: { products },
           meta,
         } = response.data.data
-        this.products = await Promise.all(
-          products.map(async (product) => {
-            const [variants, finishing] = await Promise.all([
-              this.fetchVariants(product.id),
-              this.fetchFinishing(product.id),
-            ])
-            return {
-              id: product.id,
-              sku: product.sku,
-              category: this.getCategoryName(product.category_id),
-              category_id: product.category_id,
-              name: product.name,
-              description: product.description,
-              stock_total: parseInt(product.stock_total, 10) || 0,
-              unit: product.unit || 'pack',
-              price: product.price || 0,
-              weight: product.weight || 0,
-              min_qty: product.min_qty || null,
-              images: [product.thumbnail_url || 'https://placehold.co/1000x1000'],
-              status: product.is_publish ? 'active' : 'inactive',
-              variant_count: variants.length,
-              finishing_count: finishing.length,
-              variations: variants,
-              additionalOptions: finishing,
-            }
-          }),
-        )
+        // Update products and pagination
+        this.products = products.map((product) => ({
+          id: product.id,
+          sku: product.sku,
+          category: this.getCategoryName(product.category_id),
+          category_id: product.category_id,
+          name: product.name,
+          description: product.description,
+          stock_total: parseInt(product.stock_total, 10) || 0,
+          unit: product.unit || 'pack',
+          price: product.price || 0,
+          weight: product.weight || 0,
+          min_qty: product.min_qty || null,
+          images: [product.thumbnail_url || 'https://placehold.co/1000x1000'],
+          status: product.is_publish ? 'active' : 'inactive',
+          variant_count: product.variant_count || 0,
+          finishing_count: product.finishing_count || 0,
+          variations: [],
+          additionalOptions: [],
+        }))
         this.pagination = {
           total: meta.total || 0,
           page: meta.current_page || 1,
           limit: meta.per_page || this.pagination.limit,
         }
+        // Ensure DOM updates are complete before hiding loading state
+        await this.$nextTick()
+        this.isLoading = false
       } catch (error) {
         console.error('Error fetching products:', error)
         Swal.fire({
@@ -451,7 +447,7 @@ export default {
         })
         this.products = []
         this.pagination.total = 0
-      } finally {
+        await this.$nextTick()
         this.isLoading = false
       }
     },
@@ -747,8 +743,7 @@ export default {
             buy_price: parseInt(productResponse.data.data.buy_price) || 0,
             images: [
               productResponse.data.data.thumbnail_url ||
-                updatedProduct.images?.[0] ||
-                'https://placehold.co/1000x1000',
+                updatedProduct.images?.[0] || 'https://placehold.co/1000x1000',
             ],
             variant_count: updatedProduct.variations?.length || 0,
             finishing_count: updatedProduct.additionalOptions?.length || 0,
@@ -822,10 +817,8 @@ export default {
         title: 'Berhasil!',
         text: message,
         icon: 'success',
-        timer: 1500,
+        timer: 3000,
         showConfirmButton: false,
-      }).then(() => {
-        // Removed location.reload() to avoid unnecessary refreshes
       })
     },
   },

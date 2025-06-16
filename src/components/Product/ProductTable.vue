@@ -16,9 +16,18 @@
         </tr>
       </thead>
       <tbody>
-        <tr v-if="products.length === 0" class="border-b border-gray-300">
-          <td colspan="10" class="p-4 text-center">Tidak ada produk yang ditemukan</td>
+        <!-- Loading State -->
+        <tr v-if="isLoading" class="border-b border-gray-300">
+          <td colspan="10" class="p-4 text-center">
+            <div class="flex justify-center items-center">
+              <div
+                class="animate-spin h-8 w-8 border-4 border-red-600 border-t-transparent rounded-full"
+              ></div>
+              <span class="ml-2 text-gray-600">Memuat produk...</span>
+            </div>
+          </td>
         </tr>
+        <!-- Product Rows -->
         <tr v-else v-for="product in products" :key="product.id" class="border-b border-gray-300">
           <td class="p-4 text-center border-r border-gray-300">{{ product.category }}</td>
           <td class="p-4 text-center border-r border-gray-300">{{ product.name }}</td>
@@ -75,7 +84,7 @@
               ]"
               :value="product.status"
               @change="$emit('change-status', product, $event.target.value)"
-            >
+            id="product-status">
               <option value="active">Aktif</option>
               <option value="inactive">Nonaktif</option>
             </select>
@@ -102,6 +111,10 @@ export default {
       type: Array,
       required: true,
       default: () => [],
+    },
+    isLoading: {
+      type: Boolean,
+      default: false,
     },
   },
 }
