@@ -180,35 +180,13 @@ export default {
             'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
           actions: 'flex justify-center space-x-6',
         },
-        didOpen: () => {
-          this.setupVariationAndFinishingButtons()
-          const modalContent = document.querySelector('.swal2-content')
-          if (modalContent) {
-            modalContent.style.maxHeight = '70vh'
-            modalContent.style.overflowY = 'auto'
-            modalContent.style.overflowX = 'hidden'
-          }
-
-          const styleElement = document.createElement('style')
-          styleElement.textContent = `
-            .swal2-content::-webkit-scrollbar {
-              width: 6px;
-            }
-            .swal2-content::-webkit-scrollbar-track {
-              background: #f1f1f1;
-              border-radius: 10px;
-            }
-            .swal2-content::-webkit-scrollbar-thumb {
-              background: #dc2626;
-              border-radius: 10px;
-            }
-            .swal2-content::-webkit-scrollbar-thumb:hover {
-              background: #b91c1c;
-            }
-          `
-          document.head.appendChild(styleElement)
-        },
         preConfirm: () => {
+          // MySQL limits
+          const MAX_VARCHAR_255 = 255
+          const MAX_TEXT_LENGTH = 65535
+          const MAX_INT = 2147483647
+          const MAX_TINYINT = 255
+
           const category_id = parseInt(document.getElementById('category_id').value)
           const name = document.getElementById('productName').value
           const description = document.getElementById('description').value
@@ -216,13 +194,39 @@ export default {
           const is_publish = parseInt(document.getElementById('is_publish').value)
           const thumbnail = document.getElementById('thumbnail').files[0]
 
+          // Basic required field validation
           if (!name || !description || !unit || !thumbnail) {
             Swal.showValidationMessage('Nama, deskripsi, unit, dan thumbnail harus diisi')
             return false
           }
 
-          if (!category_id) {
-            Swal.showValidationMessage('Kategori harus dipilih')
+          // MySQL-specific validations
+          if (name.length > MAX_VARCHAR_255) {
+            Swal.showValidationMessage(
+              `Nama produk tidak boleh melebihi ${MAX_VARCHAR_255} karakter`,
+            )
+            return false
+          }
+
+          if (description.length > MAX_TEXT_LENGTH) {
+            Swal.showValidationMessage(`Deskripsi tidak boleh melebihi ${MAX_TEXT_LENGTH} karakter`)
+            return false
+          }
+
+          if (unit.length > MAX_VARCHAR_255) {
+            Swal.showValidationMessage(`Unit tidak boleh melebihi ${MAX_VARCHAR_255} karakter`)
+            return false
+          }
+
+          if (!category_id || category_id <= 0 || category_id > MAX_INT) {
+            Swal.showValidationMessage(
+              'Kategori harus dipilih dan tidak boleh melebihi batas maksimum',
+            )
+            return false
+          }
+
+          if (is_publish < 0 || is_publish > MAX_TINYINT) {
+            Swal.showValidationMessage('Status publikasi tidak valid')
             return false
           }
 
@@ -231,6 +235,9 @@ export default {
           let hasDefaultVariation = false
           let invalidWeight = false
           let invalidMinQty = false
+          let invalidVariation = false
+          let missingVariationFields = false
+          let invalidPrice = false
 
           if (variationBoxes.length === 0) {
             Swal.showValidationMessage('Produk harus memiliki minimal satu variasi')
@@ -246,27 +253,87 @@ export default {
             const minQtyInput = box.querySelector('.variation-min-qty')
             const isDefault = box.querySelector('.variation-default')?.checked
 
-            if (nameInput && nameInput.value) {
-              const stock = parseInt(stockInput.value) || 0
-              const weight = parseInt(weightInput.value) || 0
-              const minQty = parseInt(minQtyInput.value) || 1
-
-              if (stock > 0) hasStock = true
-              if (isDefault) hasDefaultVariation = true
-              if (weight <= 0) invalidWeight = true
-              if (minQty <= 0) invalidMinQty = true
-
-              variations.push({
-                id: productForm.product_variants[index]?.id || Date.now() + index,
-                name: nameInput.value,
-                price: parseInt(priceInput.value) || 0,
-                stock: stock,
-                weight: weight,
-                min_qty: minQty,
-                is_default: isDefault ? 1 : 0,
-              })
+            // Required field validation
+            if (!nameInput.value || !priceInput.value || !stockInput.value || !weightInput.value) {
+              missingVariationFields = true
+              return
             }
+
+            const price = parseInt(priceInput.value) || 0
+            const stock = parseInt(stockInput.value) || 0
+            const weight = parseInt(weightInput.value) || 0
+            const minQty = parseInt(minQtyInput.value) || 1
+
+            // MySQL-specific validations for variations
+            if (nameInput.value.length > MAX_VARCHAR_255) {
+              Swal.showValidationMessage(
+                `Nama variasi tidak boleh melebihi ${MAX_VARCHAR_255} karakter`,
+              )
+              invalidVariation = true
+              return
+            }
+
+            if (price <= 0 || price > MAX_INT) {
+              invalidPrice = true
+              return
+            }
+
+            if (stock < 0 || stock > MAX_INT) {
+              invalidVariation = true
+              return
+            }
+
+            if (weight <= 0 || weight > MAX_INT) {
+              invalidWeight = true
+              return
+            }
+
+            if (minQty <= 0 || minQty > MAX_INT) {
+              invalidMinQty = true
+              return
+            }
+
+            console.log('Variasi:', {
+              name: nameInput.value,
+              price,
+              stock,
+              weight,
+              minQty,
+              isDefault,
+            })
+
+            if (stock > 0) hasStock = true
+            if (isDefault) hasDefaultVariation = true
+
+            variations.push({
+              id: productForm.product_variants[index]?.id || Date.now() + index,
+              name: nameInput.value,
+              price: price,
+              stock: stock,
+              weight: weight,
+              min_qty: minQty,
+              is_default: isDefault ? 1 : 0,
+            })
           })
+
+          if (missingVariationFields) {
+            Swal.showValidationMessage('Semua field variasi (nama, harga, stok, berat) harus diisi')
+            return false
+          }
+
+          if (invalidPrice) {
+            Swal.showValidationMessage(
+              'Harga variasi harus lebih dari 0 dan tidak boleh melebihi batas maksimum',
+            )
+            return false
+          }
+
+          if (invalidVariation) {
+            Swal.showValidationMessage(
+              'Stok dan berat variasi tidak boleh bernilai minus atau melebihi batas maksimum',
+            )
+            return false
+          }
 
           if (!hasStock) {
             Swal.showValidationMessage('Setidaknya satu variasi harus memiliki stok')
@@ -274,17 +341,21 @@ export default {
           }
 
           if (!hasDefaultVariation) {
-            Swal.showValidationMessage('Pilih satu variasi sebagai default')
+            Swal.showValidationMessage('Pilih salah satu variasi sebagai default')
             return false
           }
 
           if (invalidWeight) {
-            Swal.showValidationMessage('Berat produk harus lebih dari 0 pada setiap variasi')
+            Swal.showValidationMessage(
+              'Berat produk harus lebih dari 0 dan tidak boleh melebihi batas maksimum',
+            )
             return false
           }
 
           if (invalidMinQty) {
-            Swal.showValidationMessage('Jumlah minimum harus lebih dari 0 pada setiap variasi')
+            Swal.showValidationMessage(
+              'Jumlah minimum harus lebih dari 0 dan tidak boleh melebihi batas maksimum',
+            )
             return false
           }
 
@@ -317,6 +388,34 @@ export default {
           }
 
           return product
+        },
+        didOpen: () => {
+          this.setupVariationAndFinishingButtons()
+          const modalContent = document.querySelector('.swal2-content')
+          if (modalContent) {
+            modalContent.style.maxHeight = '70vh'
+            modalContent.style.overflowY = 'auto'
+            modalContent.style.overflowX = 'hidden'
+          }
+
+          const styleElement = document.createElement('style')
+          styleElement.textContent = `
+            .swal2-content::-webkit-scrollbar {
+              width: 6px;
+            }
+            .swal2-content::-webkit-scrollbar-track {
+              background: #f1f1f1;
+              border-radius: 10px;
+            }
+            .swal2-content::-webkit-scrollbar-thumb {
+              background: #dc2626;
+              border-radius: 10px;
+            }
+            .swal2-content::-webkit-scrollbar-thumb:hover {
+              background: #b91c1c;
+            }
+          `
+          document.head.appendChild(styleElement)
         },
       }).then((result) => {
         if (result.isConfirmed && result.value) {
