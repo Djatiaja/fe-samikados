@@ -3,7 +3,7 @@
     <!-- Overlay for sidebar on mobile -->
     <div
       id="overlay"
-      :class="{ 'block': isSidebarActive && isMobile, 'hidden': !isSidebarActive || !isMobile }"
+      :class="{ block: isSidebarActive && isMobile, hidden: !isSidebarActive || !isMobile }"
       @click="toggleSidebar"
       class="fixed inset-0 bg-opacity-20 z-20"
     ></div>
@@ -11,19 +11,23 @@
     <!-- Header -->
     <HeaderSeller @toggle-sidebar="toggleSidebar" :showSearch="true">
       <template #search>
-          <div class="relative w-full">
+        <div class="relative w-full">
           <input
-              type="text"
-              v-model="searchQuery"
-              placeholder="Cari pengiriman..."
-              class="w-full pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-2 bg-white text-black"
-          >
+            type="text"
+            v-model="searchQuery"
+            placeholder="Cari pengiriman..."
+            class="w-full pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-2 bg-white text-black"
+          />
           <div class="absolute left-4 top-3">
-              <img src="/icon/magnifying-glass-solid.svg" alt="Search" class="h-4 w-4 text-gray-400">
+            <img
+              src="/icon/magnifying-glass-solid.svg"
+              alt="Search"
+              class="h-4 w-4 text-gray-400"
+            />
           </div>
-          </div>
+        </div>
       </template>
-  </HeaderSeller>
+    </HeaderSeller>
 
     <!-- Sidebar -->
     <SidebarSeller :isSidebarActive="isSidebarActive" />
@@ -38,7 +42,10 @@
 
         <!-- Filter Dropdown -->
         <div class="mb-4">
-          <select v-model="statusFilter" class="block w-60 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600">
+          <select
+            v-model="statusFilter"
+            class="block w-60 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
+          >
             <option value="all">Semua</option>
             <option value="perjalanan">Dalam Perjalanan</option>
             <option value="diterima">Diterima</option>
@@ -49,7 +56,12 @@
         <div class="mb-4 flex justify-between items-center">
           <div>
             <label for="entriesPerPage" class="mr-2">Entries per page:</label>
-            <select v-model="entriesPerPage" id="entriesPerPage" class="p-2 border border-gray-300 rounded-md" @change="changeEntriesPerPage">
+            <select
+              v-model="entriesPerPage"
+              id="entriesPerPage"
+              class="p-2 border border-gray-300 rounded-md"
+              @change="changeEntriesPerPage"
+            >
               <option value="10">10</option>
               <option value="25">25</option>
               <option value="50">50</option>
@@ -57,9 +69,7 @@
             </select>
           </div>
 
-          <div v-if="isLoading" class="text-gray-600">
-            Loading data...
-          </div>
+          <div v-if="isLoading" class="text-gray-600">Loading data...</div>
         </div>
 
         <!-- Responsive Table -->
@@ -74,15 +84,25 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="paginatedDeliveries.length === 0 && !isLoading" class="border-b border-gray-300">
+              <tr
+                v-if="paginatedDeliveries.length === 0 && !isLoading"
+                class="border-b border-gray-300"
+              >
                 <td colspan="4" class="p-4 text-center">Tidak ada data pengiriman</td>
               </tr>
-              <tr v-for="delivery in paginatedDeliveries" :key="delivery.id" class="border-b border-gray-300 hover:bg-gray-100">
+              <tr
+                v-for="delivery in paginatedDeliveries"
+                :key="delivery.id"
+                class="border-b border-gray-300 hover:bg-gray-100"
+              >
                 <td class="p-4 text-center border-r border-gray-300">{{ delivery.id }}</td>
                 <td class="p-4 text-center border-r border-gray-300">{{ delivery.user.name }}</td>
                 <td class="p-4 text-center border-r border-gray-300">{{ delivery.resi }}</td>
                 <td class="p-4 text-center">
-                  <span class="px-3 py-1 rounded-full text-sm" :class="getStatusClass(delivery.status)">
+                  <span
+                    class="px-3 py-1 rounded-full text-sm"
+                    :class="getStatusClass(delivery.status)"
+                  >
                     {{ delivery.original_status }}
                   </span>
                 </td>
@@ -112,7 +132,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &laquo;
+              «
             </button>
 
             <!-- Previous Page -->
@@ -126,7 +146,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &lsaquo;
+              ‹
             </button>
 
             <!-- Page Numbers -->
@@ -159,7 +179,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &rsaquo;
+              ›
             </button>
 
             <!-- Last Page -->
@@ -173,11 +193,10 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &raquo;
+              »
             </button>
           </div>
         </div>
-
       </div>
     </div>
 
@@ -186,10 +205,10 @@
 </template>
 
 <script>
-import HeaderSeller from "@/components/HeaderSeller.vue";
-import SidebarSeller from "@/components/SidebarSeller.vue";
-import FooterSeller from "@/components/FooterSeller.vue";
-import axios from 'axios';
+import HeaderSeller from '@/components/HeaderSeller.vue'
+import SidebarSeller from '@/components/SidebarSeller.vue'
+import FooterSeller from '@/components/FooterSeller.vue'
+import axios from 'axios'
 
 export default {
   components: { HeaderSeller, SidebarSeller, FooterSeller },
@@ -203,149 +222,153 @@ export default {
       searchQuery: '',
       deliveries: [],
       isLoading: true,
-      baseUrl: 'http://127.0.0.1:8000/api',
+      baseUrl: import.meta.env.VITE_API_BASE_URL, // Updated to use .env variable
       maxPageButtons: 5, // Maximum number of page buttons to display
-    };
+    }
   },
   computed: {
     filteredDeliveries() {
-      let filtered = [...this.deliveries];
+      let filtered = [...this.deliveries]
 
       // Apply status filter
       if (this.statusFilter !== 'all') {
-        filtered = filtered.filter(delivery => (delivery.status || 'perjalanan') === this.statusFilter);
+        filtered = filtered.filter(
+          (delivery) => (delivery.status || 'perjalanan') === this.statusFilter,
+        )
       }
 
       // Apply search filter
       if (this.searchQuery) {
-        const query = this.searchQuery.toLowerCase();
-        filtered = filtered.filter(delivery =>
-          delivery.user.name.toLowerCase().includes(query) ||
-          delivery.resi.toLowerCase().includes(query) ||
-          delivery.id.toString().includes(query)
-        );
+        const query = this.searchQuery.toLowerCase()
+        filtered = filtered.filter(
+          (delivery) =>
+            delivery.user.name.toLowerCase().includes(query) ||
+            delivery.resi.toLowerCase().includes(query) ||
+            delivery.id.toString().includes(query),
+        )
       }
 
-      return filtered;
+      return filtered
     },
     paginatedDeliveries() {
       // Apply pagination
-      const startIndex = (this.currentPage - 1) * this.entriesPerPage;
-      const endIndex = startIndex + parseInt(this.entriesPerPage);
-      return this.filteredDeliveries.slice(startIndex, endIndex);
+      const startIndex = (this.currentPage - 1) * this.entriesPerPage
+      const endIndex = startIndex + parseInt(this.entriesPerPage)
+      return this.filteredDeliveries.slice(startIndex, endIndex)
     },
     totalPages() {
-      return Math.ceil(this.filteredDeliveries.length / this.entriesPerPage) || 1;
+      return Math.ceil(this.filteredDeliveries.length / this.entriesPerPage) || 1
     },
     paginationInfo() {
-      const from = this.filteredDeliveries.length === 0 ? 0 : (this.currentPage - 1) * this.entriesPerPage + 1;
-      const to = Math.min(from + parseInt(this.entriesPerPage) - 1, this.filteredDeliveries.length);
-      return { from, to };
+      const from =
+        this.filteredDeliveries.length === 0 ? 0 : (this.currentPage - 1) * this.entriesPerPage + 1
+      const to = Math.min(from + parseInt(this.entriesPerPage) - 1, this.filteredDeliveries.length)
+      return { from, to }
     },
     displayedPages() {
       if (this.totalPages <= this.maxPageButtons) {
         // If we have fewer pages than maxPageButtons, show all page numbers
-        return Array.from({ length: this.totalPages }, (_, i) => i + 1);
+        return Array.from({ length: this.totalPages }, (_, i) => i + 1)
       }
 
-      let pages = [];
-      const halfMax = Math.floor(this.maxPageButtons / 2);
+      let pages = []
+      const halfMax = Math.floor(this.maxPageButtons / 2)
 
       // Always show first page
-      pages.push(1);
+      pages.push(1)
 
       // Show ellipsis if current page is more than halfMax + 2 from start
       if (this.currentPage > halfMax + 2) {
-        pages.push('...');
+        pages.push('...')
       }
 
       // Pages around current page
-      const startPage = Math.max(2, this.currentPage - halfMax);
-      const endPage = Math.min(this.totalPages - 1, this.currentPage + halfMax);
+      const startPage = Math.max(2, this.currentPage - halfMax)
+      const endPage = Math.min(this.totalPages - 1, this.currentPage + halfMax)
 
       for (let i = startPage; i <= endPage; i++) {
         if (i !== 1 && i !== this.totalPages) {
-          pages.push(i);
+          pages.push(i)
         }
       }
 
       // Show ellipsis if current page is more than halfMax + 2 from end
       if (this.currentPage < this.totalPages - halfMax - 1) {
-        pages.push('...');
+        pages.push('...')
       }
 
       // Always show last page if it's not page 1
       if (this.totalPages > 1) {
-        pages.push(this.totalPages);
+        pages.push(this.totalPages)
       }
 
-      return pages;
-    }
+      return pages
+    },
   },
   mounted() {
-    this.isSidebarActive = window.innerWidth >= 1024;
-    window.addEventListener('resize', this.handleResize);
+    this.isSidebarActive = window.innerWidth >= 1024
+    window.addEventListener('resize', this.handleResize)
 
     // Set authentication token
-    const token = localStorage.getItem('token');
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const token = localStorage.getItem('token')
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 
-    this.fetchDeliveries();
+    this.fetchDeliveries()
   },
   beforeUnmount() {
-    window.removeEventListener('resize', this.handleResize);
+    window.removeEventListener('resize', this.handleResize)
   },
-  methods:{
+  methods: {
     toggleSidebar() {
       if (this.isMobile) {
-        this.isSidebarActive = !this.isSidebarActive;
+        this.isSidebarActive = !this.isSidebarActive
       }
     },
     handleResize() {
-      this.isMobile = window.innerWidth < 1024;
-      this.isSidebarActive = !this.isMobile;
+      this.isMobile = window.innerWidth < 1024
+      this.isSidebarActive = !this.isMobile
     },
     fetchDeliveries() {
-      this.isLoading = true;
-      axios.get(`${this.baseUrl}/seller/pengiriman`)
-        .then(response => {
+      this.isLoading = true
+      axios
+        .get(`${this.baseUrl}/seller/pengiriman`)
+        .then((response) => {
           if (response.data.status === 'success') {
             // Save all deliveries and set status as status
-            this.deliveries = response.data.data.map(delivery => {
+            this.deliveries = response.data.data.map((delivery) => {
               return {
                 ...delivery,
                 // Use status as status but always display as "perjalanan"
                 status: 'perjalanan',
-                original_status: delivery.status
-              };
-            });
+                original_status: delivery.status,
+              }
+            })
           } else {
-            console.error('Failed to fetch deliveries:', response.data.error);
+            console.error('Failed to fetch deliveries:', response.data.error)
           }
         })
-        .catch(error => {
-          console.error('Error fetching deliveries:', error);
+        .catch((error) => {
+          console.error('Error fetching deliveries:', error)
         })
         .finally(() => {
-          this.isLoading = false;
-        });
+          this.isLoading = false
+        })
     },
     changeEntriesPerPage() {
-      this.currentPage = 1; // Reset to first page when changing entries per page
+      this.currentPage = 1 // Reset to first page when changing entries per page
     },
     goToPage(page) {
       if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        this.currentPage = page
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       }
     },
     getStatusClass(status) {
       // Always return yellow color for now
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-yellow-100 text-yellow-800'
     },
-    // Method removed as action button is no longer needed
-  }
-};
+  },
+}
 </script>
 
 <style scoped>

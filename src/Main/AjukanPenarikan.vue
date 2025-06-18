@@ -155,7 +155,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &laquo;
+              «
             </button>
 
             <!-- Previous Page -->
@@ -169,7 +169,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &lsaquo;
+              ‹
             </button>
 
             <!-- Page Numbers -->
@@ -202,7 +202,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &rsaquo;
+              ›
             </button>
 
             <!-- Last Page -->
@@ -216,7 +216,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &raquo;
+              »
             </button>
           </div>
         </div>
@@ -252,7 +252,7 @@ export default {
       isLoadingWithdrawals: false,
       isLoadingBankAccounts: false,
       errorWithdrawals: null,
-      baseUrl: 'http://127.0.0.1:8000/api',
+      baseUrl: import.meta.env.VITE_API_BASE_URL, // Updated to use .env variable
     }
   },
   computed: {
@@ -335,7 +335,7 @@ export default {
     window.addEventListener('resize', this.handleResize)
 
     try {
-      // Set authorization header first, like in code 2
+      // Set authorization header first
       const token = localStorage.getItem('token')
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 
@@ -406,21 +406,9 @@ export default {
       const bank = this.banks.find((b) => b.id === bankId)
       return bank ? bank.nama : 'Unknown Bank'
     },
-    updatePagination() {
-      if (this.currentPage > this.totalPages && this.totalPages > 0) {
-        this.currentPage = this.totalPages
-      }
-      // No need to call fetchWithdrawals() here as we're doing client-side pagination
-    },
-    goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
-      }
-    },
     async fetchUserBalance() {
       this.isLoadingBalance = true
       try {
-        // Ensure token is set before making request
         const token = localStorage.getItem('token')
         if (!token) {
           this.handleUnauthorized()
@@ -442,7 +430,6 @@ export default {
     },
     async fetchBanks() {
       try {
-        // Ensure token is set before making request
         const token = localStorage.getItem('token')
         if (!token) {
           this.handleUnauthorized()
@@ -463,7 +450,6 @@ export default {
     async fetchUserBankAccounts() {
       this.isLoadingBankAccounts = true
       try {
-        // Ensure token is set before making request
         const token = localStorage.getItem('token')
         if (!token) {
           this.handleUnauthorized()
@@ -487,15 +473,12 @@ export default {
       this.isLoadingWithdrawals = true
       this.errorWithdrawals = null
       try {
-        // Ensure token is set before making request
         const token = localStorage.getItem('token')
         if (!token) {
           this.handleUnauthorized()
           return
         }
 
-        // Fetch all withdrawals at once instead of paginating on server
-        // We'll handle pagination client-side
         const response = await axios.get(`${this.baseUrl}/seller/withdrawals`, {
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -678,7 +661,6 @@ export default {
     },
     async saveNewBankAccount(accountData) {
       try {
-        // Ensure token is set before making request
         const token = localStorage.getItem('token')
         if (!token) {
           this.handleUnauthorized()
@@ -705,7 +687,6 @@ export default {
     },
     async submitWithdrawalRequest(data) {
       try {
-        // Ensure token is set before making request
         const token = localStorage.getItem('token')
         if (!token) {
           this.handleUnauthorized()
@@ -739,7 +720,6 @@ export default {
     },
   },
   watch: {
-    // Reset to page 1 when filter or search changes
     statusFilter() {
       this.currentPage = 1
     },

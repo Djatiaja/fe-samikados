@@ -94,10 +94,13 @@ export default {
 
     const handleLogin = async () => {
       try {
-        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
-          loginParam: userInput.value,
-          password: password.value,
-        })
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/auth/seller/login`,
+          {
+            loginParam: userInput.value,
+            password: password.value,
+          },
+        )
 
         // Simpan token ke localStorage
         localStorage.setItem('token', response.data.data.token)

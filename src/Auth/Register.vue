@@ -61,27 +61,102 @@
               <textarea
                 v-model="form.address"
                 class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-                placeholder="Alamat"
+                placeholder="Detail Alamat (Patokan, Ciri-ciri)"
                 rows="3"
               ></textarea>
               <small v-if="errors.address" class="text-red-500">{{ errors.address }}</small>
             </div>
 
-            <div class="mb-4">
-              <input
-                v-model="form.postal_code"
-                class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-                placeholder="Kode Pos"
-                type="text"
-              />
-              <small v-if="errors.postal_code" class="text-red-500">{{ errors.postal_code }}</small>
+            <!-- Location Search -->
+            <div class="mb-4 relative">
+              <div class="flex">
+                <input
+                  v-model="locationSearch"
+                  class="flex-1 p-3 border border-gray-300 rounded-l-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+                  placeholder="Cari alamat (contoh: sleman)"
+                  type="text"
+                />
+                <button
+                  type="button"
+                  @click="searchLocation"
+                  :disabled="isLoadingLocation"
+                  class="bg-red-600 text-white px-4 py-3 rounded-r-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  <i v-if="isLoadingLocation" class="fas fa-spinner fa-spin"></i>
+                  <i v-else class="fas fa-search"></i>
+                </button>
+              </div>
+
+              <!-- Display selected location -->
+              <div
+                v-if="selectedLocation"
+                class="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg"
+              >
+                <div class="flex items-center text-green-700">
+                  <i class="fas fa-check-circle mr-2"></i>
+                  <span class="font-medium">Alamat dipilih:</span>
+                </div>
+                <div class="text-green-600 mt-1">
+                  {{ formatLocationDisplay(selectedLocation) }}
+                </div>
+              </div>
+
+              <small v-if="errors.label" class="text-red-500">{{ errors.label }}</small>
+              <small v-if="locationError" class="text-red-500">{{ locationError }}</small>
+
+              <!-- Dropdown -->
+              <div
+                v-if="showLocationDropdown"
+                class="mt-2 bg-white shadow-lg rounded-md absolute w-full z-50 text-black max-h-64 overflow-y-auto"
+              >
+                <div v-if="locations.length === 0" class="p-4 text-gray-500 text-center">
+                  Tidak ada alamat yang ditemukan
+                </div>
+
+                <template v-else>
+                  <!-- Current selection -->
+                  <div v-if="selectedLocation" class="p-4 border-b cursor-pointer bg-gray-100">
+                    <div class="flex items-center text-red-600">
+                      <i class="fas fa-map-marker-alt mr-2"></i>
+                      <span class="font-semibold">Alamat terpilih</span>
+                    </div>
+                    <div class="text-red-600 mt-1">
+                      {{ formatLocationDisplay(selectedLocation) }}
+                    </div>
+                  </div>
+
+                  <!-- Location results -->
+                  <div class="p-4">
+                    <div class="text-gray-500 text-sm mb-2">HASIL PENCARIAN</div>
+                    <div
+                      v-for="location in locations"
+                      :key="location.id"
+                      class="flex items-center text-gray-700 py-2 cursor-pointer hover:bg-gray-100"
+                      @click="selectLocation(location)"
+                    >
+                      <i class="fas fa-map-marker-alt mr-2"></i>
+                      <span>{{ formatLocationDisplay(location) }}</span>
+                    </div>
+                  </div>
+                </template>
+
+                <div class="p-3 text-center border-t">
+                  <button
+                    type="button"
+                    @click="showLocationDropdown = false"
+                    class="text-gray-500 hover:text-gray-700"
+                  >
+                    Tutup
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div class="mb-4">
               <textarea
                 v-model="form.description"
                 class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-                placeholder="Deskripsi "
+                placeholder="Deskripsi"
                 rows="3"
               ></textarea>
               <small v-if="errors.description" class="text-red-500">{{ errors.description }}</small>
@@ -159,14 +234,12 @@
 <script>
 import Swal from 'sweetalert2'
 import AuthHeader from '@/components/AuthHeader.vue'
-import AuthMainButton from '@/components/AuthMainButton.vue'
 import AuthFooter from '@/components/AuthFooter.vue'
 import axios from 'axios'
 
 export default {
   components: {
     AuthHeader,
-    AuthMainButton,
     AuthFooter,
   },
   data() {
@@ -178,13 +251,20 @@ export default {
         name: '',
         no_telpon: '',
         address: '',
-        postal_code: '',
         description: '',
         email: '',
         password: '',
         password_confirmation: '',
+        label: '',
       },
       errors: {},
+      // Location search related
+      locationSearch: '',
+      locations: [],
+      selectedLocation: null,
+      showLocationDropdown: false,
+      isLoadingLocation: false,
+      locationError: '',
     }
   },
   methods: {
@@ -210,11 +290,11 @@ export default {
       this.errors = {}
 
       if (!this.form.address) {
-        this.errors.address = 'Alamat wajib diisi'
+        this.errors.address = 'Detail alamat wajib diisi'
       }
 
-      if (!this.form.postal_code || !/^\d+$/.test(this.form.postal_code)) {
-        this.errors.postal_code = 'Kode pos hanya boleh angka'
+      if (!this.form.label) {
+        this.errors.label = 'Alamat wajib dipilih dari hasil pencarian'
       }
 
       if (this.form.description && this.form.description.length > 255) {
@@ -250,6 +330,53 @@ export default {
       }
     },
 
+    async searchLocation() {
+      if (!this.locationSearch.trim()) {
+        this.locationError = 'Masukkan kata kunci pencarian'
+        return
+      }
+
+      this.isLoadingLocation = true
+      this.locationError = ''
+
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/rajaongkir/search/${this.locationSearch.trim()}`,
+        )
+
+        if (response.data.status === 'success' && response.data.data.data) {
+          this.locations = response.data.data.data
+          this.showLocationDropdown = true
+        } else {
+          this.locations = []
+          this.locationError = 'Tidak ada hasil pencarian'
+        }
+      } catch (error) {
+        this.locationError = 'Gagal mencari alamat. Silakan coba lagi.'
+        this.locations = []
+        console.error('Location search error:', error)
+      } finally {
+        this.isLoadingLocation = false
+      }
+    },
+
+    selectLocation(location) {
+      this.selectedLocation = location
+      this.form.label = location.label // Send full label to API
+      this.showLocationDropdown = false
+      this.locationError = ''
+
+      // Clear the errors when location is selected
+      if (this.errors.label) {
+        delete this.errors.label
+      }
+    },
+
+    formatLocationDisplay(location) {
+      // Format: SUBDISTRICT, DISTRICT, CITY, ZIP_CODE
+      return `${location.subdistrict_name}, ${location.district_name}, ${location.city_name}, ${location.zip_code}`
+    },
+
     async submitForm() {
       if (this.step === 3 && this.validateStepThree()) {
         this.isLoading = true
@@ -264,7 +391,7 @@ export default {
             password_confirmation: this.form.password_confirmation,
             address: this.form.address,
             description: this.form.description,
-            postal_code: this.form.postal_code,
+            label: this.form.label,
           }
 
           const response = await axios.post(
@@ -272,7 +399,7 @@ export default {
             payload,
           )
 
-          if (response.status === 201) {
+          if (response.data.status === 'success') {
             Swal.fire({
               title: 'Registrasi Berhasil!',
               text: 'Akun Anda telah terdaftar. Silakan login.',
@@ -322,5 +449,19 @@ export default {
       }
     },
   },
+
+  // Close dropdown when clicking outside
+  mounted() {
+    document.addEventListener('click', (e) => {
+      if (!this.$el.contains(e.target)) {
+        this.showLocationDropdown = false
+      }
+    })
+  },
 }
 </script>
+
+<style scoped>
+/* Add FontAwesome CDN in your index.html or main template */
+/* <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"> */
+</style>

@@ -19,17 +19,16 @@
       <div class="p-4 md:p-6 lg:p-8">
         <!-- Loading State -->
         <div v-if="loading" class="flex justify-center items-center h-96">
-          <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-red-600"></div>
+          <div
+            class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-red-600"
+          ></div>
         </div>
 
         <!-- Error State -->
         <div v-else-if="error" class="flex justify-center items-center h-96 flex-col">
           <div class="text-red-600 text-xl font-bold mb-4">Gagal memuat data</div>
           <p class="text-gray-600">{{ error }}</p>
-          <button
-            @click="fetchUserData"
-            class="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg"
-          >
+          <button @click="fetchUserData" class="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg">
             Coba Lagi
           </button>
         </div>
@@ -89,7 +88,10 @@
               <div class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base">
                 {{ userData.email }}
               </div>
-              <div v-if="userData.address" class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base">
+              <div
+                v-if="userData.address"
+                class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base"
+              >
                 {{ userData.address }}
               </div>
             </div>
@@ -102,7 +104,10 @@
           </div>
         </div>
         <!-- Action Buttons -->
-        <div v-if="!loading && !error" class="mt-20 md:mt-32 space-y-4 flex flex-col items-center justify-center">
+        <div
+          v-if="!loading && !error"
+          class="mt-20 md:mt-32 space-y-4 flex flex-col items-center justify-center"
+        >
           <button
             class="w-full max-w-md lg:w-1/3 bg-red-600 text-white py-3 rounded-xl text-sm sm:text-base"
             @click="openChangePasswordModal"
@@ -136,7 +141,7 @@ export default {
       isMobile: window.innerWidth < 1024,
       statusFilter: 'all',
       entriesPerPage: 25,
-      baseUrl: 'http://127.0.0.1:8000/api',
+      baseUrl: import.meta.env.VITE_API_BASE_URL, // Use .env variable
       loading: false,
       error: null,
       userData: {
@@ -147,16 +152,6 @@ export default {
         isActive: true,
         profilePicture: 'https://placehold.co/300x300',
       },
-      bankAccounts: [
-        { id: 1, bankName: 'BCA', accountNumber: '1234567890', accountName: 'RuangJayaPrint' },
-        { id: 2, bankName: 'Mandiri', accountNumber: '0987654321', accountName: 'RuangJayaPrint' },
-      ],
-      banks: [
-        { id: 1, name: 'BCA' },
-        { id: 2, name: 'Mandiri' },
-        { id: 3, name: 'BNI' },
-        { id: 4, name: 'BRI' },
-      ],
     }
   },
   mounted() {
@@ -172,34 +167,42 @@ export default {
       this.loading = true
       this.error = null
 
-      // Get token from localStorage or wherever it's stored
-      const token = localStorage.getItem('token') || 'token' // Use default for development
+      // Get token from localStorage
+      const token = localStorage.getItem('token')
+      if (!token) {
+        this.$router.push('/login')
+        return
+      }
 
-      axios.get(`${this.baseUrl}/seller/profile`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      .then(response => {
-        if (response.data.status === 'success') {
-          // Map API data to userData
-          const apiData = response.data.data
-          this.userData = {
-            ...this.userData,
-            ...apiData,
-            isActive: apiData.isActive === 1
+      axios
+        .get(`${this.baseUrl}/seller/profile`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .then((response) => {
+          if (response.data.status === 'success') {
+            // Map API data to userData
+            const apiData = response.data.data
+            this.userData = {
+              ...this.userData,
+              ...apiData,
+              isActive: apiData.isActive === 1,
+            }
+          } else {
+            this.error = response.data.message || 'Terjadi kesalahan saat memuat data'
           }
-        } else {
-          this.error = response.data.message || 'Terjadi kesalahan saat memuat data'
-        }
-      })
-      .catch(error => {
-        console.error('Error fetching profile data:', error)
-        this.error = error.response?.data?.message || 'Gagal memuat data. Silakan coba lagi.'
-      })
-      .finally(() => {
-        this.loading = false
-      })
+        })
+        .catch((error) => {
+          console.error('Error fetching profile data:', error)
+          this.error = error.response?.data?.message || 'Gagal memuat data. Silakan coba lagi.'
+          if (error.response?.status === 401) {
+            this.$router.push('/login')
+          }
+        })
+        .finally(() => {
+          this.loading = false
+        })
     },
     toggleSidebar() {
       if (this.isMobile) {
@@ -213,37 +216,63 @@ export default {
     toggleAccountStatus() {
       this.loading = true
 
-      const token = localStorage.getItem('token') || 'token'
+      const token = localStorage.getItem('token')
+      if (!token) {
+        this.$router.push('/login')
+        return
+      }
+
       const newStatus = this.userData.isActive ? 0 : 1
 
-      axios.post(`${this.baseUrl}/seller/profile`, {
-        isActive: newStatus
-      }, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      .then(response => {
-        if (response.data.status === 'success') {
-          this.userData.isActive = !this.userData.isActive
-          const statusMessage = this.userData.isActive ? 'diaktifkan' : 'dinonaktifkan'
-          Swal.fire({
-            title: `<h3 class="text-lg font-bold">Status Akun</h3>`,
-            text: `Akun anda telah berhasil ${statusMessage}`,
-            icon: 'success',
-            confirmButtonText: 'OK',
-            buttonsStyling: false,
-            customClass: {
-              confirmButton:
-                'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+      axios
+        .post(
+          `${this.baseUrl}/seller/profile`,
+          {
+            isActive: newStatus,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
             },
-          })
-        } else {
+          },
+        )
+        .then((response) => {
+          if (response.data.status === 'success') {
+            this.userData.isActive = !this.userData.isActive
+            const statusMessage = this.userData.isActive ? 'diaktifkan' : 'dinonaktifkan'
+            Swal.fire({
+              title: `<h3 class="text-lg font-bold">Status Akun</h3>`,
+              text: `Akun anda telah berhasil ${statusMessage}`,
+              icon: 'success',
+              confirmButtonText: 'OK',
+              buttonsStyling: false,
+              customClass: {
+                confirmButton:
+                  'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+              },
+            })
+          } else {
+            // Revert back since update failed
+            this.userData.isActive = !this.userData.isActive
+            Swal.fire({
+              title: `<h3 class="text-lg font-bold">Gagal</h3>`,
+              text: response.data.message || 'Gagal mengubah status akun',
+              icon: 'error',
+              confirmButtonText: 'OK',
+              buttonsStyling: false,
+              customClass: {
+                confirmButton:
+                  'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+              },
+            })
+          }
+        })
+        .catch((error) => {
           // Revert back since update failed
           this.userData.isActive = !this.userData.isActive
           Swal.fire({
             title: `<h3 class="text-lg font-bold">Gagal</h3>`,
-            text: response.data.message || 'Gagal mengubah status akun',
+            text: error.response?.data?.message || 'Terjadi kesalahan saat mengubah status',
             icon: 'error',
             confirmButtonText: 'OK',
             buttonsStyling: false,
@@ -252,26 +281,10 @@ export default {
                 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
             },
           })
-        }
-      })
-      .catch(error => {
-        // Revert back since update failed
-        this.userData.isActive = !this.userData.isActive
-        Swal.fire({
-          title: `<h3 class="text-lg font-bold">Gagal</h3>`,
-          text: error.response?.data?.message || 'Terjadi kesalahan saat mengubah status',
-          icon: 'error',
-          confirmButtonText: 'OK',
-          buttonsStyling: false,
-          customClass: {
-            confirmButton:
-              'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
-          },
         })
-      })
-      .finally(() => {
-        this.loading = false
-      })
+        .finally(() => {
+          this.loading = false
+        })
     },
     openPhotoModal() {
       Swal.fire({
@@ -305,7 +318,8 @@ export default {
           }
 
           const file = fileInput.files[0]
-          if (file.size > 2 * 1024 * 1024) { // 2MB
+          if (file.size > 2 * 1024 * 1024) {
+            // 2MB
             Swal.showValidationMessage('Ukuran file maksimal 2MB')
             return false
           }
@@ -319,37 +333,39 @@ export default {
         },
       })
     },
-
-uploadProfilePicture(formData) {
-  const token = localStorage.getItem('token') || 'token'
-
-  return axios.post(`${this.baseUrl}/seller/profile/photo`, formData, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'multipart/form-data'
-    }
-  })
-  .then(response => {
-    if (response.data.status === 'success') {
-      // Update local userData with new picture URL from response
-      // The response.data.data is a string URL, not an object with profilePicture
-      if (response.data.data) {
-        this.userData.profilePicture = response.data.data
+    uploadProfilePicture(formData) {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        this.$router.push('/login')
+        return
       }
 
-      window.location.reload() // Reload the page to reflect changes
-      return true
-    } else {
-      throw new Error(response.data.message || 'Gagal mengunggah foto')
-    }
-  })
-  .catch(error => {
-    Swal.showValidationMessage(
-      error.response?.data?.message || 'Gagal mengunggah foto. Silakan coba lagi.'
-    )
-    return false
-  })
-},
+      return axios
+        .post(`${this.baseUrl}/seller/profile/photo`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        })
+        .then((response) => {
+          if (response.data.status === 'success') {
+            // Update local userData with new picture URL from response
+            if (response.data.data) {
+              this.userData.photo_url = response.data.data
+            }
+            window.location.reload() // Reload the page to reflect changes
+            return true
+          } else {
+            throw new Error(response.data.message || 'Gagal mengunggah foto')
+          }
+        })
+        .catch((error) => {
+          Swal.showValidationMessage(
+            error.response?.data?.message || 'Gagal mengunggah foto. Silakan coba lagi.',
+          )
+          return false
+        })
+    },
     openEditModal() {
       Swal.fire({
         title: `<h3 class="text-lg font-bold">Edit Profil</h3>`,
@@ -414,9 +430,9 @@ uploadProfilePicture(formData) {
 
           // Create updated profile data
           const updatedData = {
-            name:name,
+            name: name,
             no_telp: phone,
-            address:address
+            address: address,
           }
 
           // Return promise to handle update
@@ -439,31 +455,36 @@ uploadProfilePicture(formData) {
       })
     },
     updateProfile(data) {
-      const token = localStorage.getItem('token') || 'token'
+      const token = localStorage.getItem('token')
+      if (!token) {
+        this.$router.push('/login')
+        return
+      }
 
-      return axios.post(`${this.baseUrl}/seller/profile`, data, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      .then(response => {
-        if (response.data.status === 'success') {
-          // Update userData with new data
-          this.userData = {
-            ...this.userData,
-            ...data
+      return axios
+        .post(`${this.baseUrl}/seller/profile`, data, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .then((response) => {
+          if (response.data.status === 'success') {
+            // Update userData with new data
+            this.userData = {
+              ...this.userData,
+              ...data,
+            }
+            return true
+          } else {
+            throw new Error(response.data.message || 'Gagal memperbarui profil')
           }
-          return true
-        } else {
-          throw new Error(response.data.message || 'Gagal memperbarui profil')
-        }
-      })
-      .catch(error => {
-        Swal.showValidationMessage(
-          error.response?.data?.message || 'Gagal memperbarui profil. Silakan coba lagi.'
-        )
-        return false
-      })
+        })
+        .catch((error) => {
+          Swal.showValidationMessage(
+            error.response?.data?.message || 'Gagal memperbarui profil. Silakan coba lagi.',
+          )
+          return false
+        })
     },
     openChangePasswordModal() {
       Swal.fire({
@@ -528,7 +549,7 @@ uploadProfilePicture(formData) {
           const passwordData = {
             currentPassword: currentPassword,
             password: newPassword,
-            password_confirmation: confirmPassword
+            password_confirmation: confirmPassword,
           }
 
           // Return promise to handle password update
@@ -551,26 +572,31 @@ uploadProfilePicture(formData) {
       })
     },
     changePassword(data) {
-      const token = localStorage.getItem('token') || 'token'
+      const token = localStorage.getItem('token')
+      if (!token) {
+        this.$router.push('/login')
+        return
+      }
 
-      return axios.post(`${this.baseUrl}/seller/reset_password`, data, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      .then(response => {
-        if (response.data.status === 'success') {
-          return true
-        } else {
-          throw new Error(response.data.message || 'Gagal mengubah password')
-        }
-      })
-      .catch(error => {
-        Swal.showValidationMessage(
-          error.response?.data?.message || 'Gagal mengubah password. Silakan coba lagi.'
-        )
-        return false
-      })
+      return axios
+        .post(`${this.baseUrl}/seller/reset_password`, data, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .then((response) => {
+          if (response.data.status === 'success') {
+            return true
+          } else {
+            throw new Error(response.data.message || 'Gagal mengubah password')
+          }
+        })
+        .catch((error) => {
+          Swal.showValidationMessage(
+            error.response?.data?.message || 'Gagal mengubah password. Silakan coba lagi.',
+          )
+          return false
+        })
     },
     logout() {
       Swal.fire({
@@ -590,41 +616,49 @@ uploadProfilePicture(formData) {
         confirmButtonText: 'Ya, Keluar',
       }).then((result) => {
         if (result.isConfirmed) {
-          const token = localStorage.getItem('token') || 'token'
+          const token = localStorage.getItem('token')
+          if (!token) {
+            this.$router.push('/login')
+            return
+          }
 
           // Call logout API
-          axios.post(`${this.baseUrl}/seller/logout`, {}, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          })
-          .then(response => {
-            if (response.data.status === 'success') {
-              // Clear local storage
-              localStorage.removeItem('token')
-              // Redirect to login page
-              this.$router.push('/login')
-            } else {
-              Swal.fire({
-                title: `<h3 class="text-lg font-bold">Gagal</h3>`,
-                text: response.data.message || 'Gagal melakukan logout',
-                icon: 'error',
-                confirmButtonText: 'OK',
-                buttonsStyling: false,
-                customClass: {
-                  confirmButton:
-                    'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+          axios
+            .post(
+              `${this.baseUrl}/seller/logout`,
+              {},
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
                 },
-              })
-            }
-          })
-          .catch(error => {
-            console.error('Logout error:', error)
-
-            // Force logout anyway even if the API call fails
-            localStorage.removeItem('token')
-            this.$router.push('/login')
-          })
+              },
+            )
+            .then((response) => {
+              if (response.data.status === 'success') {
+                // Clear local storage
+                localStorage.removeItem('token')
+                // Redirect to login page
+                this.$router.push('/login')
+              } else {
+                Swal.fire({
+                  title: `<h3 class="text-lg font-bold">Gagal</h3>`,
+                  text: response.data.message || 'Gagal melakukan logout',
+                  icon: 'error',
+                  confirmButtonText: 'OK',
+                  buttonsStyling: false,
+                  customClass: {
+                    confirmButton:
+                      'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+                  },
+                })
+              }
+            })
+            .catch((error) => {
+              console.error('Logout error:', error)
+              // Force logout anyway even if the API call fails
+              localStorage.removeItem('token')
+              this.$router.push('/login')
+            })
         }
       })
     },
