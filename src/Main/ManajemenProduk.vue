@@ -272,34 +272,26 @@ export default {
       if (this.totalPages <= this.maxPageButtons) {
         return Array.from({ length: this.totalPages }, (_, i) => i + 1)
       }
-
       let pages = []
       const halfMax = Math.floor(this.maxPageButtons / 2)
       const currentPage = this.pagination.page
-
       pages.push(1)
-
       if (currentPage > halfMax + 2) {
         pages.push('...')
       }
-
       const startPage = Math.max(2, currentPage - halfMax)
       const endPage = Math.min(this.totalPages - 1, currentPage + halfMax)
-
       for (let i = startPage; i <= endPage; i++) {
         if (i !== 1 && i !== this.totalPages) {
           pages.push(i)
         }
       }
-
       if (currentPage < this.totalPages - halfMax - 1) {
         pages.push('...')
       }
-
       if (this.totalPages > 1) {
         pages.push(this.totalPages)
       }
-
       return pages
     },
   },
@@ -320,12 +312,23 @@ export default {
     async fetchCategories() {
       this.isLoading = true
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/categories', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/categories`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/categories`, {
+          headers: { Authorization: `Bearer ${token}` },
         })
         this.categories = response.data.data || []
         localStorage.setItem('categories', JSON.stringify(this.categories))
       } catch (error) {
+        console.error('Error fetching categories:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+          // Optional: this.$router.push('/login')
+        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal mengambil kategori',
@@ -334,6 +337,7 @@ export default {
           showConfirmButton: false,
         })
       } finally {
+        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },
@@ -343,10 +347,19 @@ export default {
     },
     async fetchVariants(productId) {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/seller/product/variant', {
-          params: { product_id: productId },
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        })
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`,
+          {
+            params: { product_id: productId },
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
         return response.data.data.map((variant) => ({
           id: variant.id,
           name: variant.name,
@@ -356,6 +369,10 @@ export default {
           is_default: variant.is_default,
         }))
       } catch (error) {
+        console.error('Error fetching variants:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
         Swal.fire({
           title: 'Error!',
           text: 'Gagal mengambil varian',
@@ -368,10 +385,19 @@ export default {
     },
     async fetchFinishing(productId) {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/seller/product/finishing', {
-          params: { product_id: productId },
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        })
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`,
+          {
+            params: { product_id: productId },
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
         return response.data.data.map((finishing) => ({
           id: finishing.id,
           name: finishing.finishing?.name || finishing.name,
@@ -380,6 +406,10 @@ export default {
           color_code: finishing.color_code || '#000000',
         }))
       } catch (error) {
+        console.error('Error fetching finishing:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
         Swal.fire({
           title: 'Error!',
           text: 'Gagal mengambil opsi finishing',
@@ -393,7 +423,13 @@ export default {
     async fetchProducts() {
       this.isLoading = true
       try {
-        const response = await axios.get('http://127.0.0.1:8000/api/seller/products', {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/products`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, {
           params: {
             status:
               this.statusFilter === 'all' ? undefined : this.statusFilter === 'active' ? 1 : 0,
@@ -401,14 +437,12 @@ export default {
             limit: this.pagination.limit,
             page: this.pagination.page,
           },
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          headers: { Authorization: `Bearer ${token}` },
         })
-
         const {
           data: { products },
           meta,
         } = response.data.data
-        // Update products and pagination
         this.products = products.map((product) => ({
           id: product.id,
           sku: product.sku,
@@ -433,11 +467,13 @@ export default {
           page: meta.current_page || 1,
           limit: meta.per_page || this.pagination.limit,
         }
-        // Ensure DOM updates are complete before hiding loading state
         await this.$nextTick()
-        this.isLoading = false
       } catch (error) {
-        console.error('Error fetching products:', error)
+        console.error('Error fetching products:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+          // Optional: this.$router.push('/login')
+        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal mengambil produk',
@@ -448,6 +484,8 @@ export default {
         this.products = []
         this.pagination.total = 0
         await this.$nextTick()
+      } finally {
+        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },
@@ -526,9 +564,14 @@ export default {
         })
         return
       }
-
       this.isLoading = true
       try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/products`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
         const formData = new FormData()
         formData.append('category_id', newProduct.category_id)
         formData.append('name', newProduct.name)
@@ -536,7 +579,6 @@ export default {
         formData.append('unit', newProduct.unit)
         formData.append('is_publish', newProduct.is_publish ? 1 : 0)
         formData.append('thumbnail', newProduct.thumbnail)
-
         newProduct.product_variants.forEach((variant, index) => {
           formData.append(`product_variants[${index}][name]`, variant.name)
           formData.append(`product_variants[${index}][price]`, variant.price)
@@ -545,23 +587,24 @@ export default {
           formData.append(`product_variants[${index}][min_qty]`, variant.min_qty)
           formData.append(`product_variants[${index}][is_default]`, variant.is_default ? 1 : 0)
         })
-
         newProduct.product_finishing.forEach((finishing, index) => {
           formData.append(`product_finishing[${index}][name]`, finishing.name)
           formData.append(`product_finishing[${index}][price]`, finishing.price)
           formData.append(`product_finishing[${index}][color_code]`, finishing.color_code)
         })
-
-        await axios.post('http://127.0.0.1:8000/api/seller/products', formData, {
+        await axios.post(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, formData, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'multipart/form-data',
           },
         })
-
         this.showSuccessMessage('Produk berhasil ditambahkan')
         this.fetchProducts()
       } catch (error) {
+        console.error('Error saving product:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal menambah produk',
@@ -570,6 +613,7 @@ export default {
           showConfirmButton: false,
         })
       } finally {
+        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },
@@ -577,15 +621,15 @@ export default {
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/update`) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
-
         const originalProduct = this.products.find((p) => p.id === updatedProduct.id)
         if (!originalProduct) {
           throw new Error('Original product not found')
         }
-
         const formData = new FormData()
         formData.append('id', updatedProduct.id)
         formData.append('name', updatedProduct.name?.trim() || originalProduct.name)
@@ -614,17 +658,14 @@ export default {
         if (updatedProduct.thumbnail instanceof File) {
           formData.append('thumbnail', updatedProduct.thumbnail)
         }
-
         if (!updatedProduct.name || !updatedProduct.description || !updatedProduct.unit) {
           throw new Error('Nama, deskripsi, dan unit wajib diisi')
         }
-
         const productResponse = await axios.post(
-          'http://127.0.0.1:8000/api/seller/product/update',
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/update`,
           formData,
           { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } },
         )
-
         const variantPromises =
           updatedProduct.variations?.map((variant) => {
             const originalVariant =
@@ -637,11 +678,9 @@ export default {
               weight: parseInt(variant.weight) || 0,
               is_default: variant.is_default ? 1 : 0,
             }
-
             if (!variantPayload.name) {
               return Promise.reject(new Error('Variant name is required'))
             }
-
             if (
               variant.id &&
               (variant.name !== originalVariant.name ||
@@ -651,20 +690,19 @@ export default {
                 variant.is_default !== originalVariant.is_default)
             ) {
               return axios.post(
-                'http://127.0.0.1:8000/api/seller/product/variant/update',
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant/update`,
                 { id: variant.id, ...variantPayload },
                 { headers: { Authorization: `Bearer ${token}` } },
               )
             } else if (!variant.id) {
               return axios.post(
-                'http://127.0.0.1:8000/api/seller/product/variant',
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`,
                 variantPayload,
                 { headers: { Authorization: `Bearer ${token}` } },
               )
             }
             return Promise.resolve()
           }) || []
-
         const finishingPromises =
           updatedProduct.additionalOptions?.map((option) => {
             const originalOption =
@@ -675,30 +713,27 @@ export default {
               price: parseInt(option.price) || 0,
               color_code: option.color_code || '#000000',
             }
-
             if (!finishingPayload.name) {
               return Promise.reject(new Error('Finishing name is required'))
             }
-
             if (
               option.id &&
               (option.name !== originalOption.name || option.price !== originalOption.price)
             ) {
               return axios.post(
-                'http://127.0.0.1:8000/api/seller/product/finishing/update',
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing/update`,
                 { id: option.id, ...finishingPayload },
                 { headers: { Authorization: `Bearer ${token}` } },
               )
             } else if (!option.id) {
               return axios.post(
-                'http://127.0.0.1:8000/api/seller/product/finishing',
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`,
                 finishingPayload,
                 { headers: { Authorization: `Bearer ${token}` } },
               )
             }
             return Promise.resolve()
           }) || []
-
         const deletedVariants =
           originalProduct.variations?.filter(
             (original) => !updatedProduct.variations?.some((v) => v.id === original.id),
@@ -707,28 +742,24 @@ export default {
           originalProduct.additionalOptions?.filter(
             (original) => !updatedProduct.additionalOptions?.some((o) => o.id === original.id),
           ) || []
-
         const deleteVariantPromises = deletedVariants.map((variant) =>
-          axios.delete('http://127.0.0.1:8000/api/seller/product/variant/delete', {
+          axios.delete(`${import.meta.env.VITE_API_BASE_URL}/seller/product/variant/delete`, {
             headers: { Authorization: `Bearer ${token}` },
             data: { id: variant.id },
           }),
         )
-
         const deleteFinishingPromises = deletedFinishing.map((option) =>
-          axios.delete('http://127.0.0.1:8000/api/seller/product/finishing/delete', {
+          axios.delete(`${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing/delete`, {
             headers: { Authorization: `Bearer ${token}` },
             data: { id: option.id },
           }),
         )
-
         await Promise.all([
           ...variantPromises,
           ...finishingPromises,
           ...deleteVariantPromises,
           ...deleteFinishingPromises,
         ])
-
         const index = this.products.findIndex((p) => p.id === updatedProduct.id)
         if (index !== -1) {
           this.products.splice(index, 1, {
@@ -743,7 +774,8 @@ export default {
             buy_price: parseInt(productResponse.data.data.buy_price) || 0,
             images: [
               productResponse.data.data.thumbnail_url ||
-                updatedProduct.images?.[0] || 'https://placehold.co/1000x1000',
+                updatedProduct.images?.[0] ||
+                'https://placehold.co/1000x1000',
             ],
             variant_count: updatedProduct.variations?.length || 0,
             finishing_count: updatedProduct.additionalOptions?.length || 0,
@@ -754,6 +786,9 @@ export default {
         }
       } catch (error) {
         console.error('Update product error:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || error.message || 'Gagal memperbarui produk',
@@ -762,6 +797,7 @@ export default {
           showConfirmButton: false,
         })
       } finally {
+        console.log('Finally block executed') // Debug finally
         this.isLoading = false
         this.fetchProducts()
       }
@@ -769,12 +805,28 @@ export default {
     async handleConfirmDelete() {
       this.isLoading = true
       try {
-        await axios.delete(`http://127.0.0.1:8000/api/seller/products/${this.currentProduct.id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        })
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log(
+          'API URL:',
+          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}`,
+        ) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        await axios.delete(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
         this.products = this.products.filter((p) => p.id !== this.currentProduct.id)
         this.showSuccessMessage('Produk berhasil dihapus')
       } catch (error) {
+        console.error('Error deleting product:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal menghapus produk',
@@ -783,17 +835,27 @@ export default {
           showConfirmButton: false,
         })
       } finally {
+        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },
     async handleConfirmStatusChange(newStatus) {
       this.isLoading = true
       try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log(
+          'API URL:',
+          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}/status`,
+        ) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
         const isPublish = newStatus === 'active' ? 1 : 0
         await axios.patch(
-          `http://127.0.0.1:8000/api/seller/products/${this.currentProduct.id}/status`,
+          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}/status`,
           { is_publish: isPublish },
-          { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } },
+          { headers: { Authorization: `Bearer ${token}` } },
         )
         const product = this.products.find((p) => p.id === this.currentProduct.id)
         if (product) {
@@ -801,6 +863,10 @@ export default {
           this.showSuccessMessage('Status produk berhasil diubah')
         }
       } catch (error) {
+        console.error('Error changing status:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal memperbarui status',
@@ -809,6 +875,7 @@ export default {
           showConfirmButton: false,
         })
       } finally {
+        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },

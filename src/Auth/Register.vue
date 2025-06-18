@@ -2,7 +2,9 @@
   <div class="bg-gray-100 flex flex-col min-h-screen font-roboto">
     <AuthHeader title="SAMIKADOS" subtitle="REGISTER" />
 
-    <main class="container mx-auto flex flex-col lg:flex-row lg:justify-evenly lg:items-center flex-grow">
+    <main
+      class="container mx-auto flex flex-col lg:flex-row lg:justify-evenly lg:items-center flex-grow"
+    >
       <section class="w-full lg:w-fit mb-8 lg:mb-0 hidden lg:flex">
         <figure>
           <img src="/image/Transparent.png" alt="Cart icon image" class="w-full max-w-md" />
@@ -44,7 +46,11 @@
               <small v-if="errors.no_telpon" class="text-red-500">{{ errors.no_telpon }}</small>
             </div>
 
-            <button type="button" @click="proceedToNextStep" class="w-full bg-red-600 text-white p-3 rounded-lg">
+            <button
+              type="button"
+              @click="proceedToNextStep"
+              class="w-full bg-red-600 text-white p-3 rounded-lg"
+            >
               Next
             </button>
           </div>
@@ -81,10 +87,18 @@
               <small v-if="errors.description" class="text-red-500">{{ errors.description }}</small>
             </div>
 
-            <button type="button" @click="proceedToNextStep" class="w-full bg-red-600 text-white p-3 rounded-lg">
+            <button
+              type="button"
+              @click="proceedToNextStep"
+              class="w-full bg-red-600 text-white p-3 rounded-lg"
+            >
               Next
             </button>
-            <button type="button" @click="step = 1" class="text-gray-600 hover:underline mt-2 block">
+            <button
+              type="button"
+              @click="step = 1"
+              class="text-gray-600 hover:underline mt-2 block"
+            >
               Back
             </button>
           </div>
@@ -126,7 +140,11 @@
             <button type="submit" class="w-full bg-red-600 text-white p-3 rounded-lg">
               Register
             </button>
-            <button type="button" @click="step = 2" class="text-gray-600 hover:underline mt-2 block">
+            <button
+              type="button"
+              @click="step = 2"
+              class="text-gray-600 hover:underline mt-2 block"
+            >
               Back
             </button>
           </div>
@@ -139,11 +157,11 @@
 </template>
 
 <script>
-import Swal from 'sweetalert2';
-import AuthHeader from '@/components/AuthHeader.vue';
-import AuthMainButton from '@/components/AuthMainButton.vue';
-import AuthFooter from '@/components/AuthFooter.vue';
-import axios from 'axios';
+import Swal from 'sweetalert2'
+import AuthHeader from '@/components/AuthHeader.vue'
+import AuthMainButton from '@/components/AuthMainButton.vue'
+import AuthFooter from '@/components/AuthFooter.vue'
+import axios from 'axios'
 
 export default {
   components: {
@@ -171,71 +189,71 @@ export default {
   },
   methods: {
     validateStepOne() {
-      this.errors = {};
-      
+      this.errors = {}
+
       if (!this.form.name) {
-        this.errors.name = 'Nama wajib diisi';
+        this.errors.name = 'Nama wajib diisi'
       }
-      
+
       if (!this.form.no_telpon) {
-        this.errors.no_telpon = 'Nomor telepon wajib diisi';
+        this.errors.no_telpon = 'Nomor telepon wajib diisi'
       } else if (!/^\d+$/.test(this.form.no_telpon)) {
-        this.errors.no_telpon = 'Nomor telepon hanya boleh angka';
+        this.errors.no_telpon = 'Nomor telepon hanya boleh angka'
       } else if (this.form.no_telpon.length < 10) {
-        this.errors.no_telpon = 'Nomor telepon minimal 10 digit';
+        this.errors.no_telpon = 'Nomor telepon minimal 10 digit'
       }
-      
-      return Object.keys(this.errors).length === 0;
+
+      return Object.keys(this.errors).length === 0
     },
 
     validateStepTwo() {
-      this.errors = {};
-      
+      this.errors = {}
+
       if (!this.form.address) {
-        this.errors.address = 'Alamat wajib diisi';
+        this.errors.address = 'Alamat wajib diisi'
       }
-      
+
       if (!this.form.postal_code || !/^\d+$/.test(this.form.postal_code)) {
-        this.errors.postal_code = 'Kode pos hanya boleh angka';
+        this.errors.postal_code = 'Kode pos hanya boleh angka'
       }
-      
+
       if (this.form.description && this.form.description.length > 255) {
-        this.errors.description = 'Deskripsi tidak boleh lebih dari 255 karakter';
+        this.errors.description = 'Deskripsi tidak boleh lebih dari 255 karakter'
       }
-      
-      return Object.keys(this.errors).length === 0;
+
+      return Object.keys(this.errors).length === 0
     },
 
     validateStepThree() {
-      this.errors = {};
-      
+      this.errors = {}
+
       if (!this.form.email || !this.form.email.includes('@')) {
-        this.errors.email = 'Email tidak valid';
+        this.errors.email = 'Email tidak valid'
       }
-      
+
       if (!this.form.password || this.form.password.length < 8) {
-        this.errors.password = 'Password minimal 8 karakter';
+        this.errors.password = 'Password minimal 8 karakter'
       }
-      
+
       if (this.form.password !== this.form.password_confirmation) {
-        this.errors.password_confirmation = 'Password tidak cocok';
+        this.errors.password_confirmation = 'Password tidak cocok'
       }
-      
-      return Object.keys(this.errors).length === 0;
+
+      return Object.keys(this.errors).length === 0
     },
 
     proceedToNextStep() {
       if (this.step === 1 && this.validateStepOne()) {
-        this.step = 2;
+        this.step = 2
       } else if (this.step === 2 && this.validateStepTwo()) {
-        this.step = 3;
+        this.step = 3
       }
     },
 
     async submitForm() {
       if (this.step === 3 && this.validateStepThree()) {
-        this.isLoading = true;
-        
+        this.isLoading = true
+
         try {
           const payload = {
             username: this.form.username.trim() === '' ? null : this.form.username,
@@ -247,10 +265,13 @@ export default {
             address: this.form.address,
             description: this.form.description,
             postal_code: this.form.postal_code,
-          };
+          }
 
-          const response = await axios.post('http://127.0.0.1:8000/api/auth/register', payload);
-          
+          const response = await axios.post(
+            `${import.meta.env.VITE_API_BASE_URL}/auth/register`,
+            payload,
+          )
+
           if (response.status === 201) {
             Swal.fire({
               title: 'Registrasi Berhasil!',
@@ -258,34 +279,34 @@ export default {
               icon: 'success',
               confirmButtonText: 'OK',
             }).then(() => {
-              this.$router.push('/login');
-            });
+              this.$router.push('/login')
+            })
           }
         } catch (error) {
           if (error.response && error.response.data) {
-            const errorData = error.response.data;
+            const errorData = error.response.data
 
             if (errorData.data && errorData.data.email) {
               Swal.fire({
                 title: 'Registrasi Gagal!',
-                text: "Email telah digunakan. Mohon gunakan email lain.",
+                text: 'Email telah digunakan. Mohon gunakan email lain.',
                 icon: 'error',
                 confirmButtonText: 'OK',
-              });
+              })
             } else if (errorData.data && errorData.data.username) {
               Swal.fire({
                 title: 'Registrasi Gagal!',
-                text: "Username telah digunakan. Mohon gunakan username lain.",
+                text: 'Username telah digunakan. Mohon gunakan username lain.',
                 icon: 'error',
                 confirmButtonText: 'OK',
-              });
+              })
             } else {
               Swal.fire({
                 title: 'Registrasi Gagal!',
                 text: 'Terjadi kesalahan saat registrasi. Coba lagi.',
                 icon: 'error',
                 confirmButtonText: 'OK',
-              });
+              })
             }
           } else {
             Swal.fire({
@@ -293,10 +314,10 @@ export default {
               text: 'Terjadi kesalahan saat registrasi. Coba lagi.',
               icon: 'error',
               confirmButtonText: 'OK',
-            });
+            })
           }
         } finally {
-          this.isLoading = false;
+          this.isLoading = false
         }
       }
     },

@@ -242,19 +242,16 @@ export default {
         { id: 3, name: 'selesai' },
         { id: 4, name: 'batal' },
       ],
-      apiBaseUrl: 'http://127.0.0.1:8000/api/seller',
+      // Hapus apiBaseUrl dari data, karena akan menggunakan import.meta.env
     }
   },
   computed: {
+    // Computed properties tetap sama
     filteredOrders() {
       let result = this.orders
-
-      // Filter by status if not "all"
       if (this.statusFilter !== 'all') {
         result = result.filter((order) => order.order_status_id == this.statusFilter)
       }
-
-      // Filter by search query
       if (this.searchQuery) {
         const query = this.searchQuery.toLowerCase()
         result = result.filter(
@@ -264,7 +261,6 @@ export default {
             (order.address && order.address.toLowerCase().includes(query)),
         )
       }
-
       return result
     },
     totalPages() {
@@ -285,36 +281,28 @@ export default {
     displayedPages() {
       const totalVisiblePages = 5
       const pages = []
-
       if (this.totalPages <= totalVisiblePages) {
         for (let i = 1; i <= this.totalPages; i++) {
           pages.push(i)
         }
       } else {
         pages.push(1)
-
         let startPage = Math.max(2, this.currentPage - Math.floor((totalVisiblePages - 3) / 2))
         let endPage = Math.min(this.totalPages - 1, startPage + totalVisiblePages - 4)
-
         if (endPage === this.totalPages - 1) {
           startPage = Math.max(2, endPage - (totalVisiblePages - 4))
         }
-
         if (startPage > 2) {
           pages.push('...')
         }
-
         for (let i = startPage; i <= endPage; i++) {
           pages.push(i)
         }
-
         if (endPage < this.totalPages - 1) {
           pages.push('...')
         }
-
         pages.push(this.totalPages)
       }
-
       return pages
     },
   },
@@ -323,31 +311,47 @@ export default {
       try {
         this.loading = true
         const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/history`) // Debug URL
+        if (!token) {
+          console.error('No token found in localStorage')
+          this.loading = false
+          this.showErrorMessage('Silakan login untuk melihat riwayat pesanan.')
+          // Optional: this.$router.push('/login')
+          return
+        }
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 
-        const response = await axios.get(`${this.apiBaseUrl}/history`)
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/history`)
         const data = response.data
 
         if (data.status === 'success') {
           this.orders = data.data.map((order) => ({
             ...order,
-            // Ensure user object exists
             user: order.user || { name: 'Unknown' },
           }))
+        } else {
+          console.error('Failed to fetch orders:', data.error)
+          this.showErrorMessage('Gagal memuat data pesanan. Silakan coba lagi nanti.')
         }
       } catch (err) {
-        console.error('Error fetching orders:', err)
-        this.showErrorMessage('Gagal memuat data pesanan. Silakan coba lagi nanti.')
+        console.error('Error fetching orders:', err.response?.data || err.message)
+        if (err.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+          this.showErrorMessage('Sesi Anda telah berakhir. Silakan login kembali.')
+          // Optional: localStorage.removeItem('token'); this.$router.push('/login')
+        } else {
+          this.showErrorMessage('Gagal memuat data pesanan. Silakan coba lagi nanti.')
+        }
       } finally {
+        console.log('Finally block executed') // Debug finally
         this.loading = false
       }
     },
-
     getStatusName(statusId) {
       const status = this.orderStatuses.find((s) => s.id == statusId)
       return status ? status.name : 'Unknown'
     },
-
     getStatusBgClass(statusId) {
       switch (statusId) {
         case 3: // selesai
@@ -358,39 +362,34 @@ export default {
           return 'bg-gray-200 text-gray-800'
       }
     },
-
     viewOrderDetail(order) {
       const productsHtml = this.createProductsCarousel(order)
-
       Swal.fire({
         title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${order.id}</span>`,
         html: `
-      <div class="text-left mb-6">
-        <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-base sm:text-lg">
-          <div class="font-semibold">Pembeli</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.user.name}</div>
-          <div class="font-semibold">Alamat</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.address || '-'}</div>
-          <div class="font-semibold">Tanggal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatDate(order.created_at)}</div>
-          <div class="font-semibold">Status</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.getStatusName(order.order_status_id)}</div>
-          <div class="font-semibold">Total</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(order.grand_total)}</div>
-        </div>
-
-        ${
-          order.additional_info
-            ? `
-        <div class="mt-4">
-          <div class="font-semibold">Informasi Tambahan:</div>
-          <div class="mt-2 p-3 bg-gray-100 rounded-lg">${order.additional_info}</div>
-        </div>`
-            : ''
-        }
-      </div>
-
-      <!-- Products Section -->
-      <div class="mt-4">
-        <div class="font-semibold text-lg mb-2">Produk (${order.order_detail.length}):</div>
-        ${productsHtml}
-      </div>
-    `,
+          <div class="text-left mb-6">
+            <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-base sm:text-lg">
+              <div class="font-semibold">Pembeli</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.user.name}</div>
+              <div class="font-semibold">Alamat</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.address || '-'}</div>
+              <div class="font-semibold">Tanggal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatDate(order.created_at)}</div>
+              <div class="font-semibold">Status</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.getStatusName(order.order_status_id)}</div>
+              <div class="font-semibold">Total</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(order.grand_total)}</div>
+            </div>
+            ${
+              order.additional_info
+                ? `
+              <div class="mt-4">
+                <div class="font-semibold">Informasi Tambahan:</div>
+                <div class="mt-2 p-3 bg-gray-100 rounded-lg">${order.additional_info}</div>
+              </div>`
+                : ''
+            }
+          </div>
+          <div class="mt-4">
+            <div class="font-semibold text-lg mb-2">Produk (${order.order_detail.length}):</div>
+            ${productsHtml}
+          </div>
+        `,
         width: 'auto',
         customClass: {
           popup: 'swal-responsive-popup',
@@ -403,7 +402,6 @@ export default {
           setTimeout(() => {
             this.initProductCarousel(order.order_detail.length)
           }, 100)
-
           const style = document.createElement('style')
           style.innerHTML = `
             .swal-responsive-popup {
@@ -430,18 +428,15 @@ export default {
         },
       })
     },
-
     createProductsCarousel(order) {
       if (!order.order_detail || order.order_detail.length === 0) {
         return '<div class="text-center py-4">Tidak ada detail produk tersedia</div>'
       }
-
       let carouselHtml = `
         <div class="product-carousel relative">
           <div class="carousel-container overflow-hidden">
             <div class="carousel-track flex transition-transform duration-300" style="transform: translateX(0);">
       `
-
       order.order_detail.forEach((item, index) => {
         carouselHtml += `
               <div class="carousel-slide w-full flex-shrink-0 p-3 sm:p-4 bg-gray-50 rounded-lg">
@@ -461,7 +456,6 @@ export default {
               </div>
             `
       })
-
       carouselHtml += `
             </div>
           </div>
@@ -469,13 +463,11 @@ export default {
             <button class="carousel-prev bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-md text-sm sm:text-base ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>← Prev</button>
             <div class="carousel-indicators flex space-x-2 justify-center">
       `
-
       order.order_detail.forEach((_, index) => {
         carouselHtml += `
               <button class="carousel-indicator w-2 h-2 rounded-full bg-gray-300 ${index === 0 ? 'bg-gray-700' : ''}" data-index="${index}"></button>
             `
       })
-
       carouselHtml += `
             </div>
             <button class="carousel-next bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-md text-sm sm:text-base ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>Next →</button>
@@ -485,68 +477,54 @@ export default {
           </div>
         </div>
       `
-
       return carouselHtml
     },
-
     initProductCarousel(totalSlides) {
       if (totalSlides <= 1) return
-
       setTimeout(() => {
         const modal = document.querySelector('.swal2-container')
         if (!modal) return
-
         const track = modal.querySelector('.carousel-track')
         const prevButton = modal.querySelector('.carousel-prev')
         const nextButton = modal.querySelector('.carousel-next')
         const indicators = modal.querySelectorAll('.carousel-indicator')
         const currentSlideEl = modal.querySelector('.current-slide')
-
         if (!track || !prevButton || !nextButton) {
           console.error('Carousel elements not found')
           return
         }
-
         let currentIndex = 0
-
         const updateCarousel = () => {
           track.style.transform = `translateX(-${currentIndex * 100}%)`
-
           indicators.forEach((indicator, index) => {
             indicator.classList.toggle('bg-gray-700', index === currentIndex)
             indicator.classList.toggle('bg-gray-300', index !== currentIndex)
           })
-
           prevButton.disabled = currentIndex === 0
           nextButton.disabled = currentIndex === totalSlides - 1
           currentSlideEl.textContent = currentIndex + 1
         }
-
         prevButton.addEventListener('click', () => {
           if (currentIndex > 0) {
             currentIndex--
             updateCarousel()
           }
         })
-
         nextButton.addEventListener('click', () => {
           if (currentIndex < totalSlides - 1) {
             currentIndex++
             updateCarousel()
           }
         })
-
         indicators.forEach((indicator, index) => {
           indicator.addEventListener('click', () => {
             currentIndex = index
             updateCarousel()
           })
         })
-
         updateCarousel()
       }, 100)
     },
-
     formatDate(dateString) {
       const date = new Date(dateString)
       return date.toLocaleDateString('id-ID', {
@@ -555,7 +533,6 @@ export default {
         year: '2-digit',
       })
     },
-
     formatCurrency(amount) {
       return new Intl.NumberFormat('id-ID', {
         style: 'currency',
@@ -563,7 +540,6 @@ export default {
         minimumFractionDigits: 0,
       }).format(amount)
     },
-
     showErrorMessage(message) {
       Swal.fire({
         icon: 'error',
@@ -576,24 +552,20 @@ export default {
         },
       })
     },
-
     toggleSidebar() {
       if (this.isMobile) {
         this.isSidebarActive = !this.isSidebarActive
       }
     },
-
     handleResize() {
       this.isMobile = window.innerWidth < 1024
       this.isSidebarActive = !this.isMobile
     },
-
     updatePagination() {
       if (this.currentPage > this.totalPages && this.totalPages > 0) {
         this.currentPage = this.totalPages
       }
     },
-
     goToPage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page
@@ -613,14 +585,21 @@ export default {
   async mounted() {
     this.isSidebarActive = window.innerWidth >= 1024
     window.addEventListener('resize', this.handleResize)
-
     try {
       const token = localStorage.getItem('token')
+      console.log('Token:', token) // Debug token
+      if (!token) {
+        console.error('No token found in localStorage')
+        this.showErrorMessage('Silakan login untuk melihat riwayat pesanan.')
+        return
+      }
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
       await this.fetchOrders()
     } catch (error) {
       console.error('Error initializing data:', error)
       this.showErrorMessage('Gagal memuat data. Silakan coba lagi nanti.')
+    } finally {
+      this.loading = false
     }
   },
   beforeUnmount() {
@@ -633,19 +612,15 @@ export default {
 .content-wrapper {
   transition: margin-left 0.3s ease;
 }
-
-/* Carousel styles */
 .carousel-slide {
   min-width: 100%;
   transition: transform 0.3s ease;
 }
-
 .carousel-indicator {
   width: 8px;
   height: 8px;
   transition: background-color 0.3s ease;
 }
-
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

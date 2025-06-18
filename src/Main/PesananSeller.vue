@@ -16,6 +16,7 @@
             v-model="searchQuery"
             placeholder="Cari pesanan..."
             class="w-full pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-2 bg-white text-black"
+            @input="debouncedSearch"
           />
           <div class="absolute left-4 top-3">
             <img
@@ -43,6 +44,7 @@
             <select
               v-model="statusFilter"
               class="block w-60 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
+              @change="fetchOrders"
             >
               <option value="all">Semua</option>
               <option v-for="status in orderStatuses" :key="status.id" :value="status.id">
@@ -159,7 +161,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &laquo;
+              «
             </button>
 
             <!-- Previous Page -->
@@ -173,7 +175,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &lsaquo;
+              ‹
             </button>
 
             <!-- Page Numbers -->
@@ -206,7 +208,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &rsaquo;
+              ›
             </button>
 
             <!-- Last Page -->
@@ -220,7 +222,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &raquo;
+              »
             </button>
           </div>
         </div>
@@ -231,6 +233,7 @@
 </template>
 
 <script>
+import { debounce } from 'lodash'
 import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
@@ -247,11 +250,9 @@ export default {
       entriesPerPage: 10,
       currentPage: 1,
       searchQuery: '',
-      loading: true,
+      loading: false,
       orders: [],
       orderStatuses: [],
-      // Store the API base URL
-      apiBaseUrl: 'http://127.0.0.1:8000/api/seller',
     }
   },
   computed: {
@@ -260,7 +261,7 @@ export default {
 
       // Filter by status if not "all"
       if (this.statusFilter !== 'all') {
-        result = result.filter((order) => order.order_status_id === this.statusFilter)
+        result = result.filter((order) => order.order_status_id === parseInt(this.statusFilter))
       }
 
       // Filter by search query
@@ -277,7 +278,7 @@ export default {
       return result
     },
     totalPages() {
-      return Math.ceil(this.filteredOrders.length / this.entriesPerPage)
+      return Math.ceil(this.filteredOrders.length / this.entriesPerPage) || 1
     },
     paginatedOrders() {
       const start = (this.currentPage - 1) * this.entriesPerPage
@@ -292,303 +293,335 @@ export default {
       return calculatedEnd > this.filteredOrders.length ? this.filteredOrders.length : calculatedEnd
     },
     displayedPages() {
-      const totalVisiblePages = 5 // Adjust based on screen size
+      const totalVisiblePages = 5
       const pages = []
 
       if (this.totalPages <= totalVisiblePages) {
-        // If we have fewer pages than the limit, show all pages
         for (let i = 1; i <= this.totalPages; i++) {
           pages.push(i)
         }
       } else {
-        // Always show first page
         pages.push(1)
-
         let startPage = Math.max(2, this.currentPage - Math.floor((totalVisiblePages - 3) / 2))
         let endPage = Math.min(this.totalPages - 1, startPage + totalVisiblePages - 4)
 
-        // Adjust if we're near the end
         if (endPage === this.totalPages - 1) {
           startPage = Math.max(2, endPage - (totalVisiblePages - 4))
         }
 
-        // Add ellipsis after first page if needed
         if (startPage > 2) {
           pages.push('...')
         }
 
-        // Add middle pages
         for (let i = startPage; i <= endPage; i++) {
           pages.push(i)
         }
 
-        // Add ellipsis before last page if needed
         if (endPage < this.totalPages - 1) {
           pages.push('...')
         }
 
-        // Always show last page
         pages.push(this.totalPages)
       }
 
       return pages
     },
   },
-
-  async mounted() {
+  mounted() {
     this.isSidebarActive = window.innerWidth >= 1024
     window.addEventListener('resize', this.handleResize)
-
-    try {
-      // Setup axios with authentication
-      this.setupAxiosAuth()
-
-      // Load order statuses first
-      await this.fetchOrderStatuses()
-      // Then load the orders
-      await this.fetchOrders()
-    } catch (error) {
-      console.error('Error initializing data:', error)
-      this.showErrorMessage('Gagal memuat data. Silakan coba lagi nanti.')
-    }
-  },
-  watch: {
-    statusFilter() {
-      this.currentPage = 1
-      this.updatePagination()
-    },
-    searchQuery() {
-      this.currentPage = 1
-      this.updatePagination()
-    },
+    this.setupAxiosAuth()
+    this.fetchOrderStatuses().then(() => this.fetchOrders())
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.handleResize)
   },
   methods: {
-    // Setup authentication for axios
+    debouncedSearch: debounce(function () {
+      this.currentPage = 1
+      this.updatePagination()
+    }, 300),
     setupAxiosAuth() {
-      // Get token from localStorage or cookies, depending on your auth method
       const token = localStorage.getItem('token') || this.getCookie('token')
-
       if (!token) {
         console.warn('Authentication token not found. User might not be logged in.')
-        // Redirect to login page if needed
-        // this.$router.push('/login')
         return
       }
-
-      // Set default headers for all axios requests
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
     },
-
-    // Helper for getting cookies (if you store token in cookies)
     getCookie(name) {
       const value = `; ${document.cookie}`
       const parts = value.split(`; ${name}=`)
       if (parts.length === 2) return parts.pop().split(';').shift()
       return null
     },
-    // Add these methods to your existing methods object
     async fetchUserByIdentifier(identifier) {
+      this.loading = true
       try {
-        // Perbaikan path URL sesuai dengan endpoint yang benar
-        const response = await axios.get(`${this.apiBaseUrl}/order/user`, {
-          params: {
-            parameter: identifier,
-          },
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/order/user`)
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/order/user`, {
+          params: { parameter: identifier },
         })
-
         if (response.data.status === 'success' && response.data.data) {
           return response.data.data
-        } else {
-          return null
         }
-      } catch (error) {
-        console.error('Error fetching user data:', error)
         return null
+      } catch (error) {
+        console.error('Error fetching user data:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          this.handleAuthError()
+        }
+        return null
+      } finally {
+        console.log('Finally block executed')
+        this.loading = false
       }
     },
-
     async fetchCategories() {
+      this.loading = true
       try {
-        const response = await axios.get(`${this.apiBaseUrl}/category`)
-
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/category`)
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/category`)
         if (response.data.status === 'success') {
           return response.data.data
-        } else {
-          return []
         }
-      } catch (error) {
-        console.error('Error fetching categories:', error)
         return []
+      } catch (error) {
+        console.error('Error fetching categories:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          this.handleAuthError()
+        }
+        this.showErrorMessage('Gagal memuat kategori. Silakan coba lagi.')
+        return []
+      } finally {
+        console.log('Finally block executed')
+        this.loading = false
       }
     },
-
     async fetchProductsByCategory(categoryId) {
+      this.loading = true
       try {
-        const response = await axios.get(`${this.apiBaseUrl}/products`, {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/products`)
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, {
           params: { category_id: categoryId },
         })
-
         if (response.data.status === 'success') {
           return response.data.data.data.products
-        } else {
-          return []
         }
-      } catch (error) {
-        console.error('Error fetching products:', error)
         return []
+      } catch (error) {
+        console.error('Error fetching products:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          this.handleAuthError()
+        }
+        this.showErrorMessage('Gagal memuat produk. Silakan coba lagi.')
+        return []
+      } finally {
+        console.log('Finally block executed')
+        this.loading = false
       }
     },
-
     async fetchProductFinishings(productId) {
+      this.loading = true
       try {
-        const response = await axios.get(`${this.apiBaseUrl}/product/finishing`, {
-          params: { product_id: productId },
-        })
-
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`)
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`,
+          { params: { product_id: productId } },
+        )
         if (response.data.status === 'success') {
           return response.data.data
-        } else {
-          return []
         }
-      } catch (error) {
-        console.error('Error fetching product finishings:', error)
         return []
+      } catch (error) {
+        console.error('Error fetching product finishings:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          this.handleAuthError()
+        }
+        this.showErrorMessage('Gagal memuat finishing produk. Silakan coba lagi.')
+        return []
+      } finally {
+        console.log('Finally block executed')
+        this.loading = false
       }
     },
-
     async fetchProductVariants(productId) {
+      this.loading = true
       try {
-        const response = await axios.get(`${this.apiBaseUrl}/product/variant`, {
-          params: { product_id: productId },
-        })
-
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`)
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`,
+          { params: { product_id: productId } },
+        )
         if (response.data.status === 'success') {
           return response.data.data
-        } else {
-          return []
         }
-      } catch (error) {
-        console.error('Error fetching product variants:', error)
         return []
+      } catch (error) {
+        console.error('Error fetching product variants:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          this.handleAuthError()
+        }
+        this.showErrorMessage('Gagal memuat varian produk. Silakan coba lagi.')
+        return []
+      } finally {
+        console.log('Finally block executed')
+        this.loading = false
       }
     },
-
     async submitOrder(orderData) {
+      this.loading = true
       try {
-        console.log(orderData)
-        const response = await axios.post(`${this.apiBaseUrl}/orders`, orderData)
-
-        if (response.data.status === 'success') {
-          return true
-        } else {
-          throw new Error(response.data.message || 'Failed to create order')
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/orders`)
+        if (!token) {
+          throw new Error('Authentication token is missing')
         }
+        console.log('Order Data:', orderData)
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/orders`,
+          orderData,
+        )
+        if (response.data.status === 'success') {
+          this.showSuccessMessage('Pesanan berhasil ditambahkan')
+          return true
+        }
+        throw new Error(response.data.message || 'Failed to create order')
       } catch (error) {
-        console.error('Error creating order:', error)
+        console.error('Error creating order:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          this.handleAuthError()
+        }
         this.showErrorMessage(
-          error.response?.data?.message || 'Gagal menambahkan pesanan. Silakan coba lagi nanti.',
+          error.response?.data?.message || 'Gagal menambahkan pesanan. Silakan coba lagi.',
         )
         return false
+      } finally {
+        console.log('Finally block executed')
+        this.loading = false
       }
     },
-
-    // API calls
     async fetchOrders() {
+      this.loading = true
       try {
-        this.loading = true
-
-        // Add withCredentials option for CSRF protection
-        const response = await axios.get(`${this.apiBaseUrl}/orders`)
-
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/orders`)
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/orders`)
         if (response.data.status === 'success') {
-          // Process orders to add prevStatusId for status tracking
-          this.orders = response.data.data.map((order) => {
-            return {
-              ...order,
-              prevStatusId: order.order_status_id,
-            }
-          })
+          this.orders = response.data.data.map((order) => ({
+            ...order,
+            prevStatusId: order.order_status_id,
+          }))
         } else {
           throw new Error('Failed to fetch orders')
         }
       } catch (error) {
-        console.error('Error fetching orders:', error)
-
-        if (error.response && error.response.status === 401) {
+        console.error('Error fetching orders:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
           this.handleAuthError()
         } else {
-          this.showErrorMessage('Gagal memuat pesanan. Silakan coba lagi nanti.')
+          this.showErrorMessage('Gagal memuat pesanan. Silakan coba lagi.')
         }
-
         this.orders = []
       } finally {
+        console.log('Finally block executed')
         this.loading = false
       }
     },
-
     async fetchOrderStatuses() {
+      this.loading = true
       try {
-        // Add withCredentials option for CSRF protection
-        const response = await axios.get(`${this.apiBaseUrl}/orders/status`, {})
-
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/orders/status`)
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/orders/status`,
+        )
         if (response.data.status === 'success') {
           this.orderStatuses = response.data.data
         } else {
           throw new Error('Failed to fetch order statuses')
         }
       } catch (error) {
-        console.error('Error fetching order statuses:', error)
-
-        if (error.response && error.response.status === 401) {
+        console.error('Error fetching order statuses:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
           this.handleAuthError()
         } else {
-          this.showErrorMessage('Gagal memuat status pesanan. Silakan coba lagi nanti.')
+          this.showErrorMessage('Gagal memuat status pesanan. Silakan coba lagi.')
         }
-
         this.orderStatuses = []
+      } finally {
+        console.log('Finally block executed')
+        this.loading = false
       }
     },
-
     async updateOrderStatus(orderId, statusId) {
+      this.loading = true
       try {
-        // Add withCredentials option for CSRF protection
-        const token = localStorage.getItem('token') || this.getCookie('token')
-
+        const token = localStorage.getItem('token')
+        console.log('Token:', token)
+        console.log(
+          'API URL:',
+          `${import.meta.env.VITE_API_BASE_URL}/seller/orders/${orderId}/status`,
+        )
         if (!token) {
-          console.warn('Authentication token not found. User might not be logged in.')
-          // Redirect to login page if needed
-          // this.$router.push('/login')
-          return
+          throw new Error('Authentication token is missing')
         }
-
-        // Set default headers for all axios requests
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-        const response = await axios.put(`${this.apiBaseUrl}/orders/${orderId}/status`, {
-          order_status_id: statusId,
-        })
-
+        const response = await axios.put(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/orders/${orderId}/status`,
+          { order_status_id: statusId },
+        )
         if (response.data.status === 'success') {
+          this.showSuccessMessage('Status pesanan berhasil diperbarui')
           return true
-        } else {
-          throw new Error('Failed to update order status')
         }
+        throw new Error('Failed to update order status')
       } catch (error) {
-        console.error('Error updating order status:', error)
-
-        if (error.response && error.response.status === 401) {
+        console.error('Error updating order status:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
           this.handleAuthError()
         } else {
-          this.showErrorMessage('Gagal mengubah status pesanan. Silakan coba lagi nanti.')
+          this.showErrorMessage('Gagal mengubah status pesanan. Silakan coba lagi.')
         }
-
         return false
+      } finally {
+        console.log('Finally block executed')
+        this.loading = false
       }
     },
-
-    // Handle authentication errors
     handleAuthError() {
       Swal.fire({
         icon: 'error',
@@ -601,13 +634,11 @@ export default {
         },
       }).then((result) => {
         if (result.isConfirmed) {
-          // Redirect to login page
+          localStorage.removeItem('token')
           window.location.href = '/login'
         }
       })
     },
-
-    // Utility methods
     formatDate(dateString) {
       const date = new Date(dateString)
       return date.toLocaleDateString('id-ID', {
@@ -616,7 +647,6 @@ export default {
         year: '2-digit',
       })
     },
-
     formatCurrency(amount) {
       return new Intl.NumberFormat('id-ID', {
         style: 'currency',
@@ -624,7 +654,6 @@ export default {
         minimumFractionDigits: 0,
       }).format(amount)
     },
-
     showErrorMessage(message) {
       Swal.fire({
         icon: 'error',
@@ -637,73 +666,66 @@ export default {
         },
       })
     },
-
+    showSuccessMessage(message) {
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil!',
+        text: message,
+        confirmButtonText: 'OK',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-red-600 text-white py-2 px-4 rounded-md',
+        },
+      })
+    },
     getStatusClass(statusId) {
       const status = this.orderStatuses.find((s) => s.id === statusId)
       if (!status) return 'bg-gray-500'
-
-      // Map status IDs or names to colors - update this mapping as needed
       switch (statusId) {
-        case 1: // Assuming 1 is "Masuk" or "New Order"
-          return 'bg-blue-600' // Blue for new orders
-        case 2: // Assuming 2 is "Diproses" or "Processing"
-          return 'bg-yellow-500' // Yellow for processing
-        case 3: // Assuming 3 is "Dikirim" or "Shipped"
-          return 'bg-purple-600' // Purple for shipped
-        case 4: // Assuming 4 is "Selesai" or "Completed"
-          return 'bg-green-600' // Green for completed
-        case 5: // Assuming 5 is "Dibatalkan" or "Cancelled"
-          return 'bg-red-600' // Red for cancelled
+        case 1:
+          return 'bg-blue-600'
+        case 2:
+          return 'bg-yellow-500'
+        case 3:
+          return 'bg-purple-600'
+        case 4:
+          return 'bg-green-600'
+        case 5:
+          return 'bg-red-600'
         default:
-          return 'bg-gray-500' // Default gray
+          return 'bg-gray-500'
       }
     },
-
     getStatusBgClass(statusId) {
       const status = this.orderStatuses.find((s) => s.id === statusId)
       if (!status) return 'bg-gray-500'
-
-      // Same color mapping as above
       switch (statusId) {
-        case 1: // "Masuk" or "New Order"
+        case 1:
           return 'bg-blue-600 text-white'
-        case 2: // "Diproses" or "Processing"
+        case 2:
           return 'bg-yellow-500 text-white'
-        case 3: // "Dikirim" or "Shipped"
+        case 3:
           return 'bg-purple-600 text-white'
-        case 4: // "Selesai" or "Completed"
+        case 4:
           return 'bg-green-600 text-white'
-        case 5: // "Dibatalkan" or "Cancelled"
+        case 5:
           return 'bg-red-600 text-white'
         default:
           return 'bg-gray-500 text-white'
       }
     },
-
-    // Check if status change is allowed (only forward progression)
     isStatusAllowed(prevStatusId, newStatusId) {
-      // Allow selecting current status
       if (prevStatusId === newStatusId) return true
-
-      // Find indices of the statuses in the order
       const prevIndex = this.orderStatuses.findIndex((s) => s.id === prevStatusId)
       const newIndex = this.orderStatuses.findIndex((s) => s.id === newStatusId)
-
-      // Allow moving forward only
       return newIndex > prevIndex
     },
-
     async confirmStatusChange(order) {
-      // Store original status in case user cancels
       const originalStatusId = order.prevStatusId
       const newStatusId = order.order_status_id
-
-      // If status hasn't changed, do nothing
       if (originalStatusId === newStatusId) return
-
       const newStatus = this.orderStatuses.find((s) => s.id === newStatusId)
       if (!newStatus) return
-
       Swal.fire({
         title: `<span class='text-xl font-bold'>Konfirmasi Perubahan Status</span>`,
         html: `<p class='text-lg'>Apakah Anda yakin ingin mengubah status pesanan #${order.id} menjadi ${newStatus.name}?</p>`,
@@ -717,37 +739,19 @@ export default {
         },
       }).then(async (result) => {
         if (result.isConfirmed) {
-          // Try to update the status
           const success = await this.updateOrderStatus(order.id, newStatusId)
-
           if (success) {
-            // Update prevStatusId to reflect the new status after confirmation
             order.prevStatusId = newStatusId
-            Swal.fire({
-              icon: 'success',
-              title: 'Sukses!',
-              text: `Status pesanan #${order.id} berhasil diubah menjadi ${newStatus.name}`,
-              confirmButtonText: 'OK',
-              buttonsStyling: false,
-              customClass: {
-                confirmButton: 'bg-red-600 text-white py-2 px-4 rounded-md',
-              },
-            })
           } else {
-            // Revert to original status if update failed
             order.order_status_id = originalStatusId
           }
         } else {
-          // Revert to original status if user cancels
           order.order_status_id = originalStatusId
         }
       })
     },
-
     viewOrderDetail(order) {
-      // Create the HTML content for the products carousel
       const productsHtml = this.createProductsCarousel(order)
-
       Swal.fire({
         title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${order.id}</span>`,
         html: `
@@ -759,7 +763,6 @@ export default {
           <div class="font-semibold">Status</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.getStatusName(order.order_status_id)}</div>
           <div class="font-semibold">Total</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(order.grand_total)}</div>
         </div>
-
         ${
           order.additional_info
             ? `
@@ -770,16 +773,12 @@ export default {
             : ''
         }
       </div>
-
-      <!-- Products Section -->
       <div class="mt-4">
         <div class="font-semibold text-lg mb-2">Produk (${order.order_detail.length}):</div>
         ${productsHtml}
       </div>
     `,
-        // Responsive width settings
         width: 'auto',
-        // Set max-width based on screen size
         customClass: {
           popup: 'swal-responsive-popup',
           confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-base mt-6',
@@ -788,10 +787,7 @@ export default {
         confirmButtonText: 'Tutup',
         buttonsStyling: false,
         didOpen: () => {
-          // Initialize the product carousel navigation
           this.initProductCarousel(order.order_detail.length)
-
-          // Add responsive styles for the modal
           const style = document.createElement('style')
           style.innerHTML = `
         .swal-responsive-popup {
@@ -824,26 +820,18 @@ export default {
       let productsByCategory = {}
       let finishingsByProduct = {}
       let variantsByProduct = {}
-      let productPrices = {} // Store base prices of products
-
-      // Simpan referensi ke 'this' agar dapat digunakan dalam callback
+      let productPrices = {}
       const self = this
-
-      // Function to calculate and update prices
       const updateProductPrice = (productItem) => {
         const productSelect = productItem.querySelector('.product-name')
         const finishingSelect = productItem.querySelector('.product-finishing')
         const variantSelect = productItem.querySelector('.product-variant')
         const quantityInput = productItem.querySelector('.product-qty')
         const priceDisplay = productItem.querySelector('.product-price')
-
         if (!productSelect.value || !quantityInput.value) return
-
         const productId = productSelect.value
         const quantity = parseInt(quantityInput.value) || 0
         let basePrice = productPrices[productId] || 0
-
-        // Add finishing price if selected
         if (finishingSelect.value && finishingsByProduct[productId]) {
           const selectedFinishing = finishingsByProduct[productId].find(
             (f) => f.id == finishingSelect.value,
@@ -852,47 +840,29 @@ export default {
             basePrice += selectedFinishing.price
           }
         }
-
-        // Add variant price if needed (assuming variants might affect price)
-        // Note: You may need to adjust this if variants have their own prices
-
-        // Calculate total for this product
         const totalPrice = basePrice * quantity
-
-        // Update price display
         priceDisplay.textContent = self.formatCurrency(totalPrice)
-
-        // Update subtotal
         updateSubtotal()
       }
-
-      // Function to update the subtotal of all products
       const updateSubtotal = () => {
         const priceDisplays = document.querySelectorAll('.product-price')
         let subtotal = 0
-
         priceDisplays.forEach((display) => {
-          // Extract number from formatted currency string
           const priceText = display.textContent.replace(/[^\d]/g, '')
           subtotal += parseInt(priceText) || 0
         })
-
         const subtotalDisplay = document.getElementById('orderSubtotal')
         if (subtotalDisplay) {
           subtotalDisplay.textContent = self.formatCurrency(subtotal)
         }
       }
-
-      // Fetch categories first
       this.fetchCategories()
         .then((fetchedCategories) => {
           categories = fetchedCategories
-
           Swal.fire({
             title: '<span class="text-xl font-bold">Tambah Pesanan Baru</span>',
             html: `
   <form id="addOrderForm" class="text-left">
-    <!-- Customer Information -->
     <div class="mb-4">
       <h4 class="font-semibold mb-3 pb-2 border-b">Informasi Pembeli</h4>
       <div class="grid grid-cols-1 md:grid-cols-[3fr_1fr] gap-4">
@@ -916,12 +886,8 @@ export default {
           </button>
         </div>
       </div>
-      <div id="customerResult" class="mt-3">
-        <!-- Customer result will be displayed here -->
-      </div>
+      <div id="customerResult" class="mt-3"></div>
     </div>
-
-    <!-- Product Selection -->
     <div class="mb-4">
       <h4 class="font-semibold mb-3 pb-2 border-b">Produk</h4>
       <div id="productItems">
@@ -941,7 +907,6 @@ export default {
               </select>
             </div>
           </div>
-
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
             <div>
               <label class="block text-sm font-medium mb-1">Finishing</label>
@@ -956,7 +921,6 @@ export default {
               </select>
             </div>
           </div>
-
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
             <div>
               <label class="block text-sm font-medium mb-1">Jumlah</label>
@@ -979,8 +943,6 @@ export default {
       >
         + Tambah Produk Lain
       </button>
-
-      <!-- Order Subtotal -->
       <div class="mt-4 p-3 bg-gray-100 rounded-lg">
         <div class="flex justify-between items-center">
           <span class="font-semibold">Total Pesanan:</span>
@@ -988,8 +950,6 @@ export default {
         </div>
       </div>
     </div>
-
-    <!-- Additional Information -->
     <div class="mb-4">
       <label class="block text-sm font-medium mb-1">Informasi Tambahan</label>
       <textarea
@@ -1011,18 +971,14 @@ export default {
               htmlContainer: 'overflow-y-auto max-h-[70vh]',
             },
             didOpen: () => {
-              // Search customer handler
               document.getElementById('searchCustomer').addEventListener('click', async () => {
                 const identifier = document.getElementById('customerIdentifier').value.trim()
                 if (!identifier) {
                   Swal.showValidationMessage('Silakan masukkan identitas pembeli')
                   return
                 }
-
                 const customerResultDiv = document.getElementById('customerResult')
                 customerResultDiv.innerHTML = '<div class="text-center py-2">Mencari...</div>'
-
-                // Gunakan self, bukan this
                 const user = await self.fetchUserByIdentifier(identifier)
                 if (user) {
                   selectedUser = user
@@ -1042,48 +998,33 @@ export default {
         `
                 }
               })
-
-              // Add event listener for category selection
               const setupCategoryListener = (productItem) => {
                 const categorySelect = productItem.querySelector('.product-category')
                 const productSelect = productItem.querySelector('.product-name')
-
                 categorySelect.addEventListener('change', async function () {
                   const categoryId = this.value
                   productSelect.innerHTML = '<option value="">Pilih Produk</option>'
-
-                  // Reset other selects
                   const finishingSelect = productItem.querySelector('.product-finishing')
                   const variantSelect = productItem.querySelector('.product-variant')
                   finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
                   finishingSelect.disabled = true
                   variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
                   variantSelect.disabled = true
-
-                  // Reset price display
                   const priceDisplay = productItem.querySelector('.product-price')
                   priceDisplay.textContent = self.formatCurrency(0)
                   updateSubtotal()
-
                   if (categoryId) {
                     productSelect.disabled = true
                     productSelect.innerHTML = '<option value="">Loading...</option>'
-
                     try {
-                      // Debug log untuk memeriksa categoryId
                       console.log('Fetching products for categoryId:', categoryId)
-
-                      // Fetch products for this category using self
                       if (!productsByCategory[categoryId]) {
                         productsByCategory[categoryId] =
                           await self.fetchProductsByCategory(categoryId)
-                        // Debug log untuk melihat hasil
                         console.log('Fetched products:', productsByCategory[categoryId])
                       }
-
                       const products = productsByCategory[categoryId]
                       productSelect.innerHTML = '<option value="">Pilih Produk</option>'
-
                       if (products && products.length > 0) {
                         products.forEach((product) => {
                           const option = document.createElement('option')
@@ -1092,8 +1033,6 @@ export default {
                           option.dataset.image = product.image || ''
                           option.dataset.price = product.price || 0
                           productSelect.appendChild(option)
-
-                          // Store product price
                           productPrices[product.id] = parseFloat(product.price) || 0
                         })
                       } else {
@@ -1111,56 +1050,38 @@ export default {
                   }
                 })
               }
-
-              // Add event listener for product selection
               const setupProductListener = (productItem) => {
                 const productSelect = productItem.querySelector('.product-name')
                 const finishingSelect = productItem.querySelector('.product-finishing')
                 const variantSelect = productItem.querySelector('.product-variant')
                 const quantityInput = productItem.querySelector('.product-qty')
                 const previewDiv = productItem.querySelector('.product-preview')
-
                 productSelect.addEventListener('change', async function () {
                   const productId = this.value
-
-                  // Reset finishing and variant selects
                   finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
                   finishingSelect.disabled = true
                   variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
                   variantSelect.disabled = true
-
-                  // Update product preview
                   if (productId) {
                     const selectedOption = productSelect.options[productSelect.selectedIndex]
                     const imageUrl = selectedOption.dataset.image
-
-                    // Update price calculation based on selected product
                     updateProductPrice(productItem)
-
                     if (imageUrl) {
                       previewDiv.innerHTML = `<img src="${imageUrl}" alt="Product Preview" class="max-h-20 max-w-full">`
                     } else {
                       previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Tidak ada gambar</div>`
                     }
-
                     try {
-                      // Debug log untuk productId
                       console.log('Fetching finishings for productId:', productId)
-
-                      // Fetch finishings using self
                       finishingSelect.disabled = true
                       finishingSelect.innerHTML = '<option value="">Loading...</option>'
-
                       if (!finishingsByProduct[productId]) {
                         finishingsByProduct[productId] =
                           await self.fetchProductFinishings(productId)
-                        // Debug log
                         console.log('Fetched finishings:', finishingsByProduct[productId])
                       }
-
                       const finishings = finishingsByProduct[productId]
                       finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
-
                       if (finishings && finishings.length > 0) {
                         finishings.forEach((finishing) => {
                           const option = document.createElement('option')
@@ -1172,29 +1093,20 @@ export default {
                       } else {
                         finishingSelect.innerHTML = '<option value="">Tidak Ada Finishing</option>'
                       }
-
-                      // Debug log untuk variants
                       console.log('Fetching variants for productId:', productId)
-
-                      // Fetch variants using self
                       variantSelect.disabled = true
                       variantSelect.innerHTML = '<option value="">Loading...</option>'
-
                       if (!variantsByProduct[productId]) {
                         variantsByProduct[productId] = await self.fetchProductVariants(productId)
-                        // Debug log
                         console.log('Fetched variants:', variantsByProduct[productId])
                       }
-
                       const variants = variantsByProduct[productId]
                       variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
-
                       if (variants && variants.length > 0) {
                         variants.forEach((variant) => {
                           const option = document.createElement('option')
                           option.value = variant.id
                           option.textContent = variant.name
-                          
                           variantSelect.appendChild(option)
                         })
                         variantSelect.disabled = false
@@ -1209,26 +1121,19 @@ export default {
                     }
                   } else {
                     previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>`
-                    // Reset price display
                     const priceDisplay = productItem.querySelector('.product-price')
                     priceDisplay.textContent = self.formatCurrency(0)
                     updateSubtotal()
                   }
                 })
-
-                // Add event listeners for finishing, variant and quantity changes
                 finishingSelect.addEventListener('change', () => updateProductPrice(productItem))
                 variantSelect.addEventListener('change', () => updateProductPrice(productItem))
                 quantityInput.addEventListener('change', () => updateProductPrice(productItem))
                 quantityInput.addEventListener('input', () => updateProductPrice(productItem))
               }
-
-              // Setup listeners for initial product item
               const initialProductItem = document.querySelector('.product-item')
               setupCategoryListener(initialProductItem)
               setupProductListener(initialProductItem)
-
-              // Add event listener for adding more products
               document.getElementById('addMoreProduct').addEventListener('click', () => {
                 const productItems = document.getElementById('productItems')
                 const newItem = document.createElement('div')
@@ -1255,7 +1160,6 @@ export default {
             </select>
           </div>
         </div>
-
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
           <div>
             <label class="block text-sm font-medium mb-1">Finishing</label>
@@ -1270,7 +1174,6 @@ export default {
             </select>
           </div>
         </div>
-
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
           <div>
             <label class="block text-sm font-medium mb-1">Jumlah</label>
@@ -1285,57 +1188,42 @@ export default {
           </div>
         </div>
       `
-
                 productItems.appendChild(newItem)
-
-                // Setup listeners for the new product item
                 setupCategoryListener(newItem)
                 setupProductListener(newItem)
-
-                // Add event listener to remove button
                 const removeButton = newItem.querySelector('.remove-product')
                 removeButton.addEventListener('click', function () {
                   this.closest('.product-item').remove()
-                  // Update subtotal after removing a product
                   updateSubtotal()
                 })
               })
             },
             preConfirm: () => {
-              // Validate form data
               const form = document.getElementById('addOrderForm')
               if (!form.checkValidity()) {
                 form.reportValidity()
                 return false
               }
-
-              // Check if user is selected
               const selectedUserId = document.getElementById('selectedUserId')
               if (!selectedUserId || !selectedUserId.value) {
                 Swal.showValidationMessage('Silakan pilih pembeli terlebih dahulu')
                 return false
               }
-
-              // Collect product data
               const productItems = document.querySelectorAll('.product-item')
               const products = []
-
               for (const item of productItems) {
                 const productSelect = item.querySelector('.product-name')
                 const finishingSelect = item.querySelector('.product-finishing')
                 const variantSelect = item.querySelector('.product-variant')
                 const quantityInput = item.querySelector('.product-qty')
-
                 if (!productSelect.value) {
                   Swal.showValidationMessage('Silakan pilih produk untuk semua item')
                   return false
                 }
-
                 if (!quantityInput.value || parseInt(quantityInput.value) < 1) {
                   Swal.showValidationMessage('Jumlah produk harus minimal 1')
                   return false
                 }
-
                 products.push({
                   product_id: parseInt(productSelect.value),
                   quantity: parseInt(quantityInput.value),
@@ -1349,11 +1237,7 @@ export default {
                       : null,
                 })
               }
-
-              // Collect additional info
               const additionalInfo = document.getElementById('additionalInfo').value
-
-              // Return the order data
               return {
                 user_id: parseInt(selectedUserId.value),
                 additional_info: additionalInfo,
@@ -1362,63 +1246,28 @@ export default {
             },
           }).then(async (result) => {
             if (result.isConfirmed && result.value) {
-              // Submit the order
               const success = await self.submitOrder(result.value)
-
               if (success) {
-                Swal.fire({
-                  icon: 'success',
-                  title: 'Pesanan Berhasil Ditambahkan',
-                  text: 'Pesanan baru telah berhasil ditambahkan ke dalam sistem.',
-                  confirmButtonText: 'OK',
-                  buttonsStyling: false,
-                  customClass: {
-                    confirmButton: 'bg-red-600 text-white py-2 px-4 rounded-md',
-                  },
-                }).then(() => {
-                  // Refresh orders list
-                  self.fetchOrders()
-                })
+                self.fetchOrders()
               }
             }
           })
         })
         .catch((error) => {
           console.error('Error fetching categories:', error)
-          this.showErrorMessage('Gagal memuat data kategori. Silakan coba lagi nanti.')
+          this.showErrorMessage('Gagal memuat data kategori. Silakan coba lagi.')
         })
     },
-    handleAddOrderSuccess() {
-      // Show success message
-      Swal.fire({
-        icon: 'success',
-        title: 'Pesanan Berhasil Ditambahkan',
-        text: 'Pesanan baru telah berhasil ditambahkan ke dalam sistem.',
-        confirmButtonText: 'OK',
-        buttonsStyling: false,
-        customClass: {
-          confirmButton: 'bg-red-600 text-white py-2 px-4 rounded-md',
-        },
-      })
-
-      // In a real implementation, you would refresh the orders list here
-      // For now, we'll just log a message
-      console.log('Order added successfully!')
-    },
-
     createProductsCarousel(order) {
       if (!order.order_detail || order.order_detail.length === 0) {
         return '<div class="text-center py-4">Tidak ada detail produk tersedia</div>'
       }
-
       let carouselHtml = `
     <div class="product-carousel relative">
       <div class="carousel-container overflow-hidden">
         <div class="carousel-track flex transition-transform duration-300" style="transform: translateX(0);">
   `
-
-      // Add slides for each product
-      order.order_detail.forEach((item, index) => {
+      order.order_detail.forEach((item) => {
         carouselHtml += `
       <div class="carousel-slide w-full flex-shrink-0 p-3 sm:p-4 bg-gray-50 rounded-lg">
         <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-left text-base sm:text-lg">
@@ -1437,24 +1286,18 @@ export default {
       </div>
     `
       })
-
-      // Add navigation controls
       carouselHtml += `
         </div>
       </div>
-      <!-- Carousel controls -->
       <div class="carousel-controls flex justify-between items-center mt-4">
         <button class="carousel-prev bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-md text-sm sm:text-base ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>← Prev</button>
         <div class="carousel-indicators flex space-x-2 justify-center">
   `
-
-      // Add indicators
       order.order_detail.forEach((_, index) => {
         carouselHtml += `
       <button class="carousel-indicator w-2 h-2 rounded-full bg-gray-300 ${index === 0 ? 'bg-gray-700' : ''}" data-index="${index}"></button>
     `
       })
-
       carouselHtml += `
         </div>
         <button class="carousel-next bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-md text-sm sm:text-base ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>Next →</button>
@@ -1464,92 +1307,67 @@ export default {
       </div>
     </div>
   `
-
       return carouselHtml
     },
-
     initProductCarousel(totalSlides) {
       if (totalSlides <= 1) return
-
       const track = document.querySelector('.carousel-track')
       const slides = document.querySelectorAll('.carousel-slide')
       const prevButton = document.querySelector('.carousel-prev')
       const nextButton = document.querySelector('.carousel-next')
       const indicators = document.querySelectorAll('.carousel-indicator')
       const currentSlideEl = document.querySelector('.current-slide')
-
       let currentIndex = 0
-
       const updateCarousel = () => {
-        // Update track position
         track.style.transform = `translateX(-${currentIndex * 100}%)`
-
-        // Update indicators
         indicators.forEach((indicator, index) => {
           indicator.classList.toggle('bg-gray-700', index === currentIndex)
           indicator.classList.toggle('bg-gray-300', index !== currentIndex)
         })
-
-        // Update buttons
         prevButton.disabled = currentIndex === 0
         nextButton.disabled = currentIndex === totalSlides - 1
-
-        // Update counter
         currentSlideEl.textContent = currentIndex + 1
       }
-
-      // Add event listeners for navigation
       prevButton.addEventListener('click', () => {
         if (currentIndex > 0) {
           currentIndex--
           updateCarousel()
         }
       })
-
       nextButton.addEventListener('click', () => {
         if (currentIndex < totalSlides - 1) {
           currentIndex++
           updateCarousel()
         }
       })
-
-      // Add event listeners for indicators
       indicators.forEach((indicator, index) => {
         indicator.addEventListener('click', () => {
           currentIndex = index
           updateCarousel()
         })
       })
-
-      // Initialize
       updateCarousel()
     },
-
     getStatusName(statusId) {
       const status = this.orderStatuses.find((s) => s.id === statusId)
       return status ? status.name : 'Unknown'
     },
-
     toggleSidebar() {
       if (this.isMobile) {
         this.isSidebarActive = !this.isSidebarActive
       }
     },
-
     handleResize() {
       this.isMobile = window.innerWidth < 1024
       if (!this.isMobile) {
         this.isSidebarActive = true
       }
     },
-
     updatePagination() {
-      // Reset current page if it's now out of bounds
       if (this.currentPage > this.totalPages && this.totalPages > 0) {
         this.currentPage = this.totalPages
       }
     },
-
     goToPage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page
@@ -1561,16 +1379,12 @@ export default {
 </script>
 
 <style scoped>
-/* Optional: Add some transition effects for carousel */
 .carousel-track {
   transition: transform 0.3s ease-in-out;
 }
-
 .carousel-indicator {
   transition: background-color 0.3s ease;
 }
-
-/* Make buttons look disabled when they are */
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

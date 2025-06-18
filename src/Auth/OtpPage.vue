@@ -40,10 +40,10 @@
         </p>
 
         <!-- Submit Button -->
-        <AuthMainButton 
-          :text="isSubmitting ? 'Memproses...' : 'Berikutnya'" 
+        <AuthMainButton
+          :text="isSubmitting ? 'Memproses...' : 'Berikutnya'"
           :disabled="isSubmitting"
-          @click="submitOtp" 
+          @click="submitOtp"
         />
       </section>
     </main>
@@ -70,22 +70,22 @@ export default {
     return {
       otpCode: ['', '', '', ''],
       isSubmitting: false,
-      submissionTimeout: null
+      submissionTimeout: null,
     }
   },
   methods: {
     handlePaste(event) {
       // Prevent default paste behavior
       event.preventDefault()
-      
+
       // Get pasted text
       const pastedText = event.clipboardData.getData('text').trim()
-      
+
       // Check if pasted text is a valid 4-digit code
       if (/^\d{4}$/.test(pastedText)) {
         // Fill OTP inputs with pasted code
-        this.otpCode = pastedText.split('').map(digit => digit)
-        
+        this.otpCode = pastedText.split('').map((digit) => digit)
+
         // Focus on the last input after pasting
         this.$nextTick(() => {
           const lastInput = this.$refs[`otp${this.otpCode.length - 1}`]
@@ -151,7 +151,7 @@ export default {
       }, 15000) // 15 seconds timeout
 
       axios
-        .post(`http://127.0.0.1:8000/api/auth/verifyOtp`, { email: email, otp: otp })
+        .post(`${import.meta.env.VITE_API_BASE_URL}/auth/verifyOtp`, { email: email, otp: otp })
         .then((response) => {
           // Clear timeout
           clearTimeout(this.submissionTimeout)
@@ -162,9 +162,9 @@ export default {
               title: 'Berhasil',
               text: 'Kode OTP berhasil diverifikasi!',
             }).then(() => {
-              const { token, email } = response.data.data;
-              localStorage.setItem('resetToken', token);
-              localStorage.setItem('userEmail', email);
+              const { token, email } = response.data.data
+              localStorage.setItem('resetToken', token)
+              localStorage.setItem('userEmail', email)
 
               localStorage.removeItem('resetEmail')
               this.$router.push('/reset-password')
@@ -194,11 +194,11 @@ export default {
         })
     },
   },
-  beforeDestroy() {
+  beforeUnmount() {
     // Clean up timeout if component is destroyed
     if (this.submissionTimeout) {
       clearTimeout(this.submissionTimeout)
     }
-  }
+  },
 }
 </script>
