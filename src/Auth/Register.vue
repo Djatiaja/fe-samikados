@@ -159,7 +159,7 @@
 <script>
 import Swal from 'sweetalert2'
 import AuthHeader from '@/components/AuthHeader.vue'
-
+import AuthMainButton from '@/components/AuthMainButton.vue'
 import AuthFooter from '@/components/AuthFooter.vue'
 import axios from 'axios'
 
@@ -266,7 +266,10 @@ export default {
             postal_code: this.form.postal_code,
           }
 
-          const response = await axios.post('http://127.0.0.1:8000/api/auth/register', payload)
+          const response = await axios.post(
+            `${import.meta.env.VITE_API_BASE_URL}/auth/register`,
+            payload,
+          )
 
           if (response.status === 201) {
             // Store email in localStorage or Vuex for verification page
@@ -278,8 +281,7 @@ export default {
               icon: 'success',
               confirmButtonText: 'OK',
             }).then(() => {
-              // Redirect to verification page instead of login
-              this.$router.push('/verification')
+              this.$router.push('/login')
             })
           }
         } catch (error) {

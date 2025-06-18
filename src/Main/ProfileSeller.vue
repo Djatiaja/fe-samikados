@@ -7,29 +7,42 @@
       @click="toggleSidebar"
       class="fixed inset-0 bg-opacity-20 z-20"
     ></div>
-
     <!-- Header -->
     <HeaderSeller @toggle-sidebar="toggleSidebar" />
-
     <!-- Sidebar -->
     <SidebarSeller :isSidebarActive="isSidebarActive" />
-
     <!-- Content Wrapper -->
     <div
       class="content-wrapper bg-gray-100 flex-1 mt-32 sm:mt-32 md:mt-16"
       :class="{ 'lg:ml-64': isSidebarActive }"
     >
       <div class="p-4 md:p-6 lg:p-8">
+        <!-- Loading State -->
+        <div v-if="loading" class="flex justify-center items-center h-96">
+          <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-red-600"></div>
+        </div>
+
+        <!-- Error State -->
+        <div v-else-if="error" class="flex justify-center items-center h-96 flex-col">
+          <div class="text-red-600 text-xl font-bold mb-4">Gagal memuat data</div>
+          <p class="text-gray-600">{{ error }}</p>
+          <button
+            @click="fetchUserData"
+            class="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg"
+          >
+            Coba Lagi
+          </button>
+        </div>
+
         <!-- Profile Section -->
-        <div class="flex flex-col md:flex-row items-start md:space-x-20 justify-center">
+        <div v-else class="flex flex-col md:flex-row items-start md:space-x-20 justify-center">
           <!-- Profile Picture and Actions -->
           <div class="w-full md:w-1/4 flex flex-col items-center">
             <img
-              :src="userData.profilePicture || 'https://placehold.co/300x300'"
+              :src="userData.photo_url || 'https://placehold.co/300x300'"
               class="rounded-lg shadow-lg w-full max-w-xs min-w-60"
               alt="Profile Picture"
             />
-
             <!-- Button Ganti Foto Profil -->
             <button
               class="mt-5 w-full max-w-xs bg-red-600 text-white py-3 rounded-lg text-sm sm:text-base md:text-lg min-w-60"
@@ -37,7 +50,6 @@
             >
               Ganti Foto Profil
             </button>
-
             <!-- Nonaktifkan Akun Toggle Switch -->
             <div class="flex items-center justify-center mt-3 md:mt-5 w-full">
               <label
@@ -60,7 +72,6 @@
               </label>
             </div>
           </div>
-
           <!-- Profile Details -->
           <div
             class="w-full md:w-1/2 bg-white p-6 rounded-lg shadow-lg h-auto flex flex-col items-center justify-center mt-10 md:mt-0"
@@ -70,13 +81,16 @@
             </h2>
             <div class="space-y-4 w-5/6 mt-8">
               <div class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base">
-                {{ userData.storeName }}
+                {{ userData.name || userData.storeName }}
               </div>
               <div class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base">
-                {{ userData.phone }}
+                {{ userData.no_telp || userData.phone }}
               </div>
               <div class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base">
                 {{ userData.email }}
+              </div>
+              <div v-if="userData.address" class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base">
+                {{ userData.address }}
               </div>
             </div>
             <button
@@ -87,9 +101,8 @@
             </button>
           </div>
         </div>
-
         <!-- Action Buttons -->
-        <div class="mt-20 md:mt-32 space-y-4 flex flex-col items-center justify-center">
+        <div v-if="!loading && !error" class="mt-20 md:mt-32 space-y-4 flex flex-col items-center justify-center">
           <button
             class="w-full max-w-md lg:w-1/3 bg-red-600 text-white py-3 rounded-xl text-sm sm:text-base"
             @click="openChangePasswordModal"
@@ -105,11 +118,9 @@
         </div>
       </div>
     </div>
-
     <FooterSeller />
   </div>
 </template>
-
 <script>
 import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
@@ -125,13 +136,16 @@ export default {
       isMobile: window.innerWidth < 1024,
       statusFilter: 'all',
       entriesPerPage: 25,
+      baseUrl: 'http://127.0.0.1:8000/api',
+      loading: false,
+      error: null,
       userData: {
-        storeName: 'RuangJayaPrint',
-        phone: '081212341234',
-        email: 'ruangjayaprint@gmail.com',
-        profilePicture: 'https://placehold.co/300x300',
+        name: '',
+        email: '',
+        no_telp: '',
+        address: '',
         isActive: true,
-        balance: 1500000,
+        profilePicture: 'https://placehold.co/300x300',
       },
       bankAccounts: [
         { id: 1, bankName: 'BCA', accountNumber: '1234567890', accountName: 'RuangJayaPrint' },
@@ -148,11 +162,45 @@ export default {
   mounted() {
     this.isSidebarActive = window.innerWidth >= 1024
     window.addEventListener('resize', this.handleResize)
+    this.fetchUserData()
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.handleResize)
   },
   methods: {
+    fetchUserData() {
+      this.loading = true
+      this.error = null
+
+      // Get token from localStorage or wherever it's stored
+      const token = localStorage.getItem('token') || 'token' // Use default for development
+
+      axios.get(`${this.baseUrl}/seller/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        if (response.data.status === 'success') {
+          // Map API data to userData
+          const apiData = response.data.data
+          this.userData = {
+            ...this.userData,
+            ...apiData,
+            isActive: apiData.isActive === 1
+          }
+        } else {
+          this.error = response.data.message || 'Terjadi kesalahan saat memuat data'
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching profile data:', error)
+        this.error = error.response?.data?.message || 'Gagal memuat data. Silakan coba lagi.'
+      })
+      .finally(() => {
+        this.loading = false
+      })
+    },
     toggleSidebar() {
       if (this.isMobile) {
         this.isSidebarActive = !this.isSidebarActive
@@ -163,19 +211,66 @@ export default {
       this.isSidebarActive = !this.isMobile
     },
     toggleAccountStatus() {
-      this.userData.isActive = !this.userData.isActive
-      const statusMessage = this.userData.isActive ? 'diaktifkan' : 'dinonaktifkan'
+      this.loading = true
 
-      Swal.fire({
-        title: `<h3 class="text-lg font-bold">Status Akun</h3>`,
-        text: `Akun anda telah berhasil ${statusMessage}`,
-        icon: 'success',
-        confirmButtonText: 'OK',
-        buttonsStyling: false,
-        customClass: {
-          confirmButton:
-            'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
-        },
+      const token = localStorage.getItem('token') || 'token'
+      const newStatus = this.userData.isActive ? 0 : 1
+
+      axios.post(`${this.baseUrl}/seller/profile`, {
+        isActive: newStatus
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        if (response.data.status === 'success') {
+          this.userData.isActive = !this.userData.isActive
+          const statusMessage = this.userData.isActive ? 'diaktifkan' : 'dinonaktifkan'
+          Swal.fire({
+            title: `<h3 class="text-lg font-bold">Status Akun</h3>`,
+            text: `Akun anda telah berhasil ${statusMessage}`,
+            icon: 'success',
+            confirmButtonText: 'OK',
+            buttonsStyling: false,
+            customClass: {
+              confirmButton:
+                'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+            },
+          })
+        } else {
+          // Revert back since update failed
+          this.userData.isActive = !this.userData.isActive
+          Swal.fire({
+            title: `<h3 class="text-lg font-bold">Gagal</h3>`,
+            text: response.data.message || 'Gagal mengubah status akun',
+            icon: 'error',
+            confirmButtonText: 'OK',
+            buttonsStyling: false,
+            customClass: {
+              confirmButton:
+                'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+            },
+          })
+        }
+      })
+      .catch(error => {
+        // Revert back since update failed
+        this.userData.isActive = !this.userData.isActive
+        Swal.fire({
+          title: `<h3 class="text-lg font-bold">Gagal</h3>`,
+          text: error.response?.data?.message || 'Terjadi kesalahan saat mengubah status',
+          icon: 'error',
+          confirmButtonText: 'OK',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton:
+              'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
+          },
+        })
+      })
+      .finally(() => {
+        this.loading = false
       })
     },
     openPhotoModal() {
@@ -209,37 +304,80 @@ export default {
             return false
           }
 
-          // In a real app, you would handle file upload to server here
-          // For demo, just update with a placeholder
-          this.userData.profilePicture = 'https://placehold.co/300x300'
-          return true
+          const file = fileInput.files[0]
+          if (file.size > 2 * 1024 * 1024) { // 2MB
+            Swal.showValidationMessage('Ukuran file maksimal 2MB')
+            return false
+          }
+
+          // Create form data for upload
+          const formData = new FormData()
+          formData.append('photo', file)
+
+          // Return promise to handle upload
+          return this.uploadProfilePicture(formData)
         },
       })
     },
+
+uploadProfilePicture(formData) {
+  const token = localStorage.getItem('token') || 'token'
+
+  return axios.post(`${this.baseUrl}/seller/profile/photo`, formData, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+  .then(response => {
+    if (response.data.status === 'success') {
+      // Update local userData with new picture URL from response
+      // The response.data.data is a string URL, not an object with profilePicture
+      if (response.data.data) {
+        this.userData.profilePicture = response.data.data
+      }
+
+      window.location.reload() // Reload the page to reflect changes
+      return true
+    } else {
+      throw new Error(response.data.message || 'Gagal mengunggah foto')
+    }
+  })
+  .catch(error => {
+    Swal.showValidationMessage(
+      error.response?.data?.message || 'Gagal mengunggah foto. Silakan coba lagi.'
+    )
+    return false
+  })
+},
     openEditModal() {
       Swal.fire({
         title: `<h3 class="text-lg font-bold">Edit Profil</h3>`,
         html: `
           <form id="editProfileForm" class="text-left">
             <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1" for="storeName">
-                Nama Toko
+              <label class="block text-gray-700 font-medium text-sm mb-1" for="name">
+                Nama
               </label>
-              <input id="storeName" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" value="${this.userData.storeName}">
+              <input id="name" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" value="${this.userData.name || ''}">
             </div>
-
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1" for="phone">
                 Nomor Telepon
               </label>
-              <input id="phone" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" value="${this.userData.phone}">
+              <input id="phone" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" value="${this.userData.no_telp || ''}">
             </div>
-
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1" for="email">
                 Email
               </label>
-              <input id="email" type="email" class="w-full text-sm p-2 border border-gray-300 rounded-lg" value="${this.userData.email}">
+              <input id="email" type="email" class="w-full text-sm p-2 border border-gray-300 rounded-lg" value="${this.userData.email || ''}">
+            </div>
+            <div class="mb-3">
+              <label class="block text-gray-700 font-medium text-sm mb-1" for="address">
+                Alamat
+              </label>
+              <textarea id="address" class="w-full text-sm p-2 border border-gray-300 rounded-lg" rows="3">${this.userData.address || ''}</textarea>
             </div>
           </form>
         `,
@@ -256,31 +394,33 @@ export default {
         confirmButtonText: 'Simpan',
         width: 500,
         preConfirm: () => {
-          const storeName = document.getElementById('storeName').value
+          const name = document.getElementById('name').value
           const phone = document.getElementById('phone').value
           const email = document.getElementById('email').value
+          const address = document.getElementById('address').value
 
-          if (!storeName) {
-            Swal.showValidationMessage('Nama toko tidak boleh kosong')
+          if (!name) {
+            Swal.showValidationMessage('Nama tidak boleh kosong')
             return false
           }
-
           if (!phone) {
             Swal.showValidationMessage('Nomor telepon tidak boleh kosong')
             return false
           }
-
           if (!email) {
             Swal.showValidationMessage('Email tidak boleh kosong')
             return false
           }
 
-          // Update the user data with new values
-          this.userData.storeName = storeName
-          this.userData.phone = phone
-          this.userData.email = email
+          // Create updated profile data
+          const updatedData = {
+            name:name,
+            no_telp: phone,
+            address:address
+          }
 
-          return true
+          // Return promise to handle update
+          return this.updateProfile(updatedData)
         },
       }).then((result) => {
         if (result.isConfirmed) {
@@ -298,6 +438,33 @@ export default {
         }
       })
     },
+    updateProfile(data) {
+      const token = localStorage.getItem('token') || 'token'
+
+      return axios.post(`${this.baseUrl}/seller/profile`, data, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(response => {
+        if (response.data.status === 'success') {
+          // Update userData with new data
+          this.userData = {
+            ...this.userData,
+            ...data
+          }
+          return true
+        } else {
+          throw new Error(response.data.message || 'Gagal memperbarui profil')
+        }
+      })
+      .catch(error => {
+        Swal.showValidationMessage(
+          error.response?.data?.message || 'Gagal memperbarui profil. Silakan coba lagi.'
+        )
+        return false
+      })
+    },
     openChangePasswordModal() {
       Swal.fire({
         title: `<h3 class="text-lg font-bold">Ganti Password</h3>`,
@@ -309,14 +476,12 @@ export default {
               </label>
               <input id="currentPassword" type="password" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
             </div>
-
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1" for="newPassword">
                 Password Baru
               </label>
               <input id="newPassword" type="password" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
             </div>
-
             <div class="mb-3">
               <label class="block text-gray-700 font-medium text-sm mb-1" for="confirmPassword">
                 Konfirmasi Password Baru
@@ -346,23 +511,28 @@ export default {
             Swal.showValidationMessage('Password saat ini tidak boleh kosong')
             return false
           }
-
           if (!newPassword) {
             Swal.showValidationMessage('Password baru tidak boleh kosong')
             return false
           }
-
           if (newPassword.length < 8) {
             Swal.showValidationMessage('Password harus minimal 8 karakter')
             return false
           }
-
           if (newPassword !== confirmPassword) {
             Swal.showValidationMessage('Konfirmasi password tidak cocok')
             return false
           }
 
-          return true
+          // Create password update data
+          const passwordData = {
+            currentPassword: currentPassword,
+            password: newPassword,
+            password_confirmation: confirmPassword
+          }
+
+          // Return promise to handle password update
+          return this.changePassword(passwordData)
         },
       }).then((result) => {
         if (result.isConfirmed) {
@@ -380,269 +550,27 @@ export default {
         }
       })
     },
-    openWithdrawalModal() {
-      const bankOptions = this.banks
-        .map((bank) => `<option value="${bank.id}">${bank.name}</option>`)
-        .join('')
+    changePassword(data) {
+      const token = localStorage.getItem('token') || 'token'
 
-      Swal.fire({
-        title: `<h3 class="text-lg font-bold">Formulir Penarikan</h3>`,
-        html: `
-          <div class="text-right mb-3">
-            <button id="add-account-btn" type="button" class="bg-white text-gray-700 font-bold py-2 px-3 rounded-lg border border-gray-300 hover:bg-gray-100 text-sm">
-              + Tujuan Baru
-            </button>
-          </div>
-          <form id="withdrawalForm" class="text-left form-compact">
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1" for="bank">
-                Nama Bank
-              </label>
-              <select id="bank-select" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
-                <option value="">Pilih Bank</option>
-                ${bankOptions}
-              </select>
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1" for="account">
-                Rekening Tujuan
-              </label>
-              <select id="account-select" class="w-full text-sm p-2 border border-gray-300 rounded-lg" disabled>
-                <option value="">Pilih Rekening</option>
-              </select>
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1" for="accountName">
-                Nama Pemilik Rekening
-              </label>
-              <input id="account-name" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" readonly>
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1" for="amount">
-                Jumlah Penarikan
-              </label>
-              <input id="amount" type="number" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan jumlah penarikan">
-              <p class="text-sm text-gray-500 mt-1">Jumlah maksimal: Rp${this.userData.balance.toLocaleString()}</p>
-            </div>
-          </form>
-        `,
-        showCancelButton: true,
-        buttonsStyling: false,
-        customClass: {
-          confirmButton:
-            'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          cancelButton:
-            'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          actions: 'flex justify-center space-x-6',
-        },
-        cancelButtonText: 'Batal',
-        confirmButtonText: 'Ajukan Penarikan',
-        width: 600,
-        didOpen: () => {
-          // Add event listeners
-          const bankSelect = document.getElementById('bank-select')
-          const accountSelect = document.getElementById('account-select')
-          const accountName = document.getElementById('account-name')
-          const addAccountBtn = document.getElementById('add-account-btn')
-
-          bankSelect.addEventListener('change', () => {
-            const bankId = bankSelect.value
-            if (bankId) {
-              // Enable account select
-              accountSelect.disabled = false
-
-              // Filter accounts by bank
-              const filteredAccounts = this.bankAccounts.filter(
-                (acc) => acc.bankName === this.banks.find((b) => b.id === parseInt(bankId))?.name,
-              )
-
-              // Clear and populate account select
-              accountSelect.innerHTML = '<option value="">Pilih Rekening</option>'
-              filteredAccounts.forEach((acc) => {
-                const option = document.createElement('option')
-                option.value = acc.id
-                option.textContent = acc.accountNumber
-                accountSelect.appendChild(option)
-              })
-            } else {
-              accountSelect.disabled = true
-              accountSelect.innerHTML = '<option value="">Pilih Rekening</option>'
-              accountName.value = ''
-            }
-          })
-
-          accountSelect.addEventListener('change', () => {
-            const accountId = accountSelect.value
-            if (accountId) {
-              const selectedAccount = this.bankAccounts.find(
-                (acc) => acc.id === parseInt(accountId),
-              )
-              accountName.value = selectedAccount ? selectedAccount.accountName : ''
-            } else {
-              accountName.value = ''
-            }
-          })
-
-          addAccountBtn.addEventListener('click', () => {
-            this.openAddBankAccountModal()
-          })
-        },
-        preConfirm: () => {
-          const bankId = document.getElementById('bank-select').value
-          const accountId = document.getElementById('account-select').value
-          const amount = document.getElementById('amount').value
-
-          // Validation
-          if (!bankId) {
-            Swal.showValidationMessage('Silakan pilih bank')
-            return false
-          }
-
-          if (!accountId) {
-            Swal.showValidationMessage('Silakan pilih rekening tujuan')
-            return false
-          }
-
-          if (!amount || amount <= 0) {
-            Swal.showValidationMessage('Silakan masukkan jumlah penarikan')
-            return false
-          }
-
-          if (parseFloat(amount) > this.userData.balance) {
-            Swal.showValidationMessage('Jumlah penarikan melebihi saldo')
-            return false
-          }
-
-          return {
-            bankId: parseInt(bankId),
-            accountId: parseInt(accountId),
-            amount: parseFloat(amount),
-          }
-        },
-      }).then((result) => {
-        if (result.isConfirmed) {
-          Swal.fire({
-            title: `<h3 class="text-lg font-bold">Sukses!</h3>`,
-            text: 'Penarikan berhasil diajukan',
-            icon: 'success',
-            confirmButtonText: 'OK',
-            buttonsStyling: false,
-            customClass: {
-              confirmButton:
-                'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
-            },
-          })
+      return axios.post(`${this.baseUrl}/seller/reset_password`, data, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
       })
-    },
-    openAddBankAccountModal() {
-      // Close current modal
-      Swal.close()
-
-      const bankOptions = this.banks
-        .map((bank) => `<option value="${bank.id}">${bank.name}</option>`)
-        .join('')
-
-      setTimeout(() => {
-        Swal.fire({
-          title: `<h3 class="text-lg font-bold">Tambah Rekening Baru</h3>`,
-          html: `
-            <form id="addAccountForm" class="text-left">
-              <div class="mb-3">
-                <label class="block text-gray-700 font-medium text-sm mb-1" for="newBankSelect">
-                  Nama Bank
-                </label>
-                <select id="newBankSelect" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
-                  <option value="">Pilih Bank</option>
-                  ${bankOptions}
-                </select>
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-gray-700 font-medium text-sm mb-1" for="newAccountNumber">
-                  Nomor Rekening
-                </label>
-                <input id="newAccountNumber" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan nomor rekening">
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-gray-700 font-medium text-sm mb-1" for="newAccountName">
-                  Nama Pemilik Rekening
-                </label>
-                <input id="newAccountName" type="text" class="w-full text-sm p-2 border border-gray-300 rounded-lg" placeholder="Masukkan nama pemilik rekening">
-              </div>
-            </form>
-          `,
-          showCancelButton: true,
-          buttonsStyling: false,
-          customClass: {
-            confirmButton:
-              'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-            cancelButton:
-              'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-            actions: 'flex justify-center space-x-6',
-          },
-          cancelButtonText: 'Batal',
-          confirmButtonText: 'Simpan',
-          width: 500,
-          preConfirm: () => {
-            const bankId = document.getElementById('newBankSelect').value
-            const accountNumber = document.getElementById('newAccountNumber').value
-            const accountName = document.getElementById('newAccountName').value
-
-            if (!bankId) {
-              Swal.showValidationMessage('Silakan pilih bank')
-              return false
-            }
-
-            if (!accountNumber) {
-              Swal.showValidationMessage('Nomor rekening tidak boleh kosong')
-              return false
-            }
-
-            if (!accountName) {
-              Swal.showValidationMessage('Nama pemilik rekening tidak boleh kosong')
-              return false
-            }
-
-            // Create new bank account
-            const newBankAccount = {
-              id: this.bankAccounts.length + 1,
-              bankName: this.banks.find((b) => b.id === parseInt(bankId)).name,
-              accountNumber: accountNumber,
-              accountName: accountName,
-            }
-
-            // Add to bank accounts array
-            this.bankAccounts.push(newBankAccount)
-
-            return newBankAccount
-          },
-        }).then((result) => {
-          if (result.isConfirmed) {
-            Swal.fire({
-              title: `<h3 class="text-lg font-bold">Sukses!</h3>`,
-              text: 'Rekening baru berhasil ditambahkan',
-              icon: 'success',
-              confirmButtonText: 'OK',
-              buttonsStyling: false,
-              customClass: {
-                confirmButton:
-                  'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
-              },
-            }).then(() => {
-              // Reopen withdrawal modal
-              this.openWithdrawalModal()
-            })
-          } else {
-            // Reopen withdrawal modal if canceled
-            this.openWithdrawalModal()
-          }
-        })
-      }, 300)
+      .then(response => {
+        if (response.data.status === 'success') {
+          return true
+        } else {
+          throw new Error(response.data.message || 'Gagal mengubah password')
+        }
+      })
+      .catch(error => {
+        Swal.showValidationMessage(
+          error.response?.data?.message || 'Gagal mengubah password. Silakan coba lagi.'
+        )
+        return false
+      })
     },
     logout() {
       Swal.fire({
@@ -661,65 +589,48 @@ export default {
         confirmButtonText: 'Ya, Keluar',
       }).then((result) => {
         if (result.isConfirmed) {
-          // Get the token from localStorage
-          const token = localStorage.getItem('token')
+          const token = localStorage.getItem('token') || 'token'
 
-          // Make API call to logout endpoint
-          axios
-            .post(
-              'http://127.0.0.1:8000/api/auth/logout',
-              {},
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              },
-            )
-            .then(() => {
-              // Clear token from localStorage
+          // Call logout API
+          axios.post(`${this.baseUrl}/seller/logout`, {}, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          })
+          .then(response => {
+            if (response.data.status === 'success') {
+              // Clear local storage
               localStorage.removeItem('token')
-
-              // Show success message
+              // Redirect to login page
+              this.$router.push('/login')
+            } else {
               Swal.fire({
-                title: 'Sukses!',
-                text: 'Anda berhasil keluar',
-                icon: 'success',
+                title: `<h3 class="text-lg font-bold">Gagal</h3>`,
+                text: response.data.message || 'Gagal melakukan logout',
+                icon: 'error',
                 confirmButtonText: 'OK',
                 buttonsStyling: false,
                 customClass: {
                   confirmButton:
                     'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
                 },
-                timer: 1500,
-                showConfirmButton: false,
-              }).then(() => {
-                // Redirect to login page
-                this.$router.push('/login')
               })
-            })
-            .catch((error) => {
-              console.error('Logout failed:', error)
+            }
+          })
+          .catch(error => {
+            console.error('Logout error:', error)
 
-              // Even if API call fails, still remove token and redirect
-              localStorage.removeItem('token')
-
-              Swal.fire({
-                title: 'Perhatian',
-                text: 'Terjadi kesalahan saat logout, tetapi anda tetap dialihkan ke halaman login',
-                icon: 'warning',
-                confirmButtonText: 'OK',
-                buttonsStyling: false,
-                customClass: {
-                  confirmButton:
-                    'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6',
-                },
-              }).then(() => {
-                this.$router.push('/login')
-              })
-            })
+            // Force logout anyway even if the API call fails
+            localStorage.removeItem('token')
+            this.$router.push('/login')
+          })
         }
       })
     },
   },
 }
 </script>
+
+<style scoped>
+/* You can add custom styles here if needed */
+</style>

@@ -38,25 +38,24 @@
       :class="{ 'lg:ml-64': isSidebarActive }"
     >
       <div class="p-4 md:p-6 lg:p-8">
-        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6">Riwayat Pesanan</h2>
+        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6 mt-12 lg:mt-3">
+          Riwayat Pesanan
+        </h2>
 
-        <!-- Filter Dropdown -->
-        <div class="flex justify-between items-center mb-4">
-          <select
-            v-model="statusFilter"
-            class="w-60 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
-          >
-            <option value="all">Semua</option>
-            <option value="selesai">Selesai</option>
-            <option value="batal">Batal</option>
-          </select>
-          <button
-            @click="showAddHistoryModal"
-            class="border-2 border-black px-4 py-2 rounded-lg flex items-center space-x-2"
-          >
-            <img src="/icon/add.svg" alt="Add Icon" class="w-4 h-4 mr-2" />
-            <span>History</span>
-          </button>
+        <!-- Filter and Entries Row -->
+        <div class="flex flex-wrap justify-between items-center mb-6">
+          <!-- Filter Dropdown -->
+          <div class="mb-4 md:mb-0">
+            <select
+              v-model="statusFilter"
+              class="block w-60 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
+            >
+              <option value="all">Semua</option>
+              <option v-for="status in orderStatuses" :key="status.id" :value="status.id">
+                {{ status.name }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <!-- Entries per page -->
@@ -65,68 +64,62 @@
           <select
             v-model="entriesPerPage"
             class="p-2 border border-gray-300 rounded-md"
-            @change="changeEntriesPerPage"
+            @change="updatePagination"
           >
+            <option value="5">5</option>
             <option value="10">10</option>
-            <option value="25" selected>25</option>
+            <option value="25">25</option>
             <option value="50">50</option>
-            <option value="100">100</option>
           </select>
         </div>
 
-        <!-- Loading Indicator -->
-        <div v-if="isLoading" class="flex justify-center items-center py-10">
+        <!-- Loading indicator -->
+        <div v-if="loading" class="flex justify-center items-center py-10">
           <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600"></div>
         </div>
 
-        <!-- Error Message -->
-        <div
-          v-if="error"
-          class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"
-        >
-          <p>{{ error }}</p>
-          <button @click="fetchOrders" class="underline text-red-600">Try Again</button>
+        <!-- No orders message -->
+        <div v-else-if="orders.length === 0" class="text-center py-10">
+          <p class="text-lg text-gray-600">Tidak ada riwayat pesanan ditemukan.</p>
         </div>
 
         <!-- Responsive Table -->
-        <div v-if="!isLoading" class="overflow-auto rounded-lg shadow-md">
+        <div v-else class="overflow-auto rounded-lg shadow-md">
           <table class="w-full table-auto border-collapse border border-gray-300">
             <thead class="bg-red-600 text-white">
               <tr>
                 <th class="p-4 text-center border-r border-gray-300">Nomor Pesanan</th>
                 <th class="p-4 text-center border-r border-gray-300">Nama Pembeli</th>
-                <th class="p-4 text-center border-r border-gray-300">Tanggal Mulai</th>
-                <th class="p-4 text-center border-r border-gray-300">Tanggal Selesai</th>
-                <th class="p-4 text-center border-r border-gray-300">Metode Pembelian</th>
-                <th class="p-4 text-center border-r border-gray-300">Pendapatan</th>
+                <th class="p-4 text-center border-r border-gray-300">Tanggal Pesanan</th>
+                <th class="p-4 text-center border-r border-gray-300">Total</th>
                 <th class="p-4 text-center border-r border-gray-300">Status</th>
                 <th class="p-4 text-center">Detail</th>
               </tr>
             </thead>
             <tbody>
-              <!-- Tampilkan pesanan berdasarkan filter dan pencarian -->
-              <tr v-for="order in paginatedOrders" :key="order.id" class="border-b border-gray-300">
-                <td class="p-4 text-center border-r border-gray-300">{{ order.orderNumber }}</td>
-                <td class="p-4 text-center border-r border-gray-300">{{ order.customerName }}</td>
-                <td class="p-4 text-center border-r border-gray-300">{{ order.orderDate }}</td>
-                <td class="p-4 text-center border-r border-gray-300">{{ order.endDate }}</td>
+              <tr v-for="order in paginatedOrders" :key="order.id" class="text-center">
+                <td class="p-4 text-center border-r border-gray-300">#{{ order.id }}</td>
+                <td class="p-4 text-center border-r border-gray-300">{{ order.user.name }}</td>
                 <td class="p-4 text-center border-r border-gray-300">
-                  {{ order.purchaseMethod === 'offline' ? 'Offline' : 'Online' }}
+                  {{ formatDate(order.created_at) }}
                 </td>
                 <td class="p-4 text-center border-r border-gray-300">
-                  {{ formatCurrency(order.totalPrice) }}
+                  {{ formatCurrency(order.grand_total) }}
                 </td>
-                <td
-                  class="p-4 text-center border-r border-gray-300"
-                  :class="statusClass(order.status)"
-                >
-                  {{ order.status }}
+                <td class="p-4 border-r border-gray-300">
+                  <div class="flex justify-center">
+                    <span
+                      :class="getStatusBgClass(order.order_status_id)"
+                      class="py-1 px-3 rounded-lg"
+                    >
+                      {{ getStatusName(order.order_status_id) }}
+                    </span>
+                  </div>
                 </td>
-                <td
-                  class="p-4 text-center text-blue-500 cursor-pointer"
-                  @click="showOrderDetail(order)"
-                >
-                  Lihat Detail
+                <td class="p-4 text-center">
+                  <button @click="viewOrderDetail(order)" class="text-blue-500 hover:underline">
+                    Lihat Detail
+                  </button>
                 </td>
               </tr>
               <tr v-if="filteredOrders.length === 0">
@@ -135,6 +128,7 @@
             </tbody>
           </table>
         </div>
+
         <!-- Pagination -->
         <div
           v-if="orders.length > 0"
@@ -156,7 +150,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &laquo;
+              «
             </button>
 
             <!-- Previous Page -->
@@ -170,7 +164,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &lsaquo;
+              ‹
             </button>
 
             <!-- Page Numbers -->
@@ -203,7 +197,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &rsaquo;
+              ›
             </button>
 
             <!-- Last Page -->
@@ -217,7 +211,7 @@
                   : 'border-gray-300 hover:bg-gray-100'
               "
             >
-              &raquo;
+              »
             </button>
           </div>
         </div>
@@ -242,40 +236,41 @@ export default {
       isSidebarActive: false,
       isMobile: window.innerWidth < 1024,
       statusFilter: 'all',
-      entriesPerPage: 25,
-      searchQuery: '',
-      orders: [],
-      isLoading: false,
-      error: null,
-      lastOrderNumber: 1235,
+      entriesPerPage: 10,
       currentPage: 1,
+      searchQuery: '',
+      loading: true,
+      orders: [],
+      orderStatuses: [
+        { id: 3, name: 'selesai' },
+        { id: 4, name: 'batal' },
+      ],
+      // Hapus apiBaseUrl dari data, karena akan menggunakan import.meta.env
     }
   },
   computed: {
+    // Computed properties tetap sama
     filteredOrders() {
-      return this.orders.filter((order) => {
-        // Filter by status
-        if (this.statusFilter !== 'all' && order.status !== this.statusFilter) {
-          return false
-        }
-
-        // Filter by search query (name, order number)
-        if (this.searchQuery) {
-          const query = this.searchQuery.toLowerCase()
-          return (
-            order.customerName.toLowerCase().includes(query) ||
-            (order.orderNumber && order.orderNumber.toLowerCase().includes(query))
-          )
-        }
-
-        return true
-      })
+      let result = this.orders
+      if (this.statusFilter !== 'all') {
+        result = result.filter((order) => order.order_status_id == this.statusFilter)
+      }
+      if (this.searchQuery) {
+        const query = this.searchQuery.toLowerCase()
+        result = result.filter(
+          (order) =>
+            order.id.toString().includes(query) ||
+            order.user.name.toLowerCase().includes(query) ||
+            (order.address && order.address.toLowerCase().includes(query)),
+        )
+      }
+      return result
     },
     totalPages() {
       return Math.ceil(this.filteredOrders.length / this.entriesPerPage)
     },
     paginatedOrders() {
-      const start = (this.currentPage - 1) * parseInt(this.entriesPerPage)
+      const start = (this.currentPage - 1) * this.entriesPerPage
       const end = start + parseInt(this.entriesPerPage)
       return this.filteredOrders.slice(start, end)
     },
@@ -287,607 +282,118 @@ export default {
       return calculatedEnd > this.filteredOrders.length ? this.filteredOrders.length : calculatedEnd
     },
     displayedPages() {
-      const totalVisiblePages = 5 // Adjust based on screen size
+      const totalVisiblePages = 5
       const pages = []
-
       if (this.totalPages <= totalVisiblePages) {
-        // If we have fewer pages than the limit, show all pages
         for (let i = 1; i <= this.totalPages; i++) {
           pages.push(i)
         }
       } else {
-        // Always show first page
         pages.push(1)
-
         let startPage = Math.max(2, this.currentPage - Math.floor((totalVisiblePages - 3) / 2))
         let endPage = Math.min(this.totalPages - 1, startPage + totalVisiblePages - 4)
-
-        // Adjust if we're near the end
         if (endPage === this.totalPages - 1) {
           startPage = Math.max(2, endPage - (totalVisiblePages - 4))
         }
-
-        // Add ellipsis after first page if needed
         if (startPage > 2) {
           pages.push('...')
         }
-
-        // Add middle pages
         for (let i = startPage; i <= endPage; i++) {
           pages.push(i)
         }
-
-        // Add ellipsis before last page if needed
         if (endPage < this.totalPages - 1) {
           pages.push('...')
         }
-
-        // Always show last page
         pages.push(this.totalPages)
       }
-
       return pages
     },
   },
   methods: {
-    goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
-        this.currentPage = page
-        // Scroll to top of the table for better UX
-        const tableElement = document.querySelector('table')
-        if (tableElement) {
-          tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-      }
-    },
-
-    changeEntriesPerPage() {
-      this.currentPage = 1 // Reset to first page when changing entries per page
-    },
-
     async fetchOrders() {
       try {
-        this.isLoading = true
-        this.error = null
+        this.loading = true
         const token = localStorage.getItem('token')
-
-        // Set authorization header
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/history`) // Debug URL
+        if (!token) {
+          console.error('No token found in localStorage')
+          this.loading = false
+          this.showErrorMessage('Silakan login untuk melihat riwayat pesanan.')
+          // Optional: this.$router.push('/login')
+          return
+        }
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
 
-        // Get orders from API
-        const response = await axios.get('http://127.0.0.1:8000/api/seller/history')
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/history`)
         const data = response.data
 
         if (data.status === 'success') {
-          // Map API data to match component's structure
-          this.orders = data.data.map((order) => {
-            // Get the first product name if available
-            const firstProduct =
-              order.order_detail.length > 0 ? order.order_detail[0].product.name : 'N/A'
-
-            // Format dates
-            const orderDate = new Date(order.created_at)
-            const endDate = new Date(orderDate)
-            endDate.setDate(endDate.getDate() + 3)
-
-            const formattedOrderDate = orderDate.toLocaleDateString('en-US', {
-              day: 'numeric',
-              month: 'numeric',
-              year: '2-digit',
-            })
-
-            const formattedEndDate = endDate.toLocaleDateString('en-US', {
-              day: 'numeric',
-              month: 'numeric',
-              year: '2-digit',
-            })
-
-            // Calculate total quantities
-            const totalQuantity = order.order_detail.reduce((sum, item) => sum + item.quantity, 0)
-
-            return {
-              id: order.id,
-              orderNumber: `00${order.id}`,
-              customerName: order.user.name,
-              orderDate: formattedOrderDate,
-              endDate: formattedEndDate,
-              status: order.order_status.name.toLowerCase(), // Ensure lowercase for filtering
-              category: 'Pesanan Online',
-              productName: firstProduct,
-              quantity: totalQuantity,
-              totalPrice: order.grand_total,
-              purchaseMethod: 'online',
-              address: order.address || '',
-              notes: order.additional_info || '',
-              orderDetail: order.order_detail,
-            }
-          })
-
-          // Preserve any offline orders
-          const offlineOrders = this.orders.filter((order) => order.purchaseMethod === 'offline')
-          this.orders = [...this.orders, ...offlineOrders]
-
-          // Update lastOrderNumber
-          if (data.data.length > 0) {
-            const maxOrderId = Math.max(...data.data.map((o) => parseInt(o.id)))
-            this.lastOrderNumber = Math.max(this.lastOrderNumber, maxOrderId)
-          }
+          this.orders = data.data.map((order) => ({
+            ...order,
+            user: order.user || { name: 'Unknown' },
+          }))
         } else {
-          console.error('Failed to fetch orders:', data.error || 'Unknown error')
-          this.error = data.error || 'Failed to fetch orders'
+          console.error('Failed to fetch orders:', data.error)
+          this.showErrorMessage('Gagal memuat data pesanan. Silakan coba lagi nanti.')
         }
       } catch (err) {
-        console.error('Error fetching orders:', err)
-        this.error = err.message || 'Network or server error'
+        console.error('Error fetching orders:', err.response?.data || err.message)
+        if (err.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+          this.showErrorMessage('Sesi Anda telah berakhir. Silakan login kembali.')
+          // Optional: localStorage.removeItem('token'); this.$router.push('/login')
+        } else {
+          this.showErrorMessage('Gagal memuat data pesanan. Silakan coba lagi nanti.')
+        }
       } finally {
-        this.isLoading = false
+        console.log('Finally block executed') // Debug finally
+        this.loading = false
       }
     },
-
-    toggleSidebar() {
-      if (this.isMobile) {
-        this.isSidebarActive = !this.isSidebarActive
+    getStatusName(statusId) {
+      const status = this.orderStatuses.find((s) => s.id == statusId)
+      return status ? status.name : 'Unknown'
+    },
+    getStatusBgClass(statusId) {
+      switch (statusId) {
+        case 3: // selesai
+          return 'bg-green-200 text-green-800'
+        case 4: // batal
+          return 'bg-red-200 text-red-800'
+        default:
+          return 'bg-gray-200 text-gray-800'
       }
     },
-
-    handleResize() {
-      this.isMobile = window.innerWidth < 1024
-      this.isSidebarActive = !this.isMobile
-    },
-
-    formatCurrency(amount) {
-      return `Rp ${amount.toLocaleString()}`
-    },
-
-    statusClass(status) {
-      return {
-        'text-green-500': status.toLowerCase() === 'selesai',
-        'text-red-600': status.toLowerCase() === 'batal',
-        'text-yellow-500': status.toLowerCase() === 'masuk' || status.toLowerCase() === 'proses',
-      }
-    },
-
-    generateOrderNumber() {
-      this.lastOrderNumber++
-      return '00' + this.lastOrderNumber
-    },
-
-    async addHistoryToAPI(historyData) {
-      try {
-        const token = localStorage.getItem('token')
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-
-        // Prepare data for API
-        const apiData = {
-          user_id: historyData.user_id || 1, // Default to 1 if not provided
-          address: historyData.address || '',
-          additional_info: historyData.notes || '',
-          delivery_type: 'express', // Default type
-          order_status_id: 4, // Assuming 4 is "selesai"
-          products: [
-            {
-              product_id: historyData.product_id || 1,
-              quantity: historyData.quantity,
-              product_finishing_id: historyData.finishing_id || null,
-            },
-          ],
-        }
-
-        const response = await axios.post('http://127.0.0.1:8000/api/seller/history', apiData)
-
-        if (response.data.status === 'success') {
-          // Refresh order list after successful addition
-          await this.fetchOrders()
-          return true
-        } else {
-          console.error('Failed to add history:', response.data.error || 'Unknown error')
-          return false
-        }
-      } catch (err) {
-        console.error('Error adding history:', err)
-        return false
-      }
-    },
-
-    showAddHistoryModal() {
-      // Reset the current products array
-      this.currentProducts = []
-
-      Swal.fire({
-        title: `<h3 class="text-lg font-bold">Tambah Riwayat Pesanan</h3>`,
-        html: `
-      <form id="historyForm" class="text-left form-compact">
-        <!-- Customer Information -->
-        <div class="mb-4">
-          <h4 class="font-semibold mb-3 pb-2 border-b">Informasi Pembeli</h4>
-          <div class="mb-3">
-            <label class="block text-gray-700 font-medium text-sm mb-1">Nama Pembeli</label>
-            <input
-              type="text"
-              id="customerName"
-              placeholder="Masukkan Nama Pembeli"
-              class="w-full text-sm p-2 border border-gray-300 rounded-lg"
-            >
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Tanggal Mulai</label>
-              <input
-                type="date"
-                id="orderDate"
-                class="w-full text-sm p-2 border border-gray-300 rounded-lg"
-              >
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Tanggal Selesai</label>
-              <input
-                type="date"
-                id="endDate"
-                class="w-full text-sm p-2 border border-gray-300 rounded-lg"
-              >
-            </div>
-          </div>
-
-          <input type="hidden" id="purchaseMethod" value="offline">
-          <input type="hidden" id="orderStatus" value="selesai">
-
-          <div class="mb-3">
-            <label class="block text-gray-700 font-medium text-sm mb-1">Catatan</label>
-            <textarea
-              id="notes"
-              rows="2"
-              placeholder="Masukkan catatan pesanan"
-              class="w-full text-sm p-2 border border-gray-300 rounded-lg"
-            ></textarea>
-          </div>
-        </div>
-
-        <!-- Products List -->
-        <div class="mb-3">
-          <h4 class="font-semibold mb-3 pb-2 border-b">Produk</h4>
-          <div id="productItems">
-            <!-- Initial product item -->
-            <div class="product-item mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div class="mb-2">
-                  <label class="block text-gray-700 font-medium text-sm mb-1">Kategori</label>
-                  <select class="product-category w-full text-sm p-2 border border-gray-300 rounded-lg">
-                    <option value="Stiker">Stiker</option>
-                    <option value="T-shirt">T-shirt</option>
-                    <option value="Merchandise">Merchandise</option>
-                    <option value="Kartu Nama">Kartu Nama</option>
-                    <option value="Lainnya">Lainnya</option>
-                  </select>
-                </div>
-                <div class="mb-2">
-                  <label class="block text-gray-700 font-medium text-sm mb-1">Nama Produk</label>
-                  <input
-                    type="text"
-                    class="product-name w-full text-sm p-2 border border-gray-300 rounded-lg"
-                    placeholder="Masukkan Nama Produk"
-                  >
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div class="mb-2">
-                  <label class="block text-gray-700 font-medium text-sm mb-1">Ukuran</label>
-                  <input
-                    type="text"
-                    class="product-size w-full text-sm p-2 border border-gray-300 rounded-lg"
-                    placeholder="Masukkan Ukuran"
-                  >
-                </div>
-                <div class="mb-2">
-                  <label class="block text-gray-700 font-medium text-sm mb-1">Finishing</label>
-                  <select class="product-finishing w-full text-sm p-2 border border-gray-300 rounded-lg">
-                    <option value="Dengan Finishing">Dengan Finishing</option>
-                    <option value="Tanpa Finishing">Tanpa Finishing</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div class="mb-2">
-                  <label class="block text-gray-700 font-medium text-sm mb-1">Jumlah</label>
-                  <input
-                    type="number"
-                    class="product-quantity w-full text-sm p-2 border border-gray-300 rounded-lg"
-                    placeholder="Masukkan Jumlah"
-                  >
-                </div>
-                <div class="mb-2">
-                  <label class="block text-gray-700 font-medium text-sm mb-1">Harga (Rp)</label>
-                  <input
-                    type="number"
-                    class="product-price w-full text-sm p-2 border border-gray-300 rounded-lg"
-                    placeholder="Masukkan Harga"
-                  >
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex justify-end">
-            <button
-              type="button"
-              id="addMoreProduct"
-              class="bg-red-600 text-white px-2 py-1 rounded-md text-xs flex items-center"
-            >
-              <span class="mr-1">+</span> Tambah Produk
-            </button>
-          </div>
-        </div>
-      </form>
-    `,
-        showCancelButton: true,
-        buttonsStyling: false,
-        customClass: {
-          confirmButton:
-            'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          cancelButton:
-            'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          actions: 'flex justify-center space-x-6',
-          htmlContainer: 'overflow-y-auto max-h-[70vh]',
-        },
-        cancelButtonText: 'Batal',
-        confirmButtonText: 'Tambah',
-        focusConfirm: false,
-        didOpen: () => {
-          // Initialize the UI with today's date
-          const today = new Date().toISOString().split('T')[0]
-          document.getElementById('orderDate').value = today
-
-          // Add event listener for adding more products
-          document.getElementById('addMoreProduct').addEventListener('click', () => {
-            const productItems = document.getElementById('productItems')
-            const newItem = document.createElement('div')
-            newItem.className = 'product-item mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200'
-            newItem.innerHTML = `
-          <div class="flex justify-between items-center mb-2">
-            <h5 class="font-medium">Produk Tambahan</h5>
-            <button type="button" class="text-red-600 hover:text-red-800 text-sm remove-product">
-              Hapus
-            </button>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="mb-2">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Kategori</label>
-              <select class="product-category w-full text-sm p-2 border border-gray-300 rounded-lg">
-                <option value="Stiker">Stiker</option>
-                <option value="T-shirt">T-shirt</option>
-                <option value="Merchandise">Merchandise</option>
-                <option value="Kartu Nama">Kartu Nama</option>
-                <option value="Lainnya">Lainnya</option>
-              </select>
-            </div>
-            <div class="mb-2">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Nama Produk</label>
-              <input
-                type="text"
-                class="product-name w-full text-sm p-2 border border-gray-300 rounded-lg"
-                placeholder="Masukkan Nama Produk"
-              >
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="mb-2">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Ukuran</label>
-              <input
-                type="text"
-                class="product-size w-full text-sm p-2 border border-gray-300 rounded-lg"
-                placeholder="Masukkan Ukuran"
-              >
-            </div>
-            <div class="mb-2">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Finishing</label>
-              <select class="product-finishing w-full text-sm p-2 border border-gray-300 rounded-lg">
-                <option value="Dengan Finishing">Dengan Finishing</option>
-                <option value="Tanpa Finishing">Tanpa Finishing</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div class="mb-2">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Jumlah</label>
-              <input
-                type="number"
-                class="product-quantity w-full text-sm p-2 border border-gray-300 rounded-lg"
-                placeholder="Masukkan Jumlah"
-              >
-            </div>
-            <div class="mb-2">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Harga (Rp)</label>
-              <input
-                type="number"
-                class="product-price w-full text-sm p-2 border border-gray-300 rounded-lg"
-                placeholder="Masukkan Harga"
-              >
-            </div>
-          </div>
-        `
-            productItems.appendChild(newItem)
-
-            // Add event listener to remove button
-            const removeButtons = document.querySelectorAll('.remove-product')
-            removeButtons.forEach((button) => {
-              button.addEventListener('click', function () {
-                this.closest('.product-item').remove()
-              })
-            })
-          })
-        },
-        preConfirm: () => {
-          // Get form values
-          const customerName = document.getElementById('customerName').value
-          const orderDate = document.getElementById('orderDate').value
-          const endDate = document.getElementById('endDate').value
-          const purchaseMethod = document.getElementById('purchaseMethod').value
-          const notes = document.getElementById('notes').value
-          const status = document.getElementById('orderStatus').value
-
-          // Collect all products
-          const productItems = document.querySelectorAll('.product-item')
-          const products = []
-
-          let isValid = true
-          let errorMessage = ''
-
-          // Validation for customer info
-          if (!customerName || !orderDate) {
-            isValid = false
-            errorMessage = 'Nama pembeli dan tanggal mulai wajib diisi'
-          }
-
-          // Process and validate each product
-          productItems.forEach((item, index) => {
-            const category = item.querySelector('.product-category').value
-            const name = item.querySelector('.product-name').value
-            const size = item.querySelector('.product-size').value
-            const finishing = item.querySelector('.product-finishing').value
-            const quantity = item.querySelector('.product-quantity').value
-            const price = item.querySelector('.product-price').value
-
-            // Validate product fields
-            if (!name || !quantity || !price) {
-              isValid = false
-              errorMessage = `Produk #${index + 1}: Nama produk, jumlah, dan harga wajib diisi`
-              return
-            }
-
-            products.push({
-              id: Date.now() + index, // Generate unique ID
-              category,
-              name,
-              size,
-              finishing,
-              quantity: parseInt(quantity),
-              price: parseInt(price),
-            })
-          })
-
-          if (!isValid) {
-            Swal.showValidationMessage(errorMessage)
-            return false
-          }
-
-          if (products.length === 0) {
-            Swal.showValidationMessage('Minimal satu produk wajib diisi')
-            return false
-          }
-
-          // Format dates for display
-          const formattedOrderDate = new Date(orderDate).toLocaleDateString('en-US', {
-            day: 'numeric',
-            month: 'numeric',
-            year: '2-digit',
-          })
-
-          const formattedEndDate = endDate
-            ? new Date(endDate).toLocaleDateString('en-US', {
-                day: 'numeric',
-                month: 'numeric',
-                year: '2-digit',
-              })
-            : ''
-
-          // Calculate total price from all products
-          const totalPrice = products.reduce((sum, product) => sum + product.price, 0)
-
-          // Create order object
-          const order = {
-            id: Date.now(),
-            orderNumber: this.generateOrderNumber(),
-            customerName,
-            orderDate: formattedOrderDate,
-            endDate: formattedEndDate,
-            purchaseMethod,
-            notes,
-            status,
-            totalPrice,
-            // Store products list
-            products,
-          }
-
-          return order
-        },
-      }).then((result) => {
-        if (result.isConfirmed && result.value) {
-          // Add new order to orders array
-          this.orders.push(result.value)
-
-          // Show success message
-          this.showSuccessMessage('Riwayat pesanan berhasil ditambahkan')
-        }
-      })
-    },
-
-    // Helper function to get product count
-    getProductCount(order) {
-      if (order.purchaseMethod === 'online' && order.orderDetail) {
-        return order.orderDetail.length
-      } else if (order.purchaseMethod === 'offline' && order.products) {
-        return order.products.length
-      } else {
-        return 1 // Single product case
-      }
-    },
-
-    showSuccessMessage(message) {
-      Swal.fire({
-        title: "<span class='text-lg font-bold'>Berhasil!</span>",
-        text: message,
-        icon: 'success',
-        confirmButtonText: 'OK',
-        buttonsStyling: false,
-        customClass: {
-          icon: 'custom-icon',
-          confirmButton: 'bg-red-600 hover:bg-red-600 text-white py-2 w-28 rounded-md',
-        },
-      })
-    },
-
-    showOrderDetail(order) {
-      // Create the HTML content for the products carousel
+    viewOrderDetail(order) {
       const productsHtml = this.createProductsCarousel(order)
-
       Swal.fire({
-        title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${order.orderNumber}</span>`,
+        title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${order.id}</span>`,
         html: `
           <div class="text-left mb-6">
             <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-base sm:text-lg">
-              <div class="font-semibold">Pembeli</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.customerName || '-'}</div>
+              <div class="font-semibold">Pembeli</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.user.name}</div>
               <div class="font-semibold">Alamat</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.address || '-'}</div>
-              <div class="font-semibold">Tanggal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.orderDate || '-'}</div>
-              <div class="font-semibold">Status</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.status || '-'}</div>
-              <div class="font-semibold">Total</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(order.totalPrice)}</div>
+              <div class="font-semibold">Tanggal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatDate(order.created_at)}</div>
+              <div class="font-semibold">Status</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.getStatusName(order.order_status_id)}</div>
+              <div class="font-semibold">Total</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(order.grand_total)}</div>
             </div>
-
             ${
-              order.notes
+              order.additional_info
                 ? `
-            <div class="mt-6">
-              <div class="font-semibold">Informasi Tambahan:</div>
-              <div class="mt-2 p-3 bg-gray-100 rounded-lg">${order.notes}</div>
-            </div>`
+              <div class="mt-4">
+                <div class="font-semibold">Informasi Tambahan:</div>
+                <div class="mt-2 p-3 bg-gray-100 rounded-lg">${order.additional_info}</div>
+              </div>`
                 : ''
             }
           </div>
-
-          <!-- Products Section -->
           <div class="mt-4">
-            <div class="font-semibold text-lg mb-2">Produk (${this.getProductCount(order)}):</div>
+            <div class="font-semibold text-lg mb-2">Produk (${order.order_detail.length}):</div>
             ${productsHtml}
           </div>
         `,
-        // Responsive width settings
         width: 'auto',
-        // Set max-width based on screen size
         customClass: {
           popup: 'swal-responsive-popup',
           confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-base mt-6',
@@ -896,10 +402,9 @@ export default {
         confirmButtonText: 'Tutup',
         buttonsStyling: false,
         didOpen: () => {
-          // Initialize the product carousel navigation
-          this.initProductCarousel()
-
-          // Add responsive styles for the modal
+          setTimeout(() => {
+            this.initProductCarousel(order.order_detail.length)
+          }, 100)
           const style = document.createElement('style')
           style.innerHTML = `
             .swal-responsive-popup {
@@ -926,204 +431,201 @@ export default {
         },
       })
     },
-
-    // Helper method to create products carousel HTML
     createProductsCarousel(order) {
-      // Handle case when there are no products
-      if (
-        (order.purchaseMethod === 'online' &&
-          (!order.orderDetail || order.orderDetail.length === 0)) ||
-        (order.purchaseMethod === 'offline' &&
-          (!order.products || order.products.length === 0) &&
-          !order.productName)
-      ) {
+      if (!order.order_detail || order.order_detail.length === 0) {
         return '<div class="text-center py-4">Tidak ada detail produk tersedia</div>'
       }
-
       let carouselHtml = `
         <div class="product-carousel relative">
           <div class="carousel-container overflow-hidden">
             <div class="carousel-track flex transition-transform duration-300" style="transform: translateX(0);">
       `
-
-      // Add slides based on order type
-      if (order.purchaseMethod === 'online' && order.orderDetail) {
-        // For online orders, display product details from API
-        order.orderDetail.forEach((item) => {
-          const finishing = item.product_finishing
-            ? `${item.product_finishing.finishing.name}`
-            : 'Tanpa Finishing'
-
-          carouselHtml += `
-            <div class="carousel-slide w-full flex-shrink-0 p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-left text-base sm:text-lg">
-                <div class="font-semibold">Nama Produk</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.product.name}</div>
-                <div class="font-semibold">Jumlah</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.quantity}</div>
-                <div class="font-semibold">Subtotal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(item.subtotal_buy_price)}</div>
-                <div class="font-semibold">Finishing</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${finishing}</div>
-                ${
-                  item.product_finishing
-                    ? `<div class="font-semibold">Harga Finishing</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(item.product_finishing.price)}</div>`
-                    : ''
-                }
-              </div>
-            </div>
-          `
-        })
-      } else if (order.purchaseMethod === 'offline') {
-        // For offline orders with multiple products
-        if (order.products && order.products.length > 0) {
-          order.products.forEach((product) => {
-            carouselHtml += `
+      order.order_detail.forEach((item, index) => {
+        carouselHtml += `
               <div class="carousel-slide w-full flex-shrink-0 p-3 sm:p-4 bg-gray-50 rounded-lg">
                 <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-left text-base sm:text-lg">
-                  <div class="font-semibold">Nama Produk</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${product.name}</div>
-                  <div class="font-semibold">Jumlah</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${product.quantity}</div>
-                  <div class="font-semibold">Subtotal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(product.price)}</div>
-                  ${product.category ? `<div class="font-semibold">Kategori</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${product.category}</div>` : ''}
-                  ${product.size ? `<div class="font-semibold">Ukuran</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${product.size}</div>` : ''}
-                  ${product.finishing ? `<div class="font-semibold">Finishing</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${product.finishing}</div>` : ''}
+                  <div class="font-semibold">Nama Produk</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.product?.name || 'N/A'}</div>
+                  <div class="font-semibold">Jumlah</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.quantity}</div>
+                  <div class="font-semibold">Subtotal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(item.subtotal_buy_price)}</div>
+                  ${
+                    item.product_finishing
+                      ? `
+                      <div class="font-semibold">Finishing</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.product_finishing.finishing?.name || 'N/A'}</div>
+                      <div class="font-semibold">Harga Finishing</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(item.product_finishing.price)}</div>
+                      `
+                      : ''
+                  }
                 </div>
               </div>
             `
-          })
-        } else {
-          // For legacy offline orders with single product
-          carouselHtml += `
-            <div class="carousel-slide w-full flex-shrink-0 p-3 sm:p-4 bg-gray-50 rounded-lg">
-              <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-left text-base sm:text-lg">
-                <div class="font-semibold">Nama Produk</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.productName}</div>
-                <div class="font-semibold">Jumlah</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.quantity}</div>
-                <div class="font-semibold">Subtotal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(order.totalPrice)}</div>
-                ${order.category ? `<div class="font-semibold">Kategori</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.category}</div>` : ''}
-                ${order.size ? `<div class="font-semibold">Ukuran</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.size}</div>` : ''}
-                ${order.finishing ? `<div class="font-semibold">Finishing</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.finishing}</div>` : ''}
-              </div>
-            </div>
-          `
-        }
-      }
-
-      // Add navigation controls
-      const productCount = this.getProductCount(order)
+      })
       carouselHtml += `
             </div>
           </div>
-          <!-- Carousel controls -->
-          <div class="carousel-controls flex justify-between items-center mt-8">
-            <button class="carousel-prev bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded-lg text-sm sm:text-base ${productCount <= 1 ? 'opacity-50 cursor-not-allowed' : ''}">← Prev</button>
-            <div class="carousel-counter text-center text-sm">
-              <span class="current-slide">1</span> dari <span>${productCount}</span>
-            </div>
-            <button class="carousel-next bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-4 py-1 sm:py-2 rounded-lg text-sm sm:text-base ${productCount <= 1 ? 'opacity-50 cursor-not-allowed' : ''}">Next →</button>
-          </div>
-          <div class="carousel-indicators flex space-x-2 justify-center mt-2">
+          <div class="carousel-controls flex justify-between items-center mt-4">
+            <button class="carousel-prev bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-md text-sm sm:text-base ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>← Prev</button>
+            <div class="carousel-indicators flex space-x-2 justify-center">
       `
-
-      // Add indicator dots
-      for (let i = 0; i < productCount; i++) {
+      order.order_detail.forEach((_, index) => {
         carouselHtml += `
-          <button class="carousel-indicator w-2 h-2 rounded-full ${i === 0 ? 'bg-gray-800' : 'bg-gray-300'}" data-index="${i}"></button>
-        `
-      }
-
+              <button class="carousel-indicator w-2 h-2 rounded-full bg-gray-300 ${index === 0 ? 'bg-gray-700' : ''}" data-index="${index}"></button>
+            `
+      })
       carouselHtml += `
+            </div>
+            <button class="carousel-next bg-gray-200 hover:bg-gray-300 text-gray-700 px-2 sm:px-3 py-1 rounded-md text-sm sm:text-base ${order.order_detail.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}" ${order.order_detail.length <= 1 ? 'disabled' : ''}>Next →</button>
+          </div>
+          <div class="carousel-counter text-center text-sm mt-2">
+            <span class="current-slide">1</span> dari <span>${order.order_detail.length}</span>
           </div>
         </div>
       `
-
       return carouselHtml
     },
-
-    // Initialize the product carousel navigation
-    initProductCarousel() {
+    initProductCarousel(totalSlides) {
+      if (totalSlides <= 1) return
       setTimeout(() => {
-        const carouselTrack = document.querySelector('.carousel-track')
-        const slides = document.querySelectorAll('.carousel-slide')
-        const prevButton = document.querySelector('.carousel-prev')
-        const nextButton = document.querySelector('.carousel-next')
-        const indicators = document.querySelectorAll('.carousel-indicator')
-        const currentSlideElement = document.querySelector('.current-slide')
-
-        if (!carouselTrack || slides.length <= 0) return
-
-        let currentSlide = 0
-        const slideWidth = 100 // in percentage
-
-        // Hide navigation if only one product
-        if (slides.length <= 1) {
-          if (prevButton) prevButton.style.display = 'none'
-          if (nextButton) nextButton.style.display = 'none'
-          if (document.querySelector('.carousel-indicators')) {
-            document.querySelector('.carousel-indicators').style.display = 'none'
-          }
+        const modal = document.querySelector('.swal2-container')
+        if (!modal) return
+        const track = modal.querySelector('.carousel-track')
+        const prevButton = modal.querySelector('.carousel-prev')
+        const nextButton = modal.querySelector('.carousel-next')
+        const indicators = modal.querySelectorAll('.carousel-indicator')
+        const currentSlideEl = modal.querySelector('.current-slide')
+        if (!track || !prevButton || !nextButton) {
+          console.error('Carousel elements not found')
           return
         }
-
-        // Function to go to a specific slide
-        function goToSlide(index) {
-          currentSlide = index
-          carouselTrack.style.transform = `translateX(-${currentSlide * slideWidth}%)`
-
-          // Update active indicator
-          indicators.forEach((indicator, i) => {
-            if (i === currentSlide) {
-              indicator.classList.remove('bg-gray-300')
-              indicator.classList.add('bg-gray-800')
-            } else {
-              indicator.classList.remove('bg-gray-800')
-              indicator.classList.add('bg-gray-300')
-            }
+        let currentIndex = 0
+        const updateCarousel = () => {
+          track.style.transform = `translateX(-${currentIndex * 100}%)`
+          indicators.forEach((indicator, index) => {
+            indicator.classList.toggle('bg-gray-700', index === currentIndex)
+            indicator.classList.toggle('bg-gray-300', index !== currentIndex)
           })
-
-          // Update current slide text
-          if (currentSlideElement) {
-            currentSlideElement.textContent = currentSlide + 1
+          prevButton.disabled = currentIndex === 0
+          nextButton.disabled = currentIndex === totalSlides - 1
+          currentSlideEl.textContent = currentIndex + 1
+        }
+        prevButton.addEventListener('click', () => {
+          if (currentIndex > 0) {
+            currentIndex--
+            updateCarousel()
           }
-        }
-
-        // Previous button click
-        if (prevButton) {
-          prevButton.addEventListener('click', () => {
-            if (currentSlide > 0) {
-              goToSlide(currentSlide - 1)
-            } else {
-              // Optionally wrap around to the last slide
-              goToSlide(slides.length - 1)
-            }
-          })
-        }
-
-        // Next button click
-        if (nextButton) {
-          nextButton.addEventListener('click', () => {
-            if (currentSlide < slides.length - 1) {
-              goToSlide(currentSlide + 1)
-            } else {
-              // Optionally wrap around to the first slide
-              goToSlide(0)
-            }
-          })
-        }
-
-        // Indicators click
+        })
+        nextButton.addEventListener('click', () => {
+          if (currentIndex < totalSlides - 1) {
+            currentIndex++
+            updateCarousel()
+          }
+        })
         indicators.forEach((indicator, index) => {
           indicator.addEventListener('click', () => {
-            goToSlide(index)
+            currentIndex = index
+            updateCarousel()
           })
         })
-      }, 100) // Small delay to ensure DOM is ready
+        updateCarousel()
+      }, 100)
+    },
+    formatDate(dateString) {
+      const date = new Date(dateString)
+      return date.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+      })
+    },
+    formatCurrency(amount) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+      }).format(amount)
+    },
+    showErrorMessage(message) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: message,
+        confirmButtonText: 'OK',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'bg-red-600 text-white py-2 px-4 rounded-md',
+        },
+      })
+    },
+    toggleSidebar() {
+      if (this.isMobile) {
+        this.isSidebarActive = !this.isSidebarActive
+      }
+    },
+    handleResize() {
+      this.isMobile = window.innerWidth < 1024
+      this.isSidebarActive = !this.isMobile
+    },
+    updatePagination() {
+      if (this.currentPage > this.totalPages && this.totalPages > 0) {
+        this.currentPage = this.totalPages
+      }
+    },
+    goToPage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.currentPage = page
+      }
     },
   },
-  mounted() {
+  watch: {
+    statusFilter() {
+      this.currentPage = 1
+      this.updatePagination()
+    },
+    searchQuery() {
+      this.currentPage = 1
+      this.updatePagination()
+    },
+  },
+  async mounted() {
     this.isSidebarActive = window.innerWidth >= 1024
     window.addEventListener('resize', this.handleResize)
-
-    // Fetch orders from API
-    this.fetchOrders()
+    try {
+      const token = localStorage.getItem('token')
+      console.log('Token:', token) // Debug token
+      if (!token) {
+        console.error('No token found in localStorage')
+        this.showErrorMessage('Silakan login untuk melihat riwayat pesanan.')
+        return
+      }
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      await this.fetchOrders()
+    } catch (error) {
+      console.error('Error initializing data:', error)
+      this.showErrorMessage('Gagal memuat data. Silakan coba lagi nanti.')
+    } finally {
+      this.loading = false
+    }
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.handleResize)
   },
 }
 </script>
+
+<style scoped>
+.content-wrapper {
+  transition: margin-left 0.3s ease;
+}
+.carousel-slide {
+  min-width: 100%;
+  transition: transform 0.3s ease;
+}
+.carousel-indicator {
+  width: 8px;
+  height: 8px;
+  transition: background-color 0.3s ease;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+</style>

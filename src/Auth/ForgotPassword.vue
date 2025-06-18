@@ -48,6 +48,7 @@ import AuthMainButton from '@/components/AuthMainButton.vue'
 import AuthFooter from '@/components/AuthFooter.vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
+
 export default {
   components: { AuthHeader, AuthMainButton, AuthFooter },
   data() {
@@ -59,7 +60,7 @@ export default {
     async goToOtpPage() {
       if (this.userInput.trim() !== '') {
         try {
-          const response = await axios.post('http://127.0.0.1:8000/api/auth/sendOtp', {
+          const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/sendOtp`, {
             email: this.userInput,
           })
 

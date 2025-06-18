@@ -1,11 +1,10 @@
 <template>
   <div class="flex flex-col min-h-screen">
-    <!-- Content from your existing template -->
+    <!-- Overlay -->
     <div
-      id="overlay"
-      :class="{ block: isSidebarActive && isMobile, hidden: !isSidebarActive || !isMobile }"
-      @click="toggleSidebar"
+      v-if="isSidebarActive && isMobile"
       class="fixed inset-0 bg-opacity-20 z-20"
+      @click="toggleSidebar"
     ></div>
 
     <!-- Header -->
@@ -13,10 +12,10 @@
       <template #search>
         <div class="relative w-full">
           <input
-            type="text"
             v-model="searchQuery"
-            placeholder="Cari produk..."
+            placeholder="Cari nama produk atau SKU..."
             class="w-full pl-10 pr-4 py-2 rounded-full focus:outline-none focus:ring-2 bg-white text-black"
+            @input="debouncedSearch"
           />
           <div class="absolute left-4 top-3">
             <img
@@ -38,12 +37,15 @@
       :class="{ 'lg:ml-64': isSidebarActive }"
     >
       <div class="p-4 md:p-6 lg:p-8">
-        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6">Manajemen Produk</h2>
+        <h2 class="text-2xl md:text-3xl lg:text-3xl font-bold mb-6 mt-12 lg:mt-3">
+          Manajemen Produk
+        </h2>
 
         <div class="flex justify-between items-center mb-4">
           <!-- Filter Dropdown -->
           <select
             v-model="statusFilter"
+            @change="fetchProducts"
             class="block w-60 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-600"
           >
             <option value="all">Semua</option>
@@ -52,134 +54,189 @@
           </select>
           <button
             @click="showAddProductModal"
-            class="border-2 border-black px-4 py-2 rounded-lg flex items-center space-x-2"
+            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md flex items-center space-x-2"
           >
-            <img src="/icon/add.svg" alt="Add Icon" class="w-4 h-4 mr-2" />
-            <span>Produk</span>
+            <span class="mr-2">+</span> Tambah Produk
           </button>
         </div>
 
         <!-- Entries per page -->
-        <div class="mb-4">
-          <label for="entriesPerPage" class="mr-2">Entries per page:</label>
-          <select
-            v-model="entriesPerPage"
-            class="p-2 border border-gray-300 rounded-md"
-            @change="changeEntriesPerPage"
-          >
-            <option value="10">10</option>
-            <option value="25" selected>25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
+        <div class="mb-4 flex justify-between items-center">
+          <div>
+            <label for="entriesPerPage" class="mr-2">Entries per page:</label>
+            <select
+              v-model="entriesPerPage"
+              id="entriesPerPage"
+              class="p-2 border border-gray-300 rounded-md"
+              @change="changeEntriesPerPage"
+            >
+              <option value="10">10</option>
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
         </div>
 
-        <!-- Responsive Table -->
-        <div class="overflow-auto rounded-lg shadow-md">
-          <table class="w-full table-auto border-collapse border border-gray-300">
-            <thead class="bg-red-600 text-white">
-              <tr>
-                <th class="p-4 text-center border-r border-gray-300">Kategori</th>
-                <th class="p-4 text-center border-r border-gray-300">Nama</th>
-                <th class="p-4 text-center border-r border-gray-300">Deskripsi</th>
-                <th class="p-4 text-center border-r border-gray-300">Stok</th>
-                <th class="p-4 text-center border-r border-gray-300">Harga</th>
-                <th class="p-4 text-center border-r border-gray-300">Variasi</th>
-                <th class="p-4 text-center border-r border-gray-300">Opsi Tambahan</th>
-                <th class="p-4 text-center border-r border-gray-300">Gambar</th>
-                <th class="p-4 text-center border-r border-gray-300">Status</th>
-                <th class="p-4 text-center">Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="product in products" :key="product.id" class="border-b border-gray-300">
-                <td class="p-4 text-center border-r border-gray-300">{{ product.category }}</td>
-                <td class="p-4 text-center border-r border-gray-300">{{ product.name }}</td>
-                <td class="p-4 text-center border-r border-gray-300">{{ product.description }}</td>
-                <td class="p-4 text-center border-r border-gray-300">{{ product.stock }}</td>
-                <td class="p-4 text-center border-r border-gray-300">
-                  {{ formatCurrency(product.price) }}
-                </td>
-                <td class="p-4 text-center border-r border-gray-300">
-                  <div v-if="product.variations && product.variations.length > 0">
-                    <span
-                      class="bg-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 mr-1 mb-1 inline-block"
-                    >
-                      {{ product.variations.length }} variasi
-                    </span>
-                  </div>
-                  <span v-else>-</span>
-                </td>
-                <td class="p-4 text-center border-r border-gray-300">
-                  <div v-if="product.additionalOptions && product.additionalOptions.length > 0">
-                    <span
-                      class="bg-gray-200 text-gray-700 text-xs rounded-full px-2 py-1 mr-1 mb-1 inline-block"
-                    >
-                      {{ product.additionalOptions.length }} opsi
-                    </span>
-                  </div>
-                  <span v-else>-</span>
-                </td>
-                <td class="p-4 text-center border-r border-gray-300">
-                  <div class="flex justify-center">
-                    <img
-                      :src="
-                        product.images && product.images.length > 0
-                          ? product.images[0]
-                          : 'https://placehold.co/48x48'
-                      "
-                      alt="Gambar Produk"
-                      @click="showImagePreviewModal(product)"
-                      class="cursor-pointer w-12 h-12 object-cover"
-                    />
-                    <span
-                      v-if="product.images && product.images.length > 1"
-                      class="ml-1 bg-gray-200 text-gray-700 text-xs rounded-full px-1.5 py-0.5"
-                    >
-                      +{{ product.images.length - 1 }}
-                    </span>
-                  </div>
-                </td>
-                <td class="p-4 text-center border-r border-gray-300">
-                  <select
-                    :class="[
-                      'status-dropdown w-40 text-white py-2 px-4 rounded-lg',
-                      product.status === 'aktif' ? 'bg-green-500' : 'bg-red-600',
-                    ]"
-                    :value="product.status"
-                    @change="showStatusChangeModal(product, $event.target.value)"
-                  >
-                    <option value="aktif">Aktif</option>
-                    <option value="nonaktif">Nonaktif</option>
-                  </select>
-                </td>
-                <td class="p-4 text-center min-w-24">
-                  <button class="text-blue-500 mr-2" @click="showEditProductModal(product)">
-                    <img src="/icon/edit-btn.svg" alt="Edit Icon" class="w-6 h-6" />
-                  </button>
-                  <button @click="showDeleteConfirmationModal(product)">
-                    <img src="/icon/delete-btn.svg" alt="Delete Icon" class="w-6 h-6" />
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Loading State -->
+        <div v-if="isLoading" class="flex justify-center">
+          <div
+            class="animate-spin h-8 w-8 border-4 border-red-600 border-t-transparent rounded-full"
+          ></div>
+        </div>
+
+        <!-- Product Table or No Products -->
+        <div v-else>
+          <ProductTable
+            :products="products"
+            :isLoading="isLoading"
+            @edit-product="handleEditProduct"
+            @delete-product="handleDeleteProduct"
+            @change-status="handleStatusChange"
+            @preview-image="handleImagePreview"
+          />
+          <div v-if="products.length === 0" class="text-center text-gray-600 mt-4">
+            Tidak ada produk yang ditemukan
+          </div>
+        </div>
+
+        <!-- Pagination -->
+        <div
+          v-if="pagination.total > 0"
+          class="mt-6 flex flex-col md:flex-row justify-between items-center"
+        >
+          <div class="text-sm text-gray-600 mb-4 md:mb-0">
+            Showing {{ paginationInfo.from }} to {{ paginationInfo.to }} of
+            {{ pagination.total }} entries
+          </div>
+          <div class="flex justify-center items-center space-x-2">
+            <!-- First Page -->
+            <button
+              @click="goToPage(1)"
+              :disabled="pagination.page === 1"
+              class="px-3 py-1 rounded-md border"
+              :class="
+                pagination.page === 1
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'border-gray-300 hover:bg-gray-100'
+              "
+            >
+              «
+            </button>
+
+            <!-- Previous Page -->
+            <button
+              @click="goToPage(pagination.page - 1)"
+              :disabled="pagination.page === 1"
+              class="px-3 py-1 rounded-md border"
+              :class="
+                pagination.page === 1
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'border-gray-300 hover:bg-gray-100'
+              "
+            >
+              ‹
+            </button>
+
+            <!-- Page Numbers -->
+            <div class="flex space-x-1">
+              <template v-for="page in displayedPages" :key="page">
+                <button
+                  v-if="page !== '...'"
+                  @click="goToPage(page)"
+                  class="w-8 h-8 flex items-center justify-center rounded-md"
+                  :class="
+                    pagination.page === page
+                      ? 'bg-red-600 text-white'
+                      : 'hover:bg-gray-100 border border-gray-300'
+                  "
+                >
+                  {{ page }}
+                </button>
+                <span v-else class="w-8 h-8 flex items-center justify-center">...</span>
+              </template>
+            </div>
+
+            <!-- Next Page -->
+            <button
+              @click="goToPage(pagination.page + 1)"
+              :disabled="pagination.page === totalPages"
+              class="px-3 py-1 rounded-md border"
+              :class="
+                pagination.page === totalPages
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'border-gray-300 hover:bg-gray-100'
+              "
+            >
+              ›
+            </button>
+
+            <!-- Last Page -->
+            <button
+              @click="goToPage(totalPages)"
+              :disabled="pagination.page === totalPages"
+              class="px-3 py-1 rounded-md border"
+              :class="
+                pagination.page === totalPages
+                  ? 'text-gray-400 border-gray-300 cursor-not-allowed'
+                  : 'border-gray-300 hover:bg-gray-100'
+              "
+            >
+              »
+            </button>
+          </div>
         </div>
       </div>
     </div>
 
     <FooterSeller />
+
+    <!-- Modal Components -->
+    <ModalAddProduct
+      ref="addProductModal"
+      @save-product="handleSaveProduct"
+      :categories="categories"
+    />
+    <ModalEditProduct
+      ref="editProductModal"
+      @save-product="handleUpdateProduct"
+      :categories="categories"
+    />
+    <ModalProductImage ref="imagePreviewModal" />
+    <ModalConfirmStatus
+      ref="confirmStatusModal"
+      @confirm-status-change="handleConfirmStatusChange"
+    />
+    <ModalConfirmDelete ref="confirmDeleteModal" @confirm-delete="handleConfirmDelete" />
   </div>
 </template>
 
 <script>
+import { debounce } from 'lodash'
 import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
+import ProductTable from '../components/Product/ProductTable.vue'
+import ModalAddProduct from '../components/Product/ModalAddProduct.vue'
+import ModalEditProduct from '../components/Product/ModalEditProduct.vue'
+import ModalProductImage from '../components/Product/ModalProductImage.vue'
+import ModalConfirmStatus from '../components/Product/ModalConfirmStatus.vue'
+import ModalConfirmDelete from '../components/Product/ModalConfirmDelete.vue'
 import Swal from 'sweetalert2'
+import axios from 'axios'
 
 export default {
-  components: { HeaderSeller, SidebarSeller, FooterSeller },
+  components: {
+    HeaderSeller,
+    SidebarSeller,
+    FooterSeller,
+    ProductTable,
+    ModalAddProduct,
+    ModalEditProduct,
+    ModalProductImage,
+    ModalConfirmStatus,
+    ModalConfirmDelete,
+  },
   data() {
     return {
       isSidebarActive: false,
@@ -187,90 +244,251 @@ export default {
       statusFilter: 'all',
       entriesPerPage: 25,
       searchQuery: '',
-      currentImageIndex: 0,
-
-      // Product form data
-      productForm: {
-        id: null,
-        category: 'Merchandise',
-        name: '',
-        description: '',
-        stock: null,
-        price: null,
-        images: [],
-        status: 'aktif',
-        variations: [],
-        additionalOptions: [],
+      currentProduct: null,
+      products: [],
+      categories: [],
+      pagination: {
+        total: 0,
+        page: 1,
+        limit: 25,
       },
-
-      // Products data array
-      products: [
-        {
-          id: 1,
-          category: 'Merchandise',
-          name: 'PIN PENITI 58mm',
-          description: 'Temukan solusi praktis untuk kebutuhan promosi.',
-          stock: 250,
-          price: 4500,
-          images: [
-            'https://placehold.co/400x400/red/white?text=PIN+1',
-            'https://placehold.co/400x400/blue/white?text=PIN+2',
-            'https://placehold.co/400x400/green/white?text=PIN+3',
-          ],
-          status: 'aktif',
-          variations: [
-            { id: 1, name: 'Peniti', price: 4500 },
-            { id: 2, name: 'Magnet', price: 5500 },
-          ],
-          additionalOptions: [{ id: 1, name: 'Packaging Box', price: 2000 }],
-        },
-        {
-          id: 2,
-          category: 'T-Shirt',
-          name: 'Kaos Premium',
-          description: 'Kaos katun premium dengan bahan berkualitas.',
-          stock: 100,
-          price: 85000,
-          images: [
-            'https://placehold.co/400x400/orange/white?text=Kaos+1',
-            'https://placehold.co/400x400/purple/white?text=Kaos+2',
-          ],
-          status: 'aktif',
-          variations: [
-            { id: 1, name: 'S', price: 85000 },
-            { id: 2, name: 'M', price: 85000 },
-            { id: 3, name: 'L', price: 85000 },
-            { id: 4, name: 'XL', price: 90000 },
-          ],
-          additionalOptions: [
-            { id: 1, name: 'Sablon DTF', price: 15000 },
-            { id: 2, name: 'Bordir', price: 20000 },
-          ],
-        },
-        {
-          id: 3,
-          category: 'Accessories',
-          name: 'Gantungan Kunci',
-          description: 'Gantungan kunci custom dengan desain menarik.',
-          stock: 150,
-          price: 12000,
-          images: ['https://placehold.co/400x400/yellow/black?text=Gantungan+1'],
-          status: 'nonaktif',
-          variations: [],
-          additionalOptions: [],
-        },
-      ],
+      isLoading: false,
+      maxPageButtons: 5,
     }
+  },
+  computed: {
+    totalPages() {
+      return Math.ceil(this.pagination.total / this.pagination.limit) || 1
+    },
+    paginationInfo() {
+      const from = (this.pagination.page - 1) * this.pagination.limit + 1
+      const to = Math.min(this.pagination.page * this.pagination.limit, this.pagination.total)
+      return {
+        from: from > this.pagination.total ? 0 : from,
+        to: to > this.pagination.total ? this.pagination.total : to,
+      }
+    },
+    displayedPages() {
+      if (this.totalPages <= this.maxPageButtons) {
+        return Array.from({ length: this.totalPages }, (_, i) => i + 1)
+      }
+      let pages = []
+      const halfMax = Math.floor(this.maxPageButtons / 2)
+      const currentPage = this.pagination.page
+      pages.push(1)
+      if (currentPage > halfMax + 2) {
+        pages.push('...')
+      }
+      const startPage = Math.max(2, currentPage - halfMax)
+      const endPage = Math.min(this.totalPages - 1, currentPage + halfMax)
+      for (let i = startPage; i <= endPage; i++) {
+        if (i !== 1 && i !== this.totalPages) {
+          pages.push(i)
+        }
+      }
+      if (currentPage < this.totalPages - halfMax - 1) {
+        pages.push('...')
+      }
+      if (this.totalPages > 1) {
+        pages.push(this.totalPages)
+      }
+      return pages
+    },
   },
   mounted() {
     this.isSidebarActive = window.innerWidth >= 1024
     window.addEventListener('resize', this.handleResize)
-    this.addSweetAlertStyles()
+    this.fetchCategories()
+    this.fetchProducts()
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.handleResize)
   },
   methods: {
+    debouncedSearch: debounce(function () {
+      this.pagination.page = 1
+      this.fetchProducts()
+    }, 300),
+    async fetchCategories() {
+      this.isLoading = true
+      try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/categories`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/categories`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        this.categories = response.data.data || []
+        localStorage.setItem('categories', JSON.stringify(this.categories))
+      } catch (error) {
+        console.error('Error fetching categories:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+          // Optional: this.$router.push('/login')
+        }
+        Swal.fire({
+          title: 'Error!',
+          text: error.response?.data?.message || 'Gagal mengambil kategori',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+      } finally {
+        console.log('Finally block executed') // Debug finally
+        this.isLoading = false
+      }
+    },
+    getCategoryName(categoryId) {
+      const category = this.categories.find((cat) => cat.id === categoryId)
+      return category ? category.name : 'Tidak Diketahui'
+    },
+    async fetchVariants(productId) {
+      try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`,
+          {
+            params: { product_id: productId },
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
+        return response.data.data.map((variant) => ({
+          id: variant.id,
+          name: variant.name,
+          price: variant.price,
+          stock: variant.stock,
+          weight: variant.weight,
+          is_default: variant.is_default,
+        }))
+      } catch (error) {
+        console.error('Error fetching variants:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
+        Swal.fire({
+          title: 'Error!',
+          text: 'Gagal mengambil varian',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+        return []
+      }
+    },
+    async fetchFinishing(productId) {
+      try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`,
+          {
+            params: { product_id: productId },
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
+        return response.data.data.map((finishing) => ({
+          id: finishing.id,
+          name: finishing.finishing?.name || finishing.name,
+          price: finishing.price,
+          finishing_id: finishing.finishing_id,
+          color_code: finishing.color_code || '#000000',
+        }))
+      } catch (error) {
+        console.error('Error fetching finishing:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
+        Swal.fire({
+          title: 'Error!',
+          text: 'Gagal mengambil opsi finishing',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+        return []
+      }
+    },
+    async fetchProducts() {
+      this.isLoading = true
+      try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/products`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, {
+          params: {
+            status:
+              this.statusFilter === 'all' ? undefined : this.statusFilter === 'active' ? 1 : 0,
+            search: this.searchQuery,
+            limit: this.pagination.limit,
+            page: this.pagination.page,
+          },
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const {
+          data: { products },
+          meta,
+        } = response.data.data
+        this.products = products.map((product) => ({
+          id: product.id,
+          sku: product.sku,
+          category: this.getCategoryName(product.category_id),
+          category_id: product.category_id,
+          name: product.name,
+          description: product.description,
+          stock_total: parseInt(product.stock_total, 10) || 0,
+          unit: product.unit || 'pack',
+          price: product.price || 0,
+          weight: product.weight || 0,
+          min_qty: product.min_qty || null,
+          images: [product.thumbnail_url || 'https://placehold.co/1000x1000'],
+          status: product.is_publish ? 'active' : 'inactive',
+          variant_count: product.variants_count || 0,
+          finishing_count: product.finishings_count || 0,
+          variations: [],
+          additionalOptions: [],
+        }))
+        this.pagination = {
+          total: meta.total || 0,
+          page: meta.current_page || 1,
+          limit: meta.per_page || this.pagination.limit,
+        }
+        await this.$nextTick()
+      } catch (error) {
+        console.error('Error fetching products:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+          // Optional: this.$router.push('/login')
+        }
+        Swal.fire({
+          title: 'Error!',
+          text: error.response?.data?.message || 'Gagal mengambil produk',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+        this.products = []
+        this.pagination.total = 0
+        await this.$nextTick()
+      } finally {
+        console.log('Finally block executed') // Debug finally
+        this.isLoading = false
+      }
+    },
     toggleSidebar() {
       if (this.isMobile) {
         this.isSidebarActive = !this.isSidebarActive
@@ -281,731 +499,393 @@ export default {
       this.isSidebarActive = !this.isMobile
     },
     changeEntriesPerPage() {
-      // Logic for changing entries per page
+      this.pagination.limit = parseInt(this.entriesPerPage)
+      this.pagination.page = 1
+      this.fetchProducts()
     },
-    formatCurrency(amount) {
-      return `Rp${amount.toLocaleString('id-ID')}`
+    goToPage(page) {
+      if (page >= 1 && page <= this.totalPages) {
+        this.pagination.page = page
+        this.fetchProducts()
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
     },
-
-    // Add custom SweetAlert2 styles
-    addSweetAlertStyles() {
-      const style = document.createElement('style')
-      style.textContent = `
-        .swal2-popup {
-          width: 100% !important;
-          max-width: 40rem !important;
-          padding: 1.5rem;
-          border-radius: 0.5rem;
-        }
-        .swal2-title {
-          font-size: 1.25rem !important;
-          font-weight: bold !important;
-          margin-bottom: 1rem !important;
-        }
-        .swal2-html-container {
-          margin: 0 !important;
-          max-height: 70vh;
-          overflow-y: auto;
-        }
-        .swal2-confirm {
-          background-color: #dc2626 !important;
-          color: white !important;
-          border-radius: 0.375rem !important;
-          font-weight: 500 !important;
-          padding: 0.5rem 1rem !important;
-          border: none !important;
-          min-width: 8rem !important;
-        }
-        .swal2-cancel {
-          background-color: #d1d5db !important;
-          color: #1f2937 !important;
-          border-radius: 0.375rem !important;
-          font-weight: 500 !important;
-          padding: 0.5rem 1rem !important;
-          border: none !important;
-          min-width: 6rem !important;
-        }
-        .swal2-image {
-          margin: 0 auto !important;
-        }
-        .image-slider {
-          position: relative;
-          margin: 0 auto;
-          width: 100%;
-          max-width: 400px;
-        }
-        .image-slider img {
-          width: 100%;
-          height: auto;
-          object-fit: contain;
-        }
-        .slider-nav {
-          display: flex;
-          justify-content: space-between;
-          position: absolute;
-          top: 50%;
-          left: 0;
-          right: 0;
-          transform: translateY(-50%);
-        }
-        .slider-nav button {
-          background-color: rgba(0,0,0,0.5);
-          color: white;
-          border: none;
-          border-radius: 50%;
-          width: 36px;
-          height: 36px;
-          font-size: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          margin: 0 10px;
-        }
-        .slider-dots {
-          display: flex;
-          justify-content: center;
-          margin-top: 10px;
-        }
-        .slider-dots span {
-          width: 10px;
-          height: 10px;
-          border-radius: 50%;
-          background-color: #d1d5db;
-          margin: 0 5px;
-          cursor: pointer;
-        }
-        .slider-dots span.active {
-          background-color: #dc2626;
-        }
-        .form-compact label {
-          font-size: 0.875rem;
-          margin-bottom: 0.25rem;
-        }
-        .form-compact input, .form-compact select, .form-compact textarea {
-          padding: 0.5rem 0.75rem;
-        }
-        .form-compact .mb-4 {
-          margin-bottom: 0.75rem;
-        }
-        .variation-box {
-          position: relative;
-          padding: 0.75rem;
-          margin-bottom: 0.5rem;
-          border: 1px solid #e5e7eb;
-          border-radius: 0.375rem;
-          background-color: #f9fafb;
-        }
-        .variation-box .close-btn {
-          position: absolute;
-          top: 0.25rem;
-          right: 0.25rem;
-          width: 1.5rem;
-          height: 1.5rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 9999px;
-          background-color: #ef4444;
-          color: white;
-          font-size: 0.75rem;
-          cursor: pointer;
-        }
-        .variations-container, .options-container {
-          max-height: 250px;
-          overflow-y: auto;
-          padding-right: 0.5rem;
-        }
-      `
-      document.head.appendChild(style)
-    },
-
-    // Show Add Product Modal
     showAddProductModal() {
-      // Reset form
-      this.productForm = {
-        id: null,
-        category: 'Merchandise',
-        name: '',
-        description: '',
-        stock: null,
-        price: null,
-        images: [],
-        status: 'aktif',
-        variations: [],
-        additionalOptions: [],
+      this.$refs.addProductModal.open()
+    },
+    async handleEditProduct(product) {
+      this.currentProduct = product
+      this.isLoading = true
+      try {
+        const [variations, additionalOptions] = await Promise.all([
+          this.fetchVariants(product.id),
+          this.fetchFinishing(product.id),
+        ])
+        const updatedProduct = { ...product, variations, additionalOptions }
+        this.$refs.editProductModal.open(updatedProduct)
+      } finally {
+        this.isLoading = false
       }
-
-      this.showProductModal('Tambah Produk Baru')
     },
-
-    // Show Edit Product Modal
-    showEditProductModal(product) {
-      // Deep copy product data to form
-      this.productForm = JSON.parse(JSON.stringify(product))
-
-      this.showProductModal('Edit Produk')
+    handleDeleteProduct(product) {
+      this.currentProduct = product
+      this.$refs.confirmDeleteModal.open(product)
     },
-
-    // Generic Product Modal (used for both Add and Edit)
-    showProductModal(title) {
-      // Generate variation and option HTML
-      let variationsHtml = this.generateVariationsHtml()
-      let optionsHtml = this.generateOptionsHtml()
-
-      Swal.fire({
-        title: `<h3 class="text-lg font-bold">${title}</h3>`,
-        html: `
-          <form id="productForm" class="text-left form-compact">
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Kategori</label>
-              <select id="category" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
-                <option value="Merchandise" ${this.productForm.category === 'Merchandise' ? 'selected' : ''}>Merchandise</option>
-                <option value="T-Shirt" ${this.productForm.category === 'T-Shirt' ? 'selected' : ''}>T-Shirt</option>
-                <option value="Accessories" ${this.productForm.category === 'Accessories' ? 'selected' : ''}>Accessories</option>
-                <option value="Others" ${this.productForm.category === 'Others' ? 'selected' : ''}>Others</option>
-              </select>
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Nama Produk</label>
-              <input
-                type="text"
-                id="productName"
-                placeholder="Masukkan Nama Produk"
-                class="w-full text-sm p-2 border border-gray-300 rounded-lg"
-                value="${this.productForm.name || ''}"
-              >
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Deskripsi</label>
-              <textarea
-                id="description"
-                rows="2"
-                placeholder="Masukkan deskripsi produk"
-                class="w-full text-sm p-2 border border-gray-300 rounded-lg"
-              >${this.productForm.description || ''}</textarea>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div class="mb-3">
-                <label class="block text-gray-700 font-medium text-sm mb-1">Stok Produk</label>
-                <input
-                  type="number"
-                  id="stock"
-                  placeholder="Masukkan Stok"
-                  class="w-full text-sm p-2 border border-gray-300 rounded-lg"
-                  value="${this.productForm.stock || ''}"
-                >
-              </div>
-
-              <div class="mb-3">
-                <label class="block text-gray-700 font-medium text-sm mb-1">Harga Dasar (Rp)</label>
-                <input
-                  type="text"
-                  id="price"
-                  placeholder="Masukkan Harga"
-                  class="w-full text-sm p-2 border border-gray-300 rounded-lg"
-                  value="${this.productForm.price || ''}"
-                >
-              </div>
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Gambar Produk</label>
-              <div class="custom-file-input">
-                <input type="file" id="productImage" multiple class="hidden">
-                <div class="flex items-center space-x-2">
-                  <button type="button" onclick="document.getElementById('productImage').click()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm py-1.5 px-3 rounded">
-                    Choose Files
-                  </button>
-                  <span id="file-chosen" class="text-gray-500 text-sm">
-                    ${
-                      this.productForm.images && this.productForm.images.length > 0
-                        ? `${this.productForm.images.length} ${this.productForm.images.length > 1 ? 'files' : 'file'} selected`
-                        : 'No file chosen'
-                    }
-                  </span>
-                </div>
-              </div>
-              <small class="text-gray-500 text-xs block mt-1">Dapat memilih lebih dari 1 file.</small>
-            </div>
-
-            <!-- Variations Section -->
-            <div class="mb-3">
-              <div class="flex justify-between items-center mb-2">
-                <label class="block text-gray-700 font-medium text-sm">Variasi Produk</label>
-                <button
-                  type="button"
-                  id="addVariationBtn"
-                  class="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded flex items-center"
-                >
-                  <span class="mr-1">+</span> Tambah Variasi
-                </button>
-              </div>
-              <div id="variationsContainer" class="variations-container">
-                ${variationsHtml}
-              </div>
-            </div>
-
-            <!-- Additional Options Section -->
-            <div class="mb-3">
-              <div class="flex justify-between items-center mb-2">
-                <label class="block text-gray-700 font-medium text-sm">Opsi Tambahan</label>
-                <button
-                  type="button"
-                  id="addOptionBtn"
-                  class="bg-red-600 hover:bg-red-700 text-white text-xs py-1 px-2 rounded flex items-center"
-                >
-                  <span class="mr-1">+</span> Tambah Opsi
-                </button>
-              </div>
-              <div id="optionsContainer" class="options-container">
-                ${optionsHtml}
-              </div>
-            </div>
-
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1">Status</label>
-              <select id="productStatus" class="w-full text-sm p-2 border border-gray-300 rounded-lg">
-                <option value="aktif" ${this.productForm.status === 'aktif' ? 'selected' : ''}>Aktif</option>
-                <option value="nonaktif" ${this.productForm.status === 'nonaktif' ? 'selected' : ''}>Nonaktif</option>
-              </select>
-            </div>
-          </form>
-        `,
-        showCancelButton: true,
-        cancelButtonText: 'Batal',
-        confirmButtonText: title === 'Tambah Produk Baru' ? 'Tambah' : 'Simpan',
-        focusConfirm: false,
-        didOpen: () => {
-          this.setupVariationAndOptionButtons()
-        },
-        preConfirm: () => {
-          // Get form values
-          const category = document.getElementById('category').value
-          const name = document.getElementById('productName').value
-          const description = document.getElementById('description').value
-          const stock = document.getElementById('stock').value
-          const price = document.getElementById('price').value
-          const status = document.getElementById('productStatus').value
-          const productImage = document.getElementById('productImage').files
-
-          // Validation
-          if (!name || !description || !stock || !price) {
-            Swal.showValidationMessage('Nama, deskripsi, stok, dan harga harus diisi')
-            return false
-          }
-
-          // Create array of image URLs
-          let images = [...(this.productForm.images || [])]
-
-          // Add new images if selected
-          if (productImage.length > 0) {
-            for (let i = 0; i < productImage.length; i++) {
-              images.push(URL.createObjectURL(productImage[i]))
-            }
-          }
-
-          // If no images, add placeholder
-          if (images.length === 0) {
-            images = ['https://placehold.co/400x400']
-          }
-
-          // Get variations
-          const variations = []
-          const variationBoxes = document.querySelectorAll('.variation-box')
-          variationBoxes.forEach((box, index) => {
-            const nameInput = box.querySelector('.variation-name')
-            const priceInput = box.querySelector('.variation-price')
-            if (nameInput && nameInput.value && priceInput && priceInput.value) {
-              variations.push({
-                id: this.productForm.variations[index]?.id || Date.now() + index,
-                name: nameInput.value,
-                price: parseInt(priceInput.value) || 0,
-              })
-            }
-          })
-
-          // Get additional options
-          const additionalOptions = []
-          const optionBoxes = document.querySelectorAll('.option-box')
-          optionBoxes.forEach((box, index) => {
-            const nameInput = box.querySelector('.option-name')
-            const priceInput = box.querySelector('.option-price')
-            if (nameInput && nameInput.value && priceInput && priceInput.value) {
-              additionalOptions.push({
-                id: this.productForm.additionalOptions[index]?.id || Date.now() + index,
-                name: nameInput.value,
-                price: parseInt(priceInput.value) || 0,
-              })
-            }
-          })
-
-          // Build product object
-          const product = {
-            id: this.productForm.id || Date.now(), // Use existing ID or create new one
-            category,
-            name,
-            description,
-            stock: parseInt(stock),
-            price: parseInt(price),
-            status,
-            images,
-            variations,
-            additionalOptions,
-          }
-
-          return product
-        },
-      }).then((result) => {
-        if (result.isConfirmed && result.value) {
-          if (this.productForm.id) {
-            // Edit existing product
-            const index = this.products.findIndex((p) => p.id === this.productForm.id)
-            if (index !== -1) {
-              this.products.splice(index, 1, result.value)
-            }
-
-            // Show success message
-            this.showSuccessMessage('Produk berhasil diperbarui')
-          } else {
-            // Add new product
-            this.products.push(result.value)
-
-            // Show success message
-            this.showSuccessMessage('Produk berhasil ditambahkan')
-          }
-        }
-      })
-
-      // Update file input display
-      setTimeout(() => {
-        const fileInput = document.getElementById('productImage')
-        if (fileInput) {
-          fileInput.addEventListener('change', function () {
-            const fileCount = this.files.length
-            const fileChosen = document.getElementById('file-chosen')
-            if (fileChosen) {
-              fileChosen.textContent =
-                fileCount > 0
-                  ? fileCount > 1
-                    ? `${fileCount} files selected`
-                    : this.files[0].name
-                  : 'No file chosen'
-            }
-          })
-        }
-      }, 100)
+    handleStatusChange(product, newStatus) {
+      this.currentProduct = product
+      this.$refs.confirmStatusModal.open(product, newStatus)
     },
-
-    // Generate HTML for variations
-    generateVariationsHtml() {
-      if (!this.productForm.variations || this.productForm.variations.length === 0) {
-        return '<div class="text-gray-500 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
+    async handleImagePreview(product) {
+      this.isLoading = true
+      try {
+        const [variations, additionalOptions] = await Promise.all([
+          this.fetchVariants(product.id),
+          this.fetchFinishing(product.id),
+        ])
+        const updatedProduct = { ...product, variations, additionalOptions }
+        this.$refs.imagePreviewModal.open(updatedProduct)
+      } finally {
+        this.isLoading = false
       }
-
-      let html = ''
-      this.productForm.variations.forEach((variation, index) => {
-        html += this.generateVariationBox(variation, index)
-      })
-
-      return html
     },
-
-    // Generate HTML for a single variation box
-    generateVariationBox(variation = { name: '', price: '' }, index) {
-      return `
-        <div class="variation-box" data-index="${index}">
-          <div class="close-btn">×</div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-gray-700 text-xs mb-1">Nama Variasi</label>
-              <input
-                type="text"
-                class="variation-name w-full text-sm p-2 border border-gray-300 rounded-lg"
-                placeholder="Contoh: Ukuran L"
-                value="${variation.name || ''}"
-              >
-            </div>
-            <div>
-              <label class="block text-gray-700 text-xs mb-1">Harga (Rp)</label>
-              <input
-                type="number"
-                class="variation-price w-full text-sm p-2 border border-gray-300 rounded-lg"
-                placeholder="Harga variasi"
-                value="${variation.price || ''}"
-              >
-            </div>
-          </div>
-        </div>
-      `
-    },
-
-    // Generate HTML for options
-    generateOptionsHtml() {
-      if (!this.productForm.additionalOptions || this.productForm.additionalOptions.length === 0) {
-        return '<div class="text-gray-500 text-sm italic">Belum ada opsi tambahan. Klik tombol "Tambah Opsi" untuk menambahkan.</div>'
-      }
-
-      let html = ''
-      this.productForm.additionalOptions.forEach((option, index) => {
-        html += this.generateOptionBox(option, index)
-      })
-
-      return html
-    },
-
-    // Generate HTML for a single option box
-    generateOptionBox(option = { name: '', price: '' }, index) {
-      return `
-        <div class="variation-box option-box" data-index="${index}">
-          <div class="close-btn">×</div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-gray-700 text-xs mb-1">Nama Opsi</label>
-              <input
-                type="text"
-                class="option-name w-full text-sm p-2 border border-gray-300 rounded-lg"
-                placeholder="Contoh: Finishing Glossy"
-                value="${option.name || ''}"
-              >
-            </div>
-            <div>
-              <label class="block text-gray-700 text-xs mb-1">Harga Tambahan (Rp)</label>
-              <input
-                type="number"
-                class="option-price w-full text-sm p-2 border border-gray-300 rounded-lg"
-                placeholder="Harga tambahan"
-                value="${option.price || ''}"
-              >
-            </div>
-          </div>
-        </div>
-      `
-    },
-
-    // Setup event listeners for variation and option buttons
-    setupVariationAndOptionButtons() {
-      // Add variation button
-      const addVariationBtn = document.getElementById('addVariationBtn')
-      if (addVariationBtn) {
-        addVariationBtn.addEventListener('click', () => {
-          const container = document.getElementById('variationsContainer')
-          const variationsCount = container.querySelectorAll('.variation-box').length
-
-          // Remove empty state message if it exists
-          if (variationsCount === 0) {
-            container.innerHTML = ''
-          }
-
-          // Add new variation box
-          const newBox = document.createElement('div')
-          newBox.innerHTML = this.generateVariationBox({}, variationsCount)
-          container.appendChild(newBox.firstElementChild)
-
-          // Setup close button for the new box
-          this.setupCloseButtons()
+    async handleSaveProduct(newProduct) {
+      if (
+        !newProduct.name ||
+        !newProduct.description ||
+        !newProduct.unit ||
+        !newProduct.thumbnail
+      ) {
+        Swal.fire({
+          title: 'Error!',
+          text: 'Nama, deskripsi, unit, dan thumbnail wajib diisi',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
         })
-      }
-
-      // Add option button
-      const addOptionBtn = document.getElementById('addOptionBtn')
-      if (addOptionBtn) {
-        addOptionBtn.addEventListener('click', () => {
-          const container = document.getElementById('optionsContainer')
-          const optionsCount = container.querySelectorAll('.option-box').length
-
-          // Remove empty state message if it exists
-          if (optionsCount === 0) {
-            container.innerHTML = ''
-          }
-
-          // Add new option box
-          const newBox = document.createElement('div')
-          newBox.innerHTML = this.generateOptionBox({}, optionsCount)
-          container.appendChild(newBox.firstElementChild)
-
-          // Setup close button for the new box
-          this.setupCloseButtons()
-        })
-      }
-
-      // Setup existing close buttons
-      this.setupCloseButtons()
-    },
-
-    // Setup close buttons for all variation and option boxes
-    setupCloseButtons() {
-      const closeButtons = document.querySelectorAll('.close-btn')
-      closeButtons.forEach((btn) => {
-        // Remove existing event listeners to prevent duplicates
-        const newBtn = btn.cloneNode(true)
-        btn.parentNode.replaceChild(newBtn, btn)
-
-        // Add event listener
-        newBtn.addEventListener('click', (e) => {
-          const box = e.target.closest('.variation-box')
-          if (box) {
-            // Check if it's the last box
-            const isOptionBox = box.classList.contains('option-box')
-            const container = isOptionBox
-              ? document.getElementById('optionsContainer')
-              : document.getElementById('variationsContainer')
-            const boxes = isOptionBox
-              ? container.querySelectorAll('.option-box')
-              : container.querySelectorAll('.variation-box:not(.option-box)')
-
-            box.remove()
-
-            // If no boxes left, show empty state message
-            if (boxes.length <= 1) {
-              const emptyMessage = isOptionBox
-                ? '<div class="text-gray-500 text-sm italic">Belum ada opsi tambahan. Klik tombol "Tambah Opsi" untuk menambahkan.</div>'
-                : '<div class="text-gray-500 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
-
-              // Only set empty message if we just removed the last box
-              if (boxes.length === 1 && boxes[0] === box) {
-                container.innerHTML = emptyMessage
-              }
-            }
-          }
-        })
-      })
-    },
-
-    // Show Delete Confirmation Modal
-    showDeleteConfirmationModal(product) {
-      Swal.fire({
-        title: 'Hapus Produk?',
-        text: `Apakah Anda yakin ingin menghapus produk "${product.name}"?`,
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Hapus',
-        cancelButtonText: 'Batal',
-      }).then((result) => {
-        if (result.isConfirmed) {
-          // Remove product from array
-          this.products = this.products.filter((p) => p.id !== product.id)
-
-          // Show success message
-          this.showSuccessMessage('Produk berhasil dihapus')
-        }
-      })
-    },
-    // Show Status Change Confirmation Modal
-    showStatusChangeModal(product, newStatus) {
-      // Store original status in case user cancels
-      const originalStatus = product.status
-
-      Swal.fire({
-        title: 'Ubah Status?',
-        text: `Apakah Anda yakin ingin mengubah status produk "${product.name}" menjadi ${newStatus}?`,
-        showCancelButton: true,
-        confirmButtonText: 'Ya, Ubah',
-        cancelButtonText: 'Batal',
-      }).then((result) => {
-        if (result.isConfirmed) {
-          // Update product status
-          product.status = newStatus
-
-          // Show success message
-          this.showSuccessMessage('Status produk berhasil diubah')
-        } else {
-          // Reset the select to original value
-          setTimeout(() => {
-            const selects = document.querySelectorAll('.status-dropdown')
-            selects.forEach((select) => {
-              if (select.parentNode.parentNode.getAttribute('data-id') === product.id) {
-                select.value = originalStatus
-              }
-            })
-          }, 100)
-        }
-      })
-    },
-
-    // Show Image Preview Modal with Slider for Multiple Images
-    showImagePreviewModal(product) {
-      this.currentImageIndex = 0
-
-      if (!product.images || product.images.length === 0) {
         return
       }
-
-      const renderSlider = () => {
-        const images = product.images
-        const currentImage = images[this.currentImageIndex]
-        const totalImages = images.length
-
-        let dotsHtml = ''
-        for (let i = 0; i < totalImages; i++) {
-          dotsHtml += `<span class="${i === this.currentImageIndex ? 'active' : ''}" onclick="window.setCurrentImage(${i})"></span>`
+      this.isLoading = true
+      try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/products`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
         }
-
-        return `
-          <div class="image-slider">
-            <img src="${currentImage}" alt="${product.name} - Image ${this.currentImageIndex + 1}">
-            ${
-              totalImages > 1
-                ? `
-              <div class="slider-nav">
-                <button onclick="window.prevImage()" ${this.currentImageIndex === 0 ? 'disabled' : ''}>❮</button>
-                <button onclick="window.nextImage()" ${this.currentImageIndex === totalImages - 1 ? 'disabled' : ''}>❯</button>
-              </div>
-              <div class="slider-dots">${dotsHtml}</div>
-              <div class="text-center mt-2 text-sm text-gray-500">Image ${this.currentImageIndex + 1} of ${totalImages}</div>
-            `
-                : ''
-            }
-          </div>
-        `
-      }
-
-      // Define navigation functions in window scope
-      window.prevImage = () => {
-        if (this.currentImageIndex > 0) {
-          this.currentImageIndex--
-          updateSliderContent()
+        const formData = new FormData()
+        formData.append('category_id', newProduct.category_id)
+        formData.append('name', newProduct.name)
+        formData.append('description', newProduct.description)
+        formData.append('unit', newProduct.unit)
+        formData.append('is_publish', newProduct.is_publish ? 1 : 0)
+        formData.append('thumbnail', newProduct.thumbnail)
+        newProduct.product_variants.forEach((variant, index) => {
+          formData.append(`product_variants[${index}][name]`, variant.name)
+          formData.append(`product_variants[${index}][price]`, variant.price)
+          formData.append(`product_variants[${index}][stock]`, variant.stock)
+          formData.append(`product_variants[${index}][weight]`, variant.weight)
+          formData.append(`product_variants[${index}][min_qty]`, variant.min_qty)
+          formData.append(`product_variants[${index}][is_default]`, variant.is_default ? 1 : 0)
+        })
+        newProduct.product_finishing.forEach((finishing, index) => {
+          formData.append(`product_finishing[${index}][name]`, finishing.name)
+          formData.append(`product_finishing[${index}][price]`, finishing.price)
+          formData.append(`product_finishing[${index}][color_code]`, finishing.color_code)
+        })
+        await axios.post(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        })
+        this.showSuccessMessage('Produk berhasil ditambahkan')
+        this.fetchProducts()
+      } catch (error) {
+        console.error('Error saving product:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
         }
+        Swal.fire({
+          title: 'Error!',
+          text: error.response?.data?.message || 'Gagal menambah produk',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+      } finally {
+        console.log('Finally block executed') // Debug finally
+        this.isLoading = false
       }
-
-      window.nextImage = () => {
-        if (this.currentImageIndex < product.images.length - 1) {
-          this.currentImageIndex++
-          updateSliderContent()
-        }
-      }
-
-      window.setCurrentImage = (index) => {
-        this.currentImageIndex = index
-        updateSliderContent()
-      }
-
-      const updateSliderContent = () => {
-        const container = document.querySelector('.swal2-html-container')
-        if (container) {
-          container.innerHTML = renderSlider()
-        }
-      }
-
-      Swal.fire({
-        title: product.name,
-        html: renderSlider(),
-        showCancelButton: false,
-        confirmButtonText: 'Tutup',
-        width: 'auto',
-        padding: '1rem',
-      })
     },
-
-    // Show Success Message
+    async handleUpdateProduct(updatedProduct) {
+      this.isLoading = true
+      try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/update`) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const originalProduct = this.products.find((p) => p.id === updatedProduct.id)
+        if (!originalProduct) {
+          throw new Error('Original product not found')
+        }
+        const formData = new FormData()
+        formData.append('id', updatedProduct.id)
+        formData.append('name', updatedProduct.name?.trim() || originalProduct.name)
+        formData.append(
+          'description',
+          updatedProduct.description?.trim() || originalProduct.description,
+        )
+        formData.append('unit', updatedProduct.unit || originalProduct.unit || 'pack')
+        formData.append('weight', parseInt(updatedProduct.weight) || originalProduct.weight || 0)
+        formData.append(
+          'quantity',
+          parseInt(updatedProduct.stock_total) || originalProduct.stock_total || 0,
+        )
+        formData.append('price', parseInt(updatedProduct.price) || originalProduct.price || 0)
+        formData.append(
+          'buy_price',
+          parseInt(updatedProduct.buy_price) || originalProduct.buy_price || 0,
+        )
+        formData.append('is_publish', updatedProduct.status === 'active' ? 1 : 0)
+        formData.append(
+          'category_id',
+          this.categories.find((cat) => cat.name === updatedProduct.category)?.id ||
+            updatedProduct.category_id ||
+            originalProduct.category_id,
+        )
+        if (updatedProduct.thumbnail instanceof File) {
+          formData.append('thumbnail', updatedProduct.thumbnail)
+        }
+        if (!updatedProduct.name || !updatedProduct.description || !updatedProduct.unit) {
+          throw new Error('Nama, deskripsi, dan unit wajib diisi')
+        }
+        const productResponse = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/update`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } },
+        )
+        const variantPromises =
+          updatedProduct.variations?.map((variant) => {
+            const originalVariant =
+              originalProduct.variations?.find((v) => v.id === variant.id) || {}
+            const variantPayload = {
+              product_id: updatedProduct.id,
+              name: variant.name?.trim(),
+              price: parseInt(variant.price) || 0,
+              stock: parseInt(variant.stock) || 0,
+              weight: parseInt(variant.weight) || 0,
+              is_default: variant.is_default ? 1 : 0,
+            }
+            if (!variantPayload.name) {
+              return Promise.reject(new Error('Variant name is required'))
+            }
+            if (
+              variant.id &&
+              (variant.name !== originalVariant.name ||
+                variant.price !== originalVariant.price ||
+                variant.stock !== originalVariant.stock ||
+                variant.weight !== originalVariant.weight ||
+                variant.is_default !== originalVariant.is_default)
+            ) {
+              return axios.post(
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant/update`,
+                { id: variant.id, ...variantPayload },
+                { headers: { Authorization: `Bearer ${token}` } },
+              )
+            } else if (!variant.id) {
+              return axios.post(
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`,
+                variantPayload,
+                { headers: { Authorization: `Bearer ${token}` } },
+              )
+            }
+            return Promise.resolve()
+          }) || []
+        const finishingPromises =
+          updatedProduct.additionalOptions?.map((option) => {
+            const originalOption =
+              originalProduct.additionalOptions?.find((o) => o.id === option.id) || {}
+            const finishingPayload = {
+              product_id: updatedProduct.id,
+              name: option.name?.trim(),
+              price: parseInt(option.price) || 0,
+              color_code: option.color_code || '#000000',
+            }
+            if (!finishingPayload.name) {
+              return Promise.reject(new Error('Finishing name is required'))
+            }
+            if (
+              option.id &&
+              (option.name !== originalOption.name || option.price !== originalOption.price)
+            ) {
+              return axios.post(
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing/update`,
+                { id: option.id, ...finishingPayload },
+                { headers: { Authorization: `Bearer ${token}` } },
+              )
+            } else if (!option.id) {
+              return axios.post(
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`,
+                finishingPayload,
+                { headers: { Authorization: `Bearer ${token}` } },
+              )
+            }
+            return Promise.resolve()
+          }) || []
+        const deletedVariants =
+          originalProduct.variations?.filter(
+            (original) => !updatedProduct.variations?.some((v) => v.id === original.id),
+          ) || []
+        const deletedFinishing =
+          originalProduct.additionalOptions?.filter(
+            (original) => !updatedProduct.additionalOptions?.some((o) => o.id === original.id),
+          ) || []
+        const deleteVariantPromises = deletedVariants.map((variant) =>
+          axios.delete(`${import.meta.env.VITE_API_BASE_URL}/seller/product/variant/delete`, {
+            headers: { Authorization: `Bearer ${token}` },
+            data: { id: variant.id },
+          }),
+        )
+        const deleteFinishingPromises = deletedFinishing.map((option) =>
+          axios.delete(`${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing/delete`, {
+            headers: { Authorization: `Bearer ${token}` },
+            data: { id: option.id },
+          }),
+        )
+        await Promise.all([
+          ...variantPromises,
+          ...finishingPromises,
+          ...deleteVariantPromises,
+          ...deleteFinishingPromises,
+        ])
+        const index = this.products.findIndex((p) => p.id === updatedProduct.id)
+        if (index !== -1) {
+          this.products.splice(index, 1, {
+            ...productResponse.data.data,
+            category: this.getCategoryName(productResponse.data.data.category_id),
+            category_id: productResponse.data.data.category_id,
+            status: productResponse.data.data.is_publish ? 'active' : 'inactive',
+            stock_total: parseInt(productResponse.data.data.quantity) || 0,
+            unit: productResponse.data.data.unit || 'pack',
+            weight: parseInt(productResponse.data.data.weight) || 0,
+            price: parseInt(productResponse.data.data.price) || 0,
+            buy_price: parseInt(productResponse.data.data.buy_price) || 0,
+            images: [
+              productResponse.data.data.thumbnail_url ||
+                updatedProduct.images?.[0] ||
+                'https://placehold.co/1000x1000',
+            ],
+            variant_count: updatedProduct.variations?.length || 0,
+            finishing_count: updatedProduct.additionalOptions?.length || 0,
+            variations: updatedProduct.variations || [],
+            additionalOptions: updatedProduct.additionalOptions || [],
+          })
+          this.showSuccessMessage('Produk berhasil diperbarui')
+        }
+      } catch (error) {
+        console.error('Update product error:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
+        Swal.fire({
+          title: 'Error!',
+          text: error.response?.data?.message || error.message || 'Gagal memperbarui produk',
+          icon: 'error',
+          timer: 2000,
+          showConfirmButton: false,
+        })
+      } finally {
+        console.log('Finally block executed') // Debug finally
+        this.isLoading = false
+        this.fetchProducts()
+      }
+    },
+    async handleConfirmDelete() {
+      this.isLoading = true
+      try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log(
+          'API URL:',
+          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}`,
+        ) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        await axios.delete(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
+        this.products = this.products.filter((p) => p.id !== this.currentProduct.id)
+        this.showSuccessMessage('Produk berhasil dihapus')
+      } catch (error) {
+        console.error('Error deleting product:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
+        Swal.fire({
+          title: 'Error!',
+          text: error.response?.data?.message || 'Gagal menghapus produk',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+      } finally {
+        console.log('Finally block executed') // Debug finally
+        this.isLoading = false
+      }
+    },
+    async handleConfirmStatusChange(newStatus) {
+      this.isLoading = true
+      try {
+        const token = localStorage.getItem('token')
+        console.log('Token:', token) // Debug token
+        console.log(
+          'API URL:',
+          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}/status`,
+        ) // Debug URL
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const isPublish = newStatus === 'active' ? 1 : 0
+        await axios.patch(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}/status`,
+          { is_publish: isPublish },
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+        const product = this.products.find((p) => p.id === this.currentProduct.id)
+        if (product) {
+          product.status = newStatus
+          this.showSuccessMessage('Status produk berhasil diubah')
+        }
+      } catch (error) {
+        console.error('Error changing status:', error.response?.data || error.message)
+        if (error.response?.status === 401) {
+          console.error('Unauthorized: Invalid or expired token')
+        }
+        Swal.fire({
+          title: 'Error!',
+          text: error.response?.data?.message || 'Gagal memperbarui status',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+      } finally {
+        console.log('Finally block executed') // Debug finally
+        this.isLoading = false
+      }
+    },
     showSuccessMessage(message) {
       Swal.fire({
         title: 'Berhasil!',
         text: message,
         icon: 'success',
-        confirmButtonText: 'OK',
+        timer: 3000,
+        showConfirmButton: false,
       })
     },
   },

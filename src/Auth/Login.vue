@@ -94,7 +94,7 @@ export default {
 
     const handleLogin = async () => {
       try {
-        const response = await axios.post('http://127.0.0.1:8000/api/auth/login', {
+        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/login`, {
           loginParam: userInput.value,
           password: password.value,
         })
@@ -107,10 +107,10 @@ export default {
           title: 'Login Berhasil!',
           text: 'Anda akan diarahkan ke dashboard...',
           icon: 'success',
-          timer: 1000, // Auto-close dalam 2 detik
+          timer: 2000,
           showConfirmButton: false,
         }).then(() => {
-          router.push('/dashboard-seller') // Redirect setelah sukses
+          router.push('/dashboard-seller')
         })
       } catch (error) {
         console.error('Login gagal:', error)
@@ -121,6 +121,10 @@ export default {
           text: 'Periksa kembali email/username dan password Anda.',
           icon: 'error',
           confirmButtonText: 'Coba Lagi',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base',
+          },
         })
       }
     }
