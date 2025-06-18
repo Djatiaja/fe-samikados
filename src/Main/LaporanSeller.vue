@@ -163,9 +163,9 @@ import FooterSeller from '@/components/FooterSeller.vue'
 import ReportCard from '@/components/ReportCard.vue'
 import Chart from 'chart.js/auto'
 import axios from 'axios'
-import * as XLSX from 'xlsx' // Import xlsx for Excel export
-import jsPDF from 'jspdf' // Import jsPDF for PDF export
-import html2canvas from 'html2canvas' // Import html2canvas for chart screenshot
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 export default {
   components: { HeaderSeller, SidebarSeller, FooterSeller, ReportCard },
@@ -186,11 +186,6 @@ export default {
       apiError: false,
       demoMode: false,
       chartError: false,
-      apiUrls: [
-        'http://127.0.0.1:8000/api/seller/laporan',
-        '/api/seller/laporan',
-        'http://localhost:8000/api/seller/laporan',
-      ],
     }
   },
   mounted() {
@@ -215,35 +210,137 @@ export default {
     },
     async fetchReportData() {
       this.loading = true
-      this.apiError = false
-      this.chartError = false
-
-      for (const apiUrl of this.apiUrls) {
-        try {
-          const token = localStorage.getItem('token')
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-          const response = await axios.get(apiUrl)
-
-          if (response.data && response.data.status === 'success') {
-            this.reportData = response.data.data
-            this.availableYears = Object.keys(this.reportData.grafik_penjualan).sort().reverse()
-
-            if (this.availableYears.length > 0) {
-              this.selectedYear = this.availableYears[0]
-            }
-
-            this.loading = false
-            await this.$nextTick()
-            this.tryRenderChart()
-            return
-          }
-        } catch (error) {
-          console.log(`Failed to fetch from ${apiUrl}:`, error)
+      this.apiError = null
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) {
+          throw new Error('No token found')
+        }
+        const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/laporan`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (response.data.status !== 'success') {
+          throw new Error(response.data.error || 'Failed to fetch report data')
+        }
+        this.reportData = response.data.data
+        this.availableYears = Object.keys(this.reportData.grafik_penjualan).sort().reverse()
+        this.selectedYear = this.availableYears[0] || new Date().getFullYear().toString()
+      } catch (error) {
+        console.error('Error fetching report data:', error.message)
+        this.apiError = error.message
+      } finally {
+        this.loading = false
+        await this.$nextTick()
+        if (!this.apiError) {
+          this.tryRenderChart()
         }
       }
-
-      this.apiError = true
-      this.loading = false
+    },
+    async tryRenderChart() {
+      this.chartError = false
+      await this.$nextTick()
+      if (!this.$refs.salesChart) {
+        console.warn('Canvas not ready, retrying...')
+        setTimeout(() => this.tryRenderChart(), 100)
+        return
+      }
+      try {
+        this.renderChart()
+      } catch (error) {
+        console.error('Error rendering chart:', error)
+        this.chartError = true
+      }
+    },
+    renderChart() {
+      console.log('Attempting to render chart...')
+      if (this.salesChart) {
+        console.log('Destroying existing chart')
+        this.salesChart.destroy()
+        this.salesChart = null
+      }
+      if (!this.$refs.salesChart) {
+        console.error('Chart canvas element not found')
+        this.chartError = true
+        return
+      }
+      if (!this.reportData.grafik_penjualan || !this.selectedYear) {
+        console.error('Invalid chart data or selected year')
+        this.chartError = true
+        return
+      }
+      console.log('Canvas found, getting 2D context...')
+      const ctx = this.$refs.salesChart.getContext('2d')
+      if (!ctx) {
+        console.error('Failed to get 2D context from canvas')
+        this.chartError = true
+        return
+      }
+      console.log('Rendering chart with data:', this.getMonthlyData(this.selectedYear))
+      this.salesChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [
+            'Januari',
+            'Februari',
+            'Maret',
+            'April',
+            'Mei',
+            'Juni',
+            'Juli',
+            'Agustus',
+            'September',
+            'Oktober',
+            'November',
+            'Desember',
+          ],
+          datasets: [
+            {
+              label: 'Penjualan',
+              data: this.getMonthlyData(this.selectedYear).map((item) => item.sales),
+              borderColor: 'rgba(220, 53, 69, 1)',
+              backgroundColor: 'rgba(220, 53, 69, 0.2)',
+              borderWidth: 2,
+              fill: true,
+              tension: 0.1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Jumlah (Rp)',
+                color: '#DC3545',
+                font: { size: 14, weight: 'bold' },
+              },
+              ticks: {
+                callback: (value) => 'Rp ' + value.toLocaleString('id-ID'),
+              },
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Bulan',
+                color: '#DC3545',
+                font: { size: 14, weight: 'bold' },
+              },
+            },
+          },
+          plugins: {
+            legend: { display: true, position: 'top' },
+            tooltip: {
+              callbacks: {
+                label: (context) => 'Rp ' + context.parsed.y.toLocaleString('id-ID'),
+              },
+            },
+          },
+        },
+      })
+      console.log('Chart rendered successfully')
     },
     toggleSidebar() {
       this.isSidebarActive = !this.isSidebarActive
@@ -251,7 +348,6 @@ export default {
     handleResize() {
       this.isMobile = window.innerWidth < 1024
       this.isSidebarActive = !this.isMobile
-
       if (this.salesChart) {
         this.$nextTick(() => {
           this.updateChart()
@@ -274,7 +370,6 @@ export default {
         'November',
         'Desember',
       ]
-
       return monthNames.map((month, index) => {
         const monthKey = String(index + 1).padStart(2, '0')
         return { month, sales: yearData[monthKey]?.penjualan || 0 }
@@ -294,20 +389,17 @@ export default {
         this.salesChart.destroy()
         this.salesChart = null
       }
-
       if (!this.$refs.salesChart) {
         console.error('Chart canvas element not found')
         this.chartError = true
         return
       }
-
       const ctx = this.$refs.salesChart.getContext('2d')
       if (!ctx) {
         console.error('Failed to get 2D context from canvas')
         this.chartError = true
         return
       }
-
       this.salesChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -381,7 +473,6 @@ export default {
         this.tryRenderChart()
         return
       }
-
       try {
         this.salesChart.data.datasets[0].data = this.getMonthlyData(this.selectedYear).map(
           (item) => item.sales,
@@ -393,12 +484,9 @@ export default {
         this.tryRenderChart()
       }
     },
-    // New method for Excel export
     exportToExcel() {
       try {
         const wb = XLSX.utils.book_new()
-
-        // Summary Data Worksheet
         const summaryData = [
           ['Laporan Penjualan'],
           ['Total Pendapatan', this.formatCurrency(this.reportData.Total_pendapatan)],
@@ -407,35 +495,26 @@ export default {
         ]
         const wsSummary = XLSX.utils.aoa_to_sheet(summaryData)
         XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan')
-
-        // Sales Chart Data Worksheet
         const chartData = [
           ['Bulan', 'Penjualan (Rp)'],
           ...this.getMonthlyData(this.selectedYear).map((item) => [item.month, item.sales]),
         ]
         const wsChart = XLSX.utils.aoa_to_sheet(chartData)
         XLSX.utils.book_append_sheet(wb, wsChart, `Penjualan ${this.selectedYear}`)
-
-        // Save the Excel file
         XLSX.writeFile(wb, `Laporan_Penjualan_${this.selectedYear}.xlsx`)
       } catch (error) {
         console.error('Error exporting to Excel:', error)
         alert('Gagal mengekspor ke Excel. Silakan coba lagi.')
       }
     },
-    // New method for PDF export
     async exportToPDF() {
       try {
         const pdf = new jsPDF()
         const margin = 10
         let yPosition = 20
-
-        // Add Title
         pdf.setFontSize(16)
         pdf.text('Laporan Penjualan', margin, yPosition)
         yPosition += 10
-
-        // Add Summary Data
         pdf.setFontSize(12)
         pdf.text(
           `Total Pendapatan: ${this.formatCurrency(this.reportData.Total_pendapatan)}`,
@@ -455,20 +534,14 @@ export default {
           yPosition,
         )
         yPosition += 20
-
-        // Add Chart Title
         pdf.text(`Grafik Penjualan ${this.selectedYear}`, margin, yPosition)
         yPosition += 10
-
-        // Capture the chart as an image
         const canvas = this.$refs.salesChart
         const chartImage = await html2canvas(canvas)
         const imgData = chartImage.toDataURL('image/png')
-        const imgWidth = 190 // A4 width - margins
+        const imgWidth = 190
         const imgHeight = (chartImage.height * imgWidth) / chartImage.width
         pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight)
-
-        // Save the PDF
         pdf.save(`Laporan_Penjualan_${this.selectedYear}.pdf`)
       } catch (error) {
         console.error('Error exporting to PDF:', error)

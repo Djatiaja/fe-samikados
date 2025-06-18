@@ -74,11 +74,11 @@
                   :key="product.id"
                   class="bg-red-600 text-white p-3 rounded-lg inline-block"
                 >
-                <img
-                      :src="product.thumbnail_url || `/api/placeholder/250/250?text=${product.name}`"
-                      :alt="product.name"
-                      class="w-[250px] h-[250px] object-cover mb-4"
-                    />
+                  <img
+                    :src="product.thumbnail_url || `/api/placeholder/250/250?text=${product.name}`"
+                    :alt="product.name"
+                    class="w-[250px] h-[250px] object-cover mb-4"
+                  />
                   <h4 class="font-bold">{{ product.name }}</h4>
                   <p>Rp{{ formatPrice(product.price) }}</p>
                   <p class="text-sm">{{ product.unit }}+ Terjual</p>

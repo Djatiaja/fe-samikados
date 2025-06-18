@@ -64,22 +64,21 @@ import AuthFooter from '@/components/AuthFooter.vue'
 import AuthHeader from '@/components/AuthHeader.vue'
 import AuthMainButton from '@/components/AuthMainButton.vue'
 import axios from 'axios'
+
 export default {
   components: { AuthFooter, AuthHeader, AuthMainButton },
   data() {
     return {
       newPassword: '',
       confirmPassword: '',
-      showPassword: false, // For toggling password visibility
+      showPassword: false,
     }
   },
   methods: {
-    // Toggles password visibility
     togglePasswordVisibility() {
       this.showPassword = !this.showPassword
     },
 
-    // Opens the confirmation modal
     openConfirmPasswordModal() {
       if (!this.newPassword || !this.confirmPassword) {
         Swal.fire('Error', 'Mohon isi semua kolom!', 'error')
@@ -91,11 +90,9 @@ export default {
         return
       }
 
-      // Show confirmation modal using the custom script
       this.confirmChangePassword()
     },
 
-    // The function for showing the confirmation modal
     confirmChangePassword() {
       Swal.fire({
         title: "<span class='text-xl font-bold'>Konfirmasi Ganti Password</span>",
@@ -126,7 +123,7 @@ export default {
           const token = localStorage.getItem('resetToken')
           const email = localStorage.getItem('userEmail')
           axios
-            .post(`http://127.0.0.1:8000/api/auth/reset-password`, {
+            .post(`${import.meta.env.VITE_API_BASE_URL}/auth/reset-password`, {
               token: token,
               email: email,
               password: this.newPassword,
@@ -164,7 +161,6 @@ export default {
       })
     },
 
-    // Function for showing the success alert modal
     showAlert() {
       Swal.fire({
         title: "<span class='text-lg font-bold'>Password Berhasil Diubah</span>",

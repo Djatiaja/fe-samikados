@@ -216,11 +216,6 @@ export default {
           const is_publish = parseInt(document.getElementById('is_publish').value)
           const thumbnail = document.getElementById('thumbnail').files[0]
 
-          if (!name || !description || !unit || !thumbnail) {
-            Swal.showValidationMessage('Nama, deskripsi, unit, dan thumbnail harus diisi')
-            return false
-          }
-
           if (!category_id) {
             Swal.showValidationMessage('Kategori harus dipilih')
             return false
