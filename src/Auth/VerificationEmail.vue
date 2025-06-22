@@ -93,7 +93,7 @@ export default {
       }
 
       try {
-        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/customer/auth/verify-email`, {
+        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/customer/auth/verify-email`, {
           id,
           hash,
         });
@@ -147,7 +147,7 @@ export default {
       }
 
       try {
-        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/customer/auth/resend-email`, payload);
+        const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}//customer/auth/resend-email`, payload);
         this.message = 'Email verifikasi telah dikirim ulang. Silakan cek kotak masuk Anda.';
         this.messageType = 'success';
         this.showRetryButton = false;

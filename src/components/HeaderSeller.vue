@@ -58,7 +58,7 @@ export default {
       storeName: '',
       apiUrls: [
         `${import.meta.env.VITE_API_BASE_URL}/seller/notifikasi/count`,
-        '/api/seller/notifikasi/count',
+        '//seller/notifikasi/count',
         `${import.meta.env.VITE_API_BASE_URL}/seller/notifikasi/count`,
       ],
     }
