@@ -2,7 +2,7 @@
 
 Bagian ini adalah panduan untuk menyiapkan dan mengembangkan frontend aplikasi **Samikados** berbasis **Vue 3** dan **Vite**, khusus untuk role **seller** (penjual) dalam platform e-commerce percetakan. Frontend ini memungkinkan penjual untuk mengelola produk, berkomunikasi dengan pelanggan, dan memproses pesanan. Proyek ini terintegrasi dengan backend Laravel untuk mendukung fungsi API.
 
-<div align="center"><img src="./public/assets/SamikadosLogo.jpeg" width="400" alt="Samikados Logo"></div>
+<div align="center"><img src="./public/image/samikados-icon.png" width="400" alt="Samikados Logo"></div>
 
 ## Persyaratan Sistem
 
