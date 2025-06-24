@@ -19,7 +19,7 @@ Ikuti langkah-langkah berikut untuk menyiapkan frontend Vue.js khusus untuk role
 ### 1. Kloning Repositori
 Kloning repositori Samikados dan masuk ke direktori proyek:
 ```bash
-git clone https://github.com/Djatiaja/samikados.git
+git clone https://github.com/Djatiaja/fe-samikados.git
 cd samikados
 ```
 
