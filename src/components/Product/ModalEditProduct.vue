@@ -16,7 +16,7 @@ export default {
   },
   methods: {
     open(product) {
-      console.log('Opening Modal with Product:', product) // Debug: Log product data
+      console.log('Opening Modal with Product:', JSON.stringify(product, null, 2)) // Debug: Detailed product data
       if (!this.categories || this.categories.length === 0) {
         Swal.fire({
           title: 'Error!',
@@ -42,7 +42,7 @@ export default {
         product_finishing: product.additionalOptions || [],
       }
 
-      console.log('Product Form:', productForm) // Debug: Log product form data
+      console.log('Product Form Initialized:', JSON.stringify(productForm, null, 2)) // Debug: Log form data
       this.showProductModal('Edit Produk', productForm)
     },
     showProductModal(title, productForm) {
@@ -123,7 +123,6 @@ export default {
               </div>
             </div>
 
-            <!-- Product Images Section -->
             <div class="mb-5">
               <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <div class="flex justify-between items-center mb-3">
@@ -146,7 +145,6 @@ export default {
               </div>
             </div>
 
-            <!-- Variations Section -->
             <div class="mb-5">
               <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <div class="flex justify-between items-center mb-3">
@@ -169,7 +167,6 @@ export default {
               </div>
             </div>
 
-            <!-- Finishing Section -->
             <div class="mb-4">
               <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <div class="flex justify-between items-center mb-3">
@@ -253,7 +250,11 @@ export default {
           const description = document.getElementById('description').value
           const unit = document.getElementById('unit').value
           const is_publish = parseInt(document.getElementById('is_publish').value)
-          const thumbnail = document.getElementById('thumbnail').files[0]
+          const thumbnailInput = document.getElementById('thumbnail')
+          const thumbnail = thumbnailInput.files[0]
+
+          console.log('Thumbnail Input Files:', thumbnailInput.files) // Debug: Log thumbnail input
+          console.log('Thumbnail Selected:', thumbnail ? thumbnail.name : 'None') // Debug: Log thumbnail file
 
           const images = Array.from(
             document.getElementById('imagesContainer').querySelectorAll('.image-box'),
@@ -271,7 +272,7 @@ export default {
             })
             .filter((item) => item.file || item.id)
 
-          console.log('Images Collected:', images) // Debug: Log images data
+          console.log('Images Collected:', JSON.stringify(images, null, 2)) // Debug: Log images
 
           if (!category_id) {
             Swal.showValidationMessage('Kategori harus dipilih')
@@ -321,7 +322,7 @@ export default {
             }
           })
 
-          console.log('Variations Collected:', variations) // Debug: Log variations data
+          console.log('Variations Collected:', JSON.stringify(variations, null, 2)) // Debug: Log variations
 
           if (!hasStock) {
             Swal.showValidationMessage('Setidaknya satu variasi harus memiliki stok')
@@ -359,7 +360,7 @@ export default {
             }
           })
 
-          console.log('Finishings Collected:', finishings) // Debug: Log finishings data
+          console.log('Finishings Collected:', JSON.stringify(finishings, null, 2)) // Debug: Log finishings
 
           const product = {
             id: productForm.id,
@@ -374,7 +375,7 @@ export default {
             product_finishing: finishings,
           }
 
-          console.log('Final Product Data:', product) // Debug: Log final product data
+          console.log('Final Product Data:', JSON.stringify(product, null, 2)) // Debug: Log final product
           return product
         },
       }).then((result) => {
@@ -425,7 +426,7 @@ export default {
               <label class="block text-gray-700 text-xs mb-1">Harga (Rp)</label>
               <input
                 type="number"
-                class="variation-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                class="variation-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:ring-2 focus:border-red-500"
                 placeholder="Harga variasi"
                 value="${variation.price || ''}"
               >
@@ -625,15 +626,23 @@ export default {
       if (thumbnailInput && thumbnailPreview) {
         thumbnailInput.addEventListener('change', (event) => {
           const file = event.target.files[0]
-          console.log('Selected Thumbnail File:', file) // Debug: Log thumbnail file
+          console.log('Thumbnail Input Changed:', {
+            file: file ? { name: file.name, size: file.size, type: file.type } : null,
+          }) // Debug: Detailed thumbnail info
           if (file) {
             const reader = new FileReader()
             reader.onload = (e) => {
               thumbnailPreview.src = e.target.result
+              console.log('Thumbnail Preview Updated:', e.target.result.substring(0, 50)) // Debug: Log preview data
             }
             reader.readAsDataURL(file)
           }
         })
+      } else {
+        console.error('Thumbnail Input or Preview Element Missing:', {
+          thumbnailInput: !!thumbnailInput,
+          thumbnailPreview: !!thumbnailPreview,
+        }) // Debug: Log missing elements
       }
     },
     setupImagePreviews() {
@@ -641,13 +650,16 @@ export default {
       imageInputs.forEach((input, index) => {
         input.addEventListener('change', (event) => {
           const file = event.target.files[0]
-          console.log(`Selected Image File ${index + 1}:`, file) // Debug: Log image file
+          console.log(`Image Input ${index + 1} Changed:`, {
+            file: file ? { name: file.name, size: file.size, type: file.type } : null,
+          }) // Debug: Detailed image info
           if (file) {
             const reader = new FileReader()
             reader.onload = (e) => {
               const imgElement = input.parentElement.querySelector('img')
               if (imgElement) {
                 imgElement.src = e.target.result
+                console.log(`Image Preview ${index + 1} Updated:`, e.target.result.substring(0, 50)) // Debug
               }
             }
             reader.readAsDataURL(file)
@@ -660,7 +672,15 @@ export default {
         btn.addEventListener('click', (e) => {
           const box = e.target.closest('.variation-box, .finishing-box, .image-box')
           if (box) {
-            console.log('Removing Box:', box.dataset.id, box.classList) // Debug: Log removed box
+            console.log('Removing Box:', {
+              type: box.classList.contains('variation-box')
+                ? 'variation'
+                : box.classList.contains('finishing-box')
+                  ? 'finishing'
+                  : 'image',
+              id: box.dataset.id || 'new',
+              index: box.dataset.index,
+            }) // Debug: Log removed box details
             const isDefault = box.querySelector('.variation-default')?.checked
             if (isDefault) {
               const otherVariations = document.querySelectorAll(
@@ -670,7 +690,10 @@ export default {
                 for (let i = 0; i < otherVariations.length; i++) {
                   if (otherVariations[i] !== box) {
                     otherVariations[i].querySelector('.variation-default').checked = true
-                    console.log('Set new default variation:', otherVariations[i].dataset.id) // Debug
+                    console.log('Set New Default Variation:', {
+                      id: otherVariations[i].dataset.id,
+                      index: otherVariations[i].dataset.index,
+                    }) // Debug
                     break
                   }
                 }
@@ -701,7 +724,10 @@ export default {
       })
     },
     handleDefaultVariationChange(radio) {
-      console.log('Default Variation Changed:', radio.checked) // Debug: Log radio change
+      console.log('Default Variation Changed:', {
+        checked: radio.checked,
+        id: radio.closest('.variation-box')?.dataset.id || 'new',
+      }) // Debug: Log radio change
       const allRadios = document.querySelectorAll('.variation-default')
       allRadios.forEach((r) => {
         if (r !== radio) r.checked = false
