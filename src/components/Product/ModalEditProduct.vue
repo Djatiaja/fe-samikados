@@ -1,3 +1,4 @@
+```vue
 <template>
   <div></div>
 </template>
@@ -15,6 +16,7 @@ export default {
   },
   methods: {
     open(product) {
+      console.log('Opening Modal with Product:', product) // Debug: Log product data
       if (!this.categories || this.categories.length === 0) {
         Swal.fire({
           title: 'Error!',
@@ -28,22 +30,25 @@ export default {
 
       const productForm = {
         id: product.id,
-        category_id: product.category_id || this.categories[0]?.id || 1,
+        category_id: product.category_id || this.categories[0]?.id || 0,
         name: product.name || '',
         description: product.description || '',
-        unit: product.unit || 'unit',
+        unit: product.unit || 'pack',
         is_publish: product.status === 'active' ? 1 : 0,
         thumbnail: null,
+        thumbnail_url: product.thumbnail_url || 'https://placehold.co/1000x1000',
+        images: product.images || [],
         product_variants: product.variations || [],
         product_finishing: product.additionalOptions || [],
       }
 
+      console.log('Product Form:', productForm) // Debug: Log product form data
       this.showProductModal('Edit Produk', productForm)
     },
-
     showProductModal(title, productForm) {
       let variationsHtml = this.generateVariationsHtml(productForm.product_variants)
       let finishingHtml = this.generateFinishingHtml(productForm.product_finishing)
+      let imagesHtml = this.generateImagesHtml(productForm.images)
 
       Swal.fire({
         title: `<h3 class="text-lg font-bold">${title}</h3>`,
@@ -72,7 +77,7 @@ export default {
               <input
                 type="text"
                 id="productName"
-                placeholder="Masukkan Nama Produk"
+                placeholder="Masukkan nama produk"
                 class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
                 value="${productForm.name || ''}"
               >
@@ -93,20 +98,52 @@ export default {
               <input
                 type="text"
                 id="unit"
-                placeholder="Contoh: unit, pack"
+                placeholder="Contoh: pack, unit"
                 class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-                value="${productForm.unit || 'unit'}"
+                value="${productForm.unit || 'pack'}"
               >
             </div>
 
             <div class="mb-4">
               <label class="block text-gray-700 font-medium text-sm mb-1">Thumbnail Produk</label>
-              <input
-                type="file"
-                id="thumbnail"
-                accept="image/*"
-                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
-              >
+              <div class="flex items-center gap-4">
+                <img
+                  id="thumbnailPreview"
+                  src="${productForm.thumbnail_url}"
+                  alt="Thumbnail Preview"
+                  class="w-20 h-20 object-cover rounded-lg"
+                  onerror="this.src='https://placehold.co/1000x1000'"
+                >
+                <input
+                  type="file"
+                  id="thumbnail"
+                  accept="image/*"
+                  class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
+                >
+              </div>
+            </div>
+
+            <!-- Product Images Section -->
+            <div class="mb-5">
+              <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-center mb-3">
+                  <label class="block text-gray-700 font-medium text-sm">Gambar Produk</label>
+                  <button
+                    type="button"
+                    id="addImageBtn"
+                    class="bg-red-600 hover:bg-red-700 text-white text-xs py-1.5 px-3 rounded-lg flex items-center transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Tambah Gambar
+                  </button>
+                </div>
+                <div id="imagesContainer" class="images-container max-h-56 overflow-y-auto pr-2">
+                  ${imagesHtml}
+                </div>
+                <small class="text-gray-600 text-xs block mt-2">Tambahkan atau edit gambar tambahan untuk produk.</small>
+              </div>
             </div>
 
             <!-- Variations Section -->
@@ -182,6 +219,8 @@ export default {
         },
         didOpen: () => {
           this.setupVariationAndFinishingButtons()
+          this.setupImageButtons()
+          this.setupThumbnailPreview()
           const modalContent = document.querySelector('.swal2-content')
           if (modalContent) {
             modalContent.style.maxHeight = '70vh'
@@ -216,6 +255,24 @@ export default {
           const is_publish = parseInt(document.getElementById('is_publish').value)
           const thumbnail = document.getElementById('thumbnail').files[0]
 
+          const images = Array.from(
+            document.getElementById('imagesContainer').querySelectorAll('.image-box'),
+          )
+            .map((box, index) => {
+              const fileInput = box.querySelector('.image-file')
+              const id = box.dataset.id ? parseInt(box.dataset.id) : null
+              return {
+                file: fileInput.files[0],
+                id: id,
+                alt_text: `Image ${index + 1}`,
+                is_primary: index === 0 ? 1 : 0,
+                sort_order: index + 1,
+              }
+            })
+            .filter((item) => item.file || item.id)
+
+          console.log('Images Collected:', images) // Debug: Log images data
+
           if (!category_id) {
             Swal.showValidationMessage('Kategori harus dipilih')
             return false
@@ -240,10 +297,11 @@ export default {
             const weightInput = box.querySelector('.variation-weight')
             const minQtyInput = box.querySelector('.variation-min-qty')
             const isDefault = box.querySelector('.variation-default')?.checked
+            const id = box.dataset.id ? parseInt(box.dataset.id) : null
 
             if (nameInput && nameInput.value) {
               const stock = parseInt(stockInput.value) || 0
-              const weight = parseInt(weightInput.value) || 0
+              const weight = parseFloat(weightInput.value) || 0
               const minQty = parseInt(minQtyInput.value) || 1
 
               if (stock > 0) hasStock = true
@@ -252,9 +310,9 @@ export default {
               if (minQty <= 0) invalidMinQty = true
 
               variations.push({
-                id: productForm.product_variants[index]?.id || Date.now() + index,
+                id: id,
                 name: nameInput.value,
-                price: parseInt(priceInput.value) || 0,
+                price: parseFloat(priceInput.value) || 0,
                 stock: stock,
                 weight: weight,
                 min_qty: minQty,
@@ -262,6 +320,8 @@ export default {
               })
             }
           })
+
+          console.log('Variations Collected:', variations) // Debug: Log variations data
 
           if (!hasStock) {
             Swal.showValidationMessage('Setidaknya satu variasi harus memiliki stok')
@@ -283,21 +343,23 @@ export default {
             return false
           }
 
-          const finishing = []
-          const finishingBoxes = document.querySelectorAll('.finishing-box')
-          finishingBoxes.forEach((box, index) => {
+          const finishings = []
+          document.querySelectorAll('.finishing-box').forEach((box, index) => {
             const nameInput = box.querySelector('.finishing-name')
             const priceInput = box.querySelector('.finishing-price')
             const colorCodeInput = box.querySelector('.finishing-color-code')
+            const id = box.dataset.id ? parseInt(box.dataset.id) : null
             if (nameInput && nameInput.value && priceInput && priceInput.value) {
-              finishing.push({
-                id: productForm.product_finishing[index]?.id || Date.now() + index,
+              finishings.push({
+                id: id,
                 name: nameInput.value,
-                price: parseInt(priceInput.value) || 0,
+                price: parseFloat(priceInput.value) || 0,
                 color_code: colorCodeInput.value || '#000000',
               })
             }
           })
+
+          console.log('Finishings Collected:', finishings) // Debug: Log finishings data
 
           const product = {
             id: productForm.id,
@@ -305,12 +367,14 @@ export default {
             name,
             description,
             unit,
-            is_publish,
+            status: is_publish ? 'active' : 'inactive',
             thumbnail,
-            product_variants: variations,
-            product_finishing: finishing,
+            images,
+            variations,
+            product_finishing: finishings,
           }
 
+          console.log('Final Product Data:', product) // Debug: Log final product data
           return product
         },
       }).then((result) => {
@@ -319,7 +383,6 @@ export default {
         }
       })
     },
-
     generateVariationsHtml(variations = []) {
       if (!variations || variations.length === 0) {
         return '<div class="text-gray-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
@@ -329,13 +392,20 @@ export default {
         .map((variation, index) => this.generateVariationBox(variation, index))
         .join('')
     },
-
     generateVariationBox(
-      variation = { name: '', price: 0, stock: 0, weight: 0, min_qty: 1, is_default: false },
+      variation = {
+        id: null,
+        name: '',
+        price: 0,
+        stock: 0,
+        weight: 0,
+        min_qty: 1,
+        is_default: false,
+      },
       index,
     ) {
       return `
-        <div class="variation-box bg-white shadow-sm border border-red-100 rounded-lg p-3 mb-3" data-index="${index}">
+        <div class="variation-box bg-white shadow-sm border border-red-100 rounded-lg p-3 mb-3" data-index="${index}" data-id="${variation.id || ''}">
           <div class="close-btn">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -355,7 +425,7 @@ export default {
               <label class="block text-gray-700 text-xs mb-1">Harga (Rp)</label>
               <input
                 type="number"
-                class="variation-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                class="variation-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 placeholder="Harga variasi"
                 value="${variation.price || ''}"
               >
@@ -365,7 +435,7 @@ export default {
               <input
                 type="number"
                 class="variation-stock w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="Stok"
+                placeholder="0"
                 value="${variation.stock || 0}"
               >
             </div>
@@ -374,7 +444,7 @@ export default {
               <input
                 type="number"
                 class="variation-weight w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="Berat dalam gram"
+                placeholder="0"
                 value="${variation.weight || 0}"
               >
             </div>
@@ -383,7 +453,7 @@ export default {
               <input
                 type="number"
                 class="variation-min-qty w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="Min. Qty"
+                placeholder="1"
                 value="${variation.min_qty || 1}"
               >
             </div>
@@ -403,18 +473,19 @@ export default {
         </div>
       `
     },
-
-    generateFinishingHtml(finishing = []) {
-      if (!finishing || finishing.length === 0) {
+    generateFinishingHtml(finishings = []) {
+      if (!finishings || finishings.length === 0) {
         return '<div class="text-gray-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
       }
 
-      return finishing.map((fin, index) => this.generateFinishingBox(fin, index)).join('')
+      return finishings.map((fin, index) => this.generateFinishingBox(fin, index)).join('')
     },
-
-    generateFinishingBox(finishing = { name: '', price: 0, color_code: '#000000' }, index) {
+    generateFinishingBox(
+      finishing = { id: null, name: '', price: 0, color_code: '#000000' },
+      index,
+    ) {
       return `
-        <div class="finishing-box bg-white shadow-sm border border-blue-100 rounded-lg p-3 mb-3" data-index="${index}">
+        <div class="finishing-box bg-white shadow-sm border border-blue-100 rounded-lg p-3 mb-3" data-index="${index}" data-id="${finishing.id || ''}">
           <div class="close-btn">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -435,7 +506,7 @@ export default {
               <input
                 type="number"
                 class="finishing-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Harga finishing"
+                placeholder="0"
                 value="${finishing.price || ''}"
               >
             </div>
@@ -452,7 +523,39 @@ export default {
         </div>
       `
     },
+    generateImagesHtml(images = []) {
+      if (!images || images.length === 0) {
+        return '<div class="text-gray-600 text-sm italic">Belum ada gambar. Klik tombol "Tambah Gambar" untuk menambahkan.</div>'
+      }
 
+      return images.map((image, index) => this.generateImageBox(image, index)).join('')
+    },
+    generateImageBox(image = { id: null, image_url: 'https://placehold.co/1000x1000' }, index) {
+      return `
+        <div class="image-box bg-white shadow-sm border border-red-100 rounded-lg p-3 mb-3" data-index="${index}" data-id="${image.id || ''}">
+          <div class="close-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <div class="grid grid-cols-1 gap-2">
+            <div class="col-span-1 flex items-center gap-4">
+              <img
+                src="${image.image_url}"
+                alt="Image Preview ${index + 1}"
+                class="w-20 h-20 object-cover rounded-lg"
+                onerror="this.src='https://placehold.co/1000x1000'"
+              >
+              <input
+                type="file"
+                class="image-file w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                accept="image/*"
+              >
+            </div>
+          </div>
+        </div>
+      `
+    },
     setupVariationAndFinishingButtons() {
       window.handleDefaultVariationChange = this.handleDefaultVariationChange
 
@@ -495,12 +598,69 @@ export default {
 
       this.setupCloseButtons()
     },
+    setupImageButtons() {
+      const addImageBtn = document.getElementById('addImageBtn')
+      if (addImageBtn) {
+        addImageBtn.addEventListener('click', () => {
+          const container = document.getElementById('imagesContainer')
+          const imagesCount = container.querySelectorAll('.image-box').length
 
+          if (imagesCount === 0) {
+            container.innerHTML = ''
+          }
+
+          const newBox = document.createElement('div')
+          newBox.innerHTML = this.generateImageBox({}, imagesCount)
+          container.appendChild(newBox.firstElementChild)
+
+          this.setupCloseButtons()
+        })
+      }
+
+      this.setupImagePreviews()
+    },
+    setupThumbnailPreview() {
+      const thumbnailInput = document.getElementById('thumbnail')
+      const thumbnailPreview = document.getElementById('thumbnailPreview')
+      if (thumbnailInput && thumbnailPreview) {
+        thumbnailInput.addEventListener('change', (event) => {
+          const file = event.target.files[0]
+          console.log('Selected Thumbnail File:', file) // Debug: Log thumbnail file
+          if (file) {
+            const reader = new FileReader()
+            reader.onload = (e) => {
+              thumbnailPreview.src = e.target.result
+            }
+            reader.readAsDataURL(file)
+          }
+        })
+      }
+    },
+    setupImagePreviews() {
+      const imageInputs = document.querySelectorAll('.image-file')
+      imageInputs.forEach((input, index) => {
+        input.addEventListener('change', (event) => {
+          const file = event.target.files[0]
+          console.log(`Selected Image File ${index + 1}:`, file) // Debug: Log image file
+          if (file) {
+            const reader = new FileReader()
+            reader.onload = (e) => {
+              const imgElement = input.parentElement.querySelector('img')
+              if (imgElement) {
+                imgElement.src = e.target.result
+              }
+            }
+            reader.readAsDataURL(file)
+          }
+        })
+      })
+    },
     setupCloseButtons() {
       document.querySelectorAll('.close-btn').forEach((btn) => {
         btn.addEventListener('click', (e) => {
-          const box = e.target.closest('.variation-box, .finishing-box')
+          const box = e.target.closest('.variation-box, .finishing-box, .image-box')
           if (box) {
+            console.log('Removing Box:', box.dataset.id, box.classList) // Debug: Log removed box
             const isDefault = box.querySelector('.variation-default')?.checked
             if (isDefault) {
               const otherVariations = document.querySelectorAll(
@@ -510,6 +670,7 @@ export default {
                 for (let i = 0; i < otherVariations.length; i++) {
                   if (otherVariations[i] !== box) {
                     otherVariations[i].querySelector('.variation-default').checked = true
+                    console.log('Set new default variation:', otherVariations[i].dataset.id) // Debug
                     break
                   }
                 }
@@ -529,12 +690,18 @@ export default {
               finContainer.innerHTML =
                 '<div class="text-gray-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
             }
+
+            const imgContainer = document.getElementById('imagesContainer')
+            if (imgContainer && imgContainer.children.length === 0) {
+              imgContainer.innerHTML =
+                '<div class="text-gray-600 text-sm italic">Belum ada gambar. Klik tombol "Tambah Gambar" untuk menambahkan.</div>'
+            }
           }
         })
       })
     },
-
     handleDefaultVariationChange(radio) {
+      console.log('Default Variation Changed:', radio.checked) // Debug: Log radio change
       const allRadios = document.querySelectorAll('.variation-default')
       allRadios.forEach((r) => {
         if (r !== radio) r.checked = false
@@ -546,13 +713,15 @@ export default {
 
 <style scoped>
 .variation-box,
-.finishing-box {
+.finishing-box,
+.image-box {
   position: relative;
   transition: all 0.2s;
 }
 
 .variation-box:hover,
-.finishing-box:hover {
+.finishing-box:hover,
+.image-box:hover {
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -582,12 +751,14 @@ export default {
 }
 
 .variations-container::-webkit-scrollbar,
-.finishing-container::-webkit-scrollbar {
+.finishing-container::-webkit-scrollbar,
+.images-container::-webkit-scrollbar {
   width: 6px;
 }
 
 .variations-container::-webkit-scrollbar-track,
-.finishing-container::-webkit-scrollbar-track {
+.finishing-container::-webkit-scrollbar-track,
+.images-container::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 10px;
 }
@@ -602,12 +773,21 @@ export default {
   border-radius: 10px;
 }
 
+.images-container::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border-radius: 10px;
+}
+
 .variations-container::-webkit-scrollbar-thumb:hover {
   background: #b91c1c;
 }
 
 .finishing-container::-webkit-scrollbar-thumb:hover {
   background: #2563eb;
+}
+
+.images-container::-webkit-scrollbar-thumb:hover {
+  background: #b91c1c;
 }
 
 .form-compact input,

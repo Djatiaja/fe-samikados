@@ -258,7 +258,7 @@ export default {
   },
   computed: {
     totalPages() {
-      return Math.ceil(this.pagination.total / this.pagination.limit) || 1
+      return Math.max(Math.ceil(this.pagination.total / this.pagination.limit), 1)
     },
     paginationInfo() {
       const from = (this.pagination.page - 1) * this.pagination.limit + 1
@@ -269,30 +269,34 @@ export default {
       }
     },
     displayedPages() {
-      if (this.totalPages <= this.maxPageButtons) {
-        return Array.from({ length: this.totalPages }, (_, i) => i + 1)
-      }
-      let pages = []
-      const halfMax = Math.floor(this.maxPageButtons / 2)
-      const currentPage = this.pagination.page
-      pages.push(1)
-      if (currentPage > halfMax + 2) {
-        pages.push('...')
-      }
-      const startPage = Math.max(2, currentPage - halfMax)
-      const endPage = Math.min(this.totalPages - 1, currentPage + halfMax)
-      for (let i = startPage; i <= endPage; i++) {
-        if (i !== 1 && i !== this.totalPages) {
-          pages.push(i)
+      const current = this.pagination.page
+      const last = this.totalPages
+      const delta = 2
+      const left = current - delta
+      const right = current + delta + 1
+      const range = []
+      const rangeWithDots = []
+      let l
+
+      for (let i = 1; i <= last; i++) {
+        if (i === 1 || i === last || (i >= left && i < right)) {
+          range.push(i)
         }
       }
-      if (currentPage < this.totalPages - halfMax - 1) {
-        pages.push('...')
+
+      for (let i of range) {
+        if (l) {
+          if (i - l === 2) {
+            rangeWithDots.push(l + 1)
+          } else if (i - l !== 1) {
+            rangeWithDots.push('...')
+          }
+        }
+        rangeWithDots.push(i)
+        l = i
       }
-      if (this.totalPages > 1) {
-        pages.push(this.totalPages)
-      }
-      return pages
+
+      return rangeWithDots
     },
   },
   mounted() {
@@ -313,8 +317,6 @@ export default {
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
-        console.log('Token:', token) // Debug token
-        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/categories`) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
@@ -323,12 +325,9 @@ export default {
         })
         this.categories = response.data.data || []
         localStorage.setItem('categories', JSON.stringify(this.categories))
+        console.log('Fetched Categories:', this.categories) // Debug: Log categories
       } catch (error) {
         console.error('Error fetching categories:', error.response?.data || error.message)
-        if (error.response?.status === 401) {
-          console.error('Unauthorized: Invalid or expired token')
-          // Optional: this.$router.push('/login')
-        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal mengambil kategori',
@@ -337,19 +336,16 @@ export default {
           showConfirmButton: false,
         })
       } finally {
-        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },
     getCategoryName(categoryId) {
       const category = this.categories.find((cat) => cat.id === categoryId)
-      return category ? category.name : 'Tidak Diketahui'
+      return category ? category.name : 'Tidak Ada'
     },
     async fetchVariants(productId) {
       try {
         const token = localStorage.getItem('token')
-        console.log('Token:', token) // Debug token
-        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
@@ -360,19 +356,19 @@ export default {
             headers: { Authorization: `Bearer ${token}` },
           },
         )
-        return response.data.data.map((variant) => ({
+        const variants = response.data.data.map((variant) => ({
           id: variant.id,
           name: variant.name,
           price: variant.price,
           stock: variant.stock,
           weight: variant.weight,
+          min_qty: variant.min_qty || 1,
           is_default: variant.is_default,
         }))
+        console.log(`Fetched Variants for Product ${productId}:`, variants) // Debug: Log variants
+        return variants
       } catch (error) {
         console.error('Error fetching variants:', error.response?.data || error.message)
-        if (error.response?.status === 401) {
-          console.error('Unauthorized: Invalid or expired token')
-        }
         Swal.fire({
           title: 'Error!',
           text: 'Gagal mengambil varian',
@@ -386,8 +382,6 @@ export default {
     async fetchFinishing(productId) {
       try {
         const token = localStorage.getItem('token')
-        console.log('Token:', token) // Debug token
-        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
@@ -398,18 +392,17 @@ export default {
             headers: { Authorization: `Bearer ${token}` },
           },
         )
-        return response.data.data.map((finishing) => ({
+        const finishings = response.data.data.map((finishing) => ({
           id: finishing.id,
           name: finishing.finishing?.name || finishing.name,
           price: finishing.price,
           finishing_id: finishing.finishing_id,
           color_code: finishing.color_code || '#000000',
         }))
+        console.log(`Fetched Finishings for Product ${productId}:`, finishings) // Debug: Log finishings
+        return finishings
       } catch (error) {
         console.error('Error fetching finishing:', error.response?.data || error.message)
-        if (error.response?.status === 401) {
-          console.error('Unauthorized: Invalid or expired token')
-        }
         Swal.fire({
           title: 'Error!',
           text: 'Gagal mengambil opsi finishing',
@@ -424,11 +417,10 @@ export default {
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
-        console.log('Token:', token) // Debug token
-        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/products`) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
+
         const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, {
           params: {
             status:
@@ -439,41 +431,65 @@ export default {
           },
           headers: { Authorization: `Bearer ${token}` },
         })
+
         const {
           data: { products },
           meta,
         } = response.data.data
-        this.products = products.map((product) => ({
-          id: product.id,
-          sku: product.sku,
-          category: this.getCategoryName(product.category_id),
-          category_id: product.category_id,
-          name: product.name,
-          description: product.description,
-          stock_total: parseInt(product.stock_total, 10) || 0,
-          unit: product.unit || 'pack',
-          price: product.price || 0,
-          weight: product.weight || 0,
-          min_qty: product.min_qty || null,
-          images: [product.thumbnail_url || 'https://placehold.co/1000x1000'],
-          status: product.is_publish ? 'active' : 'inactive',
-          variant_count: product.variants_count || 0,
-          finishing_count: product.finishings_count || 0,
-          variations: [],
-          additionalOptions: [],
-        }))
+
+        const productsWithImages = await Promise.all(
+          products.map(async (product) => {
+            try {
+              const imagesResponse = await axios.get(
+                `${import.meta.env.VITE_API_BASE_URL}/seller/product/image`,
+                {
+                  params: { product_id: product.id },
+                  headers: { Authorization: `Bearer ${token}` },
+                },
+              )
+
+              return {
+                id: product.id,
+                sku: product.sku,
+                category: this.getCategoryName(product.category_id),
+                category_id: product.category_id,
+                name: product.name,
+                description: product.description,
+                stock_total: parseInt(product.stock_total, 10) || 0,
+                unit: product.unit || 'pack',
+                price: product.price || 0,
+                weight: product.weight || 0,
+                min_qty: product.min_qty || null,
+                thumbnail_url: product.thumbnail_url || 'https://placehold.co/1000x1000',
+                images: imagesResponse.data.data || [],
+                status: product.is_publish ? 'active' : 'inactive',
+                variant_count: product.variants_count || 0,
+                finishing_count: product.finishings_count || 0,
+                variations: [],
+                additionalOptions: [],
+              }
+            } catch (error) {
+              console.error(`Error fetching images for product ${product.id}:`, error)
+              return {
+                ...product,
+                thumbnail_url: product.thumbnail_url || 'https://placehold.co/1000x1000',
+                images: [],
+                status: product.is_publish ? 'active' : 'inactive',
+                category: this.getCategoryName(product.category_id),
+              }
+            }
+          }),
+        )
+
+        this.products = productsWithImages
         this.pagination = {
           total: meta.total || 0,
-          page: meta.current_page || 1,
+          page: meta.current_page || this.pagination.page,
           limit: meta.per_page || this.pagination.limit,
         }
-        await this.$nextTick()
+        console.log('Fetched Products:', this.products) // Debug: Log products
       } catch (error) {
         console.error('Error fetching products:', error.response?.data || error.message)
-        if (error.response?.status === 401) {
-          console.error('Unauthorized: Invalid or expired token')
-          // Optional: this.$router.push('/login')
-        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal mengambil produk',
@@ -483,9 +499,7 @@ export default {
         })
         this.products = []
         this.pagination.total = 0
-        await this.$nextTick()
       } finally {
-        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },
@@ -504,7 +518,7 @@ export default {
       this.fetchProducts()
     },
     goToPage(page) {
-      if (page >= 1 && page <= this.totalPages) {
+      if (page >= 1 && page <= this.totalPages && page !== this.pagination.page) {
         this.pagination.page = page
         this.fetchProducts()
         window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -522,6 +536,7 @@ export default {
           this.fetchFinishing(product.id),
         ])
         const updatedProduct = { ...product, variations, additionalOptions }
+        console.log('Editing Product:', updatedProduct) // Debug: Log product to edit
         this.$refs.editProductModal.open(updatedProduct)
       } finally {
         this.isLoading = false
@@ -553,11 +568,13 @@ export default {
         !newProduct.name ||
         !newProduct.description ||
         !newProduct.unit ||
-        !newProduct.thumbnail
+        !newProduct.thumbnail ||
+        newProduct.images.length === 0 ||
+        newProduct.product_variants.length === 0
       ) {
         Swal.fire({
           title: 'Error!',
-          text: 'Nama, deskripsi, unit, dan thumbnail wajib diisi',
+          text: 'Nama, deskripsi, unit, thumbnail, minimal satu gambar, dan minimal satu variasi wajib diisi',
           icon: 'error',
           timer: 1500,
           showConfirmButton: false,
@@ -567,8 +584,6 @@ export default {
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
-        console.log('Token:', token) // Debug token
-        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/products`) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
@@ -588,10 +603,21 @@ export default {
           formData.append(`product_variants[${index}][is_default]`, variant.is_default ? 1 : 0)
         })
         newProduct.product_finishing.forEach((finishing, index) => {
-          formData.append(`product_finishing[${index}][name]`, finishing.name)
-          formData.append(`product_finishing[${index}][price]`, finishing.price)
-          formData.append(`product_finishing[${index}][color_code]`, finishing.color_code)
+          if (finishing.name && finishing.price >= 0) {
+            formData.append(`product_finishing[${index}][name]`, finishing.name)
+            formData.append(`product_finishing[${index}][price]`, finishing.price)
+            formData.append(`product_finishing[${index}][color_code]`, finishing.color_code)
+          }
         })
+        newProduct.images.forEach((image, index) => {
+          formData.append(`images[${index}]`, image)
+        })
+
+        // Debug: Log FormData
+        for (const [key, value] of formData.entries()) {
+          console.log(`Save Product FormData ${key}:`, value instanceof File ? value.name : value)
+        }
+
         await axios.post(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, formData, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -602,9 +628,6 @@ export default {
         this.fetchProducts()
       } catch (error) {
         console.error('Error saving product:', error.response?.data || error.message)
-        if (error.response?.status === 401) {
-          console.error('Unauthorized: Invalid or expired token')
-        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal menambah produk',
@@ -613,7 +636,6 @@ export default {
           showConfirmButton: false,
         })
       } finally {
-        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },
@@ -621,8 +643,6 @@ export default {
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
-        console.log('Token:', token) // Debug token
-        console.log('API URL:', `${import.meta.env.VITE_API_BASE_URL}/seller/product/update`) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
@@ -630,174 +650,256 @@ export default {
         if (!originalProduct) {
           throw new Error('Original product not found')
         }
+
+        console.log('Original Product:', originalProduct) // Debug: Log original product
+        console.log('Updated Product:', updatedProduct) // Debug: Log updated product
+
         const formData = new FormData()
-        formData.append('id', updatedProduct.id)
-        formData.append('name', updatedProduct.name?.trim() || originalProduct.name)
+
+        // Product data
+        formData.append('product[id]', updatedProduct.id)
+        formData.append('product[name]', updatedProduct.name?.trim() || originalProduct.name)
         formData.append(
-          'description',
+          'product[description]',
           updatedProduct.description?.trim() || originalProduct.description,
         )
-        formData.append('unit', updatedProduct.unit || originalProduct.unit || 'pack')
-        formData.append('weight', parseInt(updatedProduct.weight) || originalProduct.weight || 0)
+        formData.append('product[unit]', updatedProduct.unit || originalProduct.unit || 'pack')
+        formData.append('product[is_publish]', updatedProduct.status === 'active' ? 1 : 0)
         formData.append(
-          'quantity',
-          parseInt(updatedProduct.stock_total) || originalProduct.stock_total || 0,
+          'product[category_id]',
+          updatedProduct.category_id || originalProduct.category_id,
         )
-        formData.append('price', parseInt(updatedProduct.price) || originalProduct.price || 0)
-        formData.append(
-          'buy_price',
-          parseInt(updatedProduct.buy_price) || originalProduct.buy_price || 0,
-        )
-        formData.append('is_publish', updatedProduct.status === 'active' ? 1 : 0)
-        formData.append(
-          'category_id',
-          this.categories.find((cat) => cat.name === updatedProduct.category)?.id ||
-            updatedProduct.category_id ||
-            originalProduct.category_id,
-        )
+
+        // Thumbnail
         if (updatedProduct.thumbnail instanceof File) {
-          formData.append('thumbnail', updatedProduct.thumbnail)
+          formData.append('product[thumbnail]', updatedProduct.thumbnail)
+          console.log('Thumbnail File:', updatedProduct.thumbnail.name) // Debug: Log thumbnail
         }
+
+        // Variants
+        const originalVariants = originalProduct.variations || []
+        const updatedVariants = updatedProduct.variations || []
+
+        console.log('Original Variants:', originalVariants) // Debug: Log original variants
+        console.log('Updated Variants:', updatedVariants) // Debug: Log updated variants
+
+        // Add new variants
+        updatedVariants
+          .filter((v) => !v.id)
+          .forEach((variant, index) => {
+            formData.append(`variants[add][${index}][name]`, variant.name?.trim() || '')
+            formData.append(`variants[add][${index}][price]`, parseFloat(variant.price) || 0)
+            formData.append(`variants[add][${index}][weight]`, parseFloat(variant.weight) || 0)
+            formData.append(`variants[add][${index}][stock]`, parseInt(variant.stock) || 0)
+            formData.append(`variants[add][${index}][min_qty]`, parseInt(variant.min_qty) || 1)
+            formData.append(`variants[add][${index}][is_default]`, variant.is_default ? 1 : 0)
+          })
+
+        // Update existing variants
+        updatedVariants
+          .filter((variant) => variant.id)
+          .forEach((variant, index) => {
+            const originalVariant = originalVariants.find((v) => v.id === variant.id) || {}
+            formData.append(`variants[update][${index}][id]`, variant.id)
+            formData.append(
+              `variants[update][${index}][name]`,
+              variant.name?.trim() || originalVariant.name || '',
+            )
+            formData.append(
+              `variants[update][${index}][price]`,
+              parseFloat(variant.price) || originalVariant.price || 0,
+            )
+            formData.append(
+              `variants[update][${index}][weight]`,
+              parseFloat(variant.weight) || originalVariant.weight || 0,
+            )
+            formData.append(
+              `variants[update][${index}][stock]`,
+              parseInt(variant.stock) || originalVariant.stock || 0,
+            )
+            formData.append(
+              `variants[update][${index}][min_qty]`,
+              parseInt(variant.min_qty) || originalVariant.min_qty || 1,
+            )
+            formData.append(`variants[update][${index}][is_default]`, variant.is_default ? 1 : 0)
+          })
+
+        // Delete variants
+        originalVariants
+          .filter((original) => !updatedVariants.some((v) => v.id === original.id))
+          .forEach((variant) => {
+            formData.append(`variants[delete][]`, variant.id)
+            console.log(`Deleting Variant ID: ${variant.id}`) // Debug: Log deleted variant
+          })
+
+        // Finishings
+        const originalFinishings = originalProduct.additionalOptions || []
+        const updatedFinishings = updatedProduct.product_finishing || []
+
+        console.log('Original Finishings:', originalFinishings) // Debug: Log original finishings
+        console.log('Updated Finishings:', updatedFinishings) // Debug: Log updated finishings
+
+        // Add new finishings
+        updatedFinishings
+          .filter((f) => !f.id)
+          .forEach((finishing, index) => {
+            if (finishing.name) {
+              formData.append(`finishings[add][${index}][name]`, finishing.name?.trim())
+              formData.append(`finishings[add][${index}][price]`, parseFloat(finishing.price) || 0)
+              if (finishing.color_code) {
+                formData.append(`finishings[add][${index}][color_code]`, finishing.color_code)
+              }
+            }
+          })
+
+        // Update existing finishings
+        updatedFinishings
+          .filter((finishing) => finishing.id)
+          .forEach((finishing, index) => {
+            const originalFinishing = originalFinishings.find((f) => f.id === finishing.id) || {}
+            formData.append(`finishings[update][${index}][id]`, finishing.id)
+            formData.append(
+              `finishings[update][${index}][name]`,
+              finishing.name?.trim() || originalFinishing.name || '',
+            )
+            formData.append(
+              `finishings[update][${index}][price]`,
+              parseFloat(finishing.price) || originalFinishing.price || 0,
+            )
+            if (finishing.color_code) {
+              formData.append(
+                `finishings[update][${index}][color_code]`,
+                finishing.color_code || originalFinishing.color_code || '#000000',
+              )
+            }
+          })
+
+        // Delete finishings
+        originalFinishings
+          .filter((original) => !updatedFinishings.some((f) => f.id === original.id))
+          .forEach((finishing) => {
+            formData.append(`finishings[delete][]`, finishing.id)
+            console.log(`Deleting Finishing ID: ${finishing.id}`) // Debug: Log deleted finishing
+          })
+
+        // Images
+        const originalImages = originalProduct.images || []
+        const newImages = updatedProduct.images || []
+
+        console.log('Original Images:', originalImages) // Debug: Log original images
+        console.log('New Images:', newImages) // Debug: Log new images
+
+        // Add new images
+        newImages
+          .filter((img) => img.file instanceof File)
+          .forEach((image, index) => {
+            formData.append(`images[add][${index}][image]`, image.file)
+            formData.append(
+              `images[add][${index}][alt_text]`,
+              image.alt_text || `Image ${index + 1}`,
+            )
+            formData.append(`images[add][${index}][is_primary]`, image.is_primary ? 1 : 0)
+            formData.append(`images[add][${index}][sort_order]`, image.sort_order || index + 1)
+            console.log(`Adding Image: ${image.file.name}`) // Debug: Log added image
+          })
+
+        // Update existing images
+        newImages
+          .filter((img) => img.id)
+          .forEach((img, index) => {
+            formData.append(`images[update][${index}][id]`, img.id)
+            formData.append(`images[update][${index}][is_primary]`, img.is_primary ? 1 : 0)
+            formData.append(`images[update][${index}][sort_order]`, img.sort_order || index + 1)
+            if (img.file instanceof File) {
+              formData.append(`images[update][${index}][image]`, img.file)
+              console.log(`Updating Image ID ${img.id} with file: ${img.file.name}`) // Debug: Log updated image
+            }
+          })
+
+        // Delete images
+        originalImages
+          .filter((originalImg) => !newImages.some((img) => img.id === originalImg.id))
+          .forEach((image) => {
+            formData.append(`images[delete][]`, image.id)
+            console.log(`Deleting Image ID: ${image.id}`) // Debug: Log deleted image
+          })
+
+        // Validation
         if (!updatedProduct.name || !updatedProduct.description || !updatedProduct.unit) {
           throw new Error('Nama, deskripsi, dan unit wajib diisi')
         }
-        const productResponse = await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/seller/product/update`,
+
+        // Debug: Log FormData
+        for (const [key, value] of formData.entries()) {
+          console.log(`Update Product FormData ${key}:`, value instanceof File ? value.name : value)
+        }
+
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/update/bulk`,
           formData,
-          { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data',
+            },
+          },
         )
-        const variantPromises =
-          updatedProduct.variations?.map((variant) => {
-            const originalVariant =
-              originalProduct.variations?.find((v) => v.id === variant.id) || {}
-            const variantPayload = {
-              product_id: updatedProduct.id,
-              name: variant.name?.trim(),
-              price: parseInt(variant.price) || 0,
-              stock: parseInt(variant.stock) || 0,
-              weight: parseInt(variant.weight) || 0,
-              is_default: variant.is_default ? 1 : 0,
-            }
-            if (!variantPayload.name) {
-              return Promise.reject(new Error('Variant name is required'))
-            }
-            if (
-              variant.id &&
-              (variant.name !== originalVariant.name ||
-                variant.price !== originalVariant.price ||
-                variant.stock !== originalVariant.stock ||
-                variant.weight !== originalVariant.weight ||
-                variant.is_default !== originalVariant.is_default)
-            ) {
-              return axios.post(
-                `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant/update`,
-                { id: variant.id, ...variantPayload },
-                { headers: { Authorization: `Bearer ${token}` } },
-              )
-            } else if (!variant.id) {
-              return axios.post(
-                `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`,
-                variantPayload,
-                { headers: { Authorization: `Bearer ${token}` } },
-              )
-            }
-            return Promise.resolve()
-          }) || []
-        const finishingPromises =
-          updatedProduct.additionalOptions?.map((option) => {
-            const originalOption =
-              originalProduct.additionalOptions?.find((o) => o.id === option.id) || {}
-            const finishingPayload = {
-              product_id: updatedProduct.id,
-              name: option.name?.trim(),
-              price: parseInt(option.price) || 0,
-              color_code: option.color_code || '#000000',
-            }
-            if (!finishingPayload.name) {
-              return Promise.reject(new Error('Finishing name is required'))
-            }
-            if (
-              option.id &&
-              (option.name !== originalOption.name || option.price !== originalOption.price)
-            ) {
-              return axios.post(
-                `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing/update`,
-                { id: option.id, ...finishingPayload },
-                { headers: { Authorization: `Bearer ${token}` } },
-              )
-            } else if (!option.id) {
-              return axios.post(
-                `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`,
-                finishingPayload,
-                { headers: { Authorization: `Bearer ${token}` } },
-              )
-            }
-            return Promise.resolve()
-          }) || []
-        const deletedVariants =
-          originalProduct.variations?.filter(
-            (original) => !updatedProduct.variations?.some((v) => v.id === original.id),
-          ) || []
-        const deletedFinishing =
-          originalProduct.additionalOptions?.filter(
-            (original) => !updatedProduct.additionalOptions?.some((o) => o.id === original.id),
-          ) || []
-        const deleteVariantPromises = deletedVariants.map((variant) =>
-          axios.delete(`${import.meta.env.VITE_API_BASE_URL}/seller/product/variant/delete`, {
-            headers: { Authorization: `Bearer ${token}` },
-            data: { id: variant.id },
-          }),
-        )
-        const deleteFinishingPromises = deletedFinishing.map((option) =>
-          axios.delete(`${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing/delete`, {
-            headers: { Authorization: `Bearer ${token}` },
-            data: { id: option.id },
-          }),
-        )
-        await Promise.all([
-          ...variantPromises,
-          ...finishingPromises,
-          ...deleteVariantPromises,
-          ...deleteFinishingPromises,
-        ])
+
+        console.log('API Response:', response.data) // Debug: Log API response
+
+        // Update local state
         const index = this.products.findIndex((p) => p.id === updatedProduct.id)
         if (index !== -1) {
           this.products.splice(index, 1, {
-            ...productResponse.data.data,
-            category: this.getCategoryName(productResponse.data.data.category_id),
-            category_id: productResponse.data.data.category_id,
-            status: productResponse.data.data.is_publish ? 'active' : 'inactive',
-            stock_total: parseInt(productResponse.data.data.quantity) || 0,
-            unit: productResponse.data.data.unit || 'pack',
-            weight: parseInt(productResponse.data.data.weight) || 0,
-            price: parseInt(productResponse.data.data.price) || 0,
-            buy_price: parseInt(productResponse.data.data.buy_price) || 0,
-            images: [
-              productResponse.data.data.thumbnail_url ||
-                updatedProduct.images?.[0] ||
-                'https://placehold.co/1000x1000',
-            ],
-            variant_count: updatedProduct.variations?.length || 0,
-            finishing_count: updatedProduct.additionalOptions?.length || 0,
-            variations: updatedProduct.variations || [],
-            additionalOptions: updatedProduct.additionalOptions || [],
+            ...response.data.data.product,
+            category: this.getCategoryName(response.data.data.product.category_id),
+            category_id: response.data.data.product.category_id,
+            status: response.data.data.product.is_publish ? 'active' : 'inactive',
+            stock_total: parseInt(response.data.data.product.stock_total) || 0,
+            unit: response.data.data.product.unit || 'pack',
+            weight: parseInt(response.data.data.product.weight) || 0,
+            thumbnail_url:
+              response.data.data.product.thumbnail_url || 'https://placehold.co/1000x1000',
+            images:
+              response.data.data.images?.map((img) => ({
+                id: img.id,
+                image_url: img.image_url,
+                alt_text: img.alt_text,
+                is_primary: img.is_primary,
+                sort_order: img.sort_order,
+              })) || [],
+            variant_count: response.data.data.variants?.length || 0,
+            finishing_count: response.data.data.finishings?.length || 0,
+            variations:
+              response.data.data.variants?.map((v) => ({
+                id: v.id,
+                name: v.name,
+                price: parseFloat(v.price),
+                stock: parseInt(v.stock),
+                weight: parseFloat(v.weight),
+                min_qty: parseInt(v.min_qty) || 1,
+                is_default: v.is_default,
+              })) || [],
+            additionalOptions:
+              response.data.data.finishings?.map((f) => ({
+                id: f.id,
+                name: f.name,
+                price: parseFloat(f.price),
+                color_code: f.color_code || '#000000',
+              })) || [],
           })
           this.showSuccessMessage('Produk berhasil diperbarui')
         }
       } catch (error) {
         console.error('Update product error:', error.response?.data || error.message)
-        if (error.response?.status === 401) {
-          console.error('Unauthorized: Invalid or expired token')
-        }
         Swal.fire({
           title: 'Error!',
-          text: error.response?.data?.message || error.message || 'Gagal memperbarui produk',
+          text: error.response?.data?.error || error.message || 'Gagal memperbarui produk',
           icon: 'error',
           timer: 2000,
           showConfirmButton: false,
         })
       } finally {
-        console.log('Finally block executed') // Debug finally
         this.isLoading = false
         this.fetchProducts()
       }
@@ -806,11 +908,6 @@ export default {
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
-        console.log('Token:', token) // Debug token
-        console.log(
-          'API URL:',
-          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}`,
-        ) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
@@ -824,9 +921,6 @@ export default {
         this.showSuccessMessage('Produk berhasil dihapus')
       } catch (error) {
         console.error('Error deleting product:', error.response?.data || error.message)
-        if (error.response?.status === 401) {
-          console.error('Unauthorized: Invalid or expired token')
-        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal menghapus produk',
@@ -835,7 +929,6 @@ export default {
           showConfirmButton: false,
         })
       } finally {
-        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },
@@ -843,11 +936,6 @@ export default {
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
-        console.log('Token:', token) // Debug token
-        console.log(
-          'API URL:',
-          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${this.currentProduct.id}/status`,
-        ) // Debug URL
         if (!token) {
           throw new Error('Authentication token is missing')
         }
@@ -864,9 +952,6 @@ export default {
         }
       } catch (error) {
         console.error('Error changing status:', error.response?.data || error.message)
-        if (error.response?.status === 401) {
-          console.error('Unauthorized: Invalid or expired token')
-        }
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal memperbarui status',
@@ -875,7 +960,6 @@ export default {
           showConfirmButton: false,
         })
       } finally {
-        console.log('Finally block executed') // Debug finally
         this.isLoading = false
       }
     },

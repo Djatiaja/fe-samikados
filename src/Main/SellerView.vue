@@ -1,12 +1,19 @@
 <template>
   <div class="flex flex-col min-h-screen">
-
     <HeaderView />
 
     <div class="container mx-auto p-4 sm:p-8 flex-1">
       <!-- Full-width Banner with Swiper Carousel -->
-      <div class="relative my-8" style="margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); width: 100vw;">
+      <div
+        class="relative my-8"
+        style="margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); width: 100vw"
+      >
+        <div v-if="loading" class="text-center py-8">Memuat banner...</div>
+        <div v-else-if="!banners.length" class="text-center py-8 text-gray-600">
+          Tidak ada banner tersedia
+        </div>
         <Swiper
+          v-else
           :modules="[Pagination, Navigation]"
           :slides-per-view="1"
           :space-between="30"
@@ -19,51 +26,56 @@
           }"
           class="swiper centered-slide-carousel swiper-container relative w-full"
         >
-          <SwiperSlide>
-            <img src="https://placehold.co/1500x500" alt="Banner image 1" class="w-full h-full object-cover">
-          </SwiperSlide>
-          <SwiperSlide>
-            <img src="https://placehold.co/1500x500" alt="Banner image 2" class="w-full h-full object-cover">
-          </SwiperSlide>
-          <SwiperSlide>
-            <img src="https://placehold.co/1500x500" alt="Banner image 3" class="w-full h-full object-cover">
-          </SwiperSlide>
-          <SwiperSlide>
-            <img src="https://placehold.co/1500x500" alt="Banner image 4" class="w-full h-full object-cover">
-          </SwiperSlide>
-          <SwiperSlide>
-            <img src="https://placehold.co/1500x500" alt="Banner image 5" class="w-full h-full object-cover">
+          <SwiperSlide v-for="(banner, index) in banners" :key="index">
+            <img
+              :src="banner.image"
+              :alt="banner.alt"
+              class="w-full h-[400px] object-cover mx-auto"
+              style="max-width: 1200px"
+            />
           </SwiperSlide>
         </Swiper>
 
         <div class="swiper-pagination"></div>
       </div>
+
+      <!-- Pilih Kategori -->
       <div class="container mx-auto mt-8">
         <h2 class="text-md sm:text-lg md:text-xl font-bold">PILIH KATEGORI ANDA</h2>
-        <div class="text-center mt-4 mb-6 border border-gray-300 shadow-lg p-6 rounded-lg">
-          <div class="grid grid-cols-5 gap-4 max-h-60 overflow-y-auto">
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>           
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
-            <CategoryItem1 name="Merchandise" image="/image/order.png" link="/category-view"/>
+        <div v-if="!categories.length" class="text-center py-8 text-gray-600">
+          Tidak ada kategori tersedia
+        </div>
+        <div v-else class="text-center mt-4 mb-6 border border-gray-300 shadow-lg p-6 rounded-lg">
+          <div
+            class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-h-60 overflow-y-auto"
+          >
+            <CategoryItem1
+              v-for="category in categories"
+              :key="category.id"
+              :name="category.name"
+              :image="category.image"
+              @click="selectCategory(category.id)"
+            />
           </div>
         </div>
       </div>
-      <div class="container grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mx-auto">
-        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
-        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
-        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
-        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
-        <ProducCard1 name="Ganci" price="20000" link="/product-details" image="/image/Transparent.png"/>
+
+      <!-- Produk -->
+      <div class="container mx-auto">
+        <div v-if="!products.length" class="text-center py-8 text-gray-600">
+          Tidak ada produk tersedia
+        </div>
+        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <ProductCard1
+            v-for="product in products"
+            :key="product.id"
+            :id="product.id"
+            :name="product.name"
+            :price="product.price.replace('Rp', '')"
+            :link="product.link"
+            :image="product.image"
+          />
+        </div>
       </div>
     </div>
 
@@ -72,26 +84,133 @@
 </template>
 
 <script>
-import { Swiper, SwiperSlide } from 'swiper/vue';
-import { Pagination, Navigation } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/pagination';
-import 'swiper/css/navigation';
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Swiper, SwiperSlide } from 'swiper/vue'
+import { Pagination, Navigation } from 'swiper/modules'
+import 'swiper/css'
+import 'swiper/css/pagination'
+import 'swiper/css/navigation'
+import axios from 'axios'
+import Swal from 'sweetalert2'
 
-import AuthFooter from "@/components/AuthFooter.vue";
-import HeaderView from "@/components/HeaderView.vue";
-import CategoryItem1 from '@/components/CategoryItem1.vue';
-import ProducCard1 from '@/components/ProducCard1.vue';
+import AuthFooter from '@/components/AuthFooter.vue'
+import HeaderView from '@/components/HeaderView.vue'
+import CategoryItem1 from '@/components/CategoryItem1.vue'
+import ProductCard1 from '@/components/ProductCard1.vue'
 
 export default {
-  components: { HeaderView, AuthFooter, Swiper, SwiperSlide, CategoryItem1, ProducCard1 },
+  components: { HeaderView, AuthFooter, Swiper, SwiperSlide, CategoryItem1, ProductCard1 },
   setup() {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL
+    const router = useRouter()
+    const banners = ref([])
+    const loading = ref(true)
+    const categories = ref([])
+    const products = ref([])
+
+    const handleApiError = (error, defaultMessage) => {
+      console.error(error)
+      const message = error.response?.data?.message || defaultMessage
+      Swal.fire({
+        title: 'Error',
+        text: message,
+        icon: 'error',
+        customClass: { confirmButton: 'bg-red-600 text-white px-4 py-2 rounded-lg' },
+        confirmButtonText: 'Tutup',
+      })
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token')
+        router.push('/login')
+      }
+    }
+
+    const fetchBanners = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        const response = await axios.get(`${baseUrl}/banners`, { headers })
+        if (response.data.status === 'success' && Array.isArray(response.data.data)) {
+          banners.value = response.data.data.slice(0, 5).map((banner, index) => ({
+            image: banner.picture_url?.replace(/\\/g, '/') || 'https://placehold.co/1200x400',
+            alt: banner.name || `Banner ${index + 1}`,
+          }))
+        } else {
+          throw new Error(response.data?.message || 'Gagal memuat banner')
+        }
+      } catch (error) {
+        handleApiError(error, 'Gagal memuat banner')
+        banners.value = []
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const fetchCategories = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        const response = await axios.get(`${baseUrl}/categories`, { headers })
+        if (response.data.status === 'success' && Array.isArray(response.data.data)) {
+          categories.value = response.data.data.map((category) => ({
+            id: category.id,
+            name: category.name,
+            image: category.icon_url?.replace(/\\/g, '/') || 'https://placehold.co/100x100',
+          }))
+        } else {
+          throw new Error(response.data?.message || 'Gagal memuat kategori')
+        }
+      } catch (error) {
+        handleApiError(error, 'Gagal memuat kategori')
+        categories.value = []
+      }
+    }
+
+    const fetchProducts = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        const response = await axios.get(`${baseUrl}/products`, {
+          headers,
+          params: { limit: 10, page: 1, search: '' },
+        })
+        if (response.data.status === 'success' && Array.isArray(response.data.data.products)) {
+          products.value = response.data.data.products.map((product) => ({
+            id: product.id,
+            name: product.name,
+            price: `Rp${product.price.toLocaleString('id-ID')}`,
+            image: product.thumbnail_url?.replace(/\\/g, '/') || 'https://placehold.co/200x200',
+            link: `/product-details/${product.id}`,
+          }))
+        } else {
+          throw new Error(response.data?.message || 'Gagal memuat produk')
+        }
+      } catch (error) {
+        handleApiError(error, 'Gagal memuat produk')
+        products.value = []
+      }
+    }
+
+    const selectCategory = (categoryId) => {
+      sessionStorage.setItem('selectedCategoryId', categoryId)
+      router.push('/category-view')
+    }
+
+    onMounted(() => {
+      Promise.all([fetchBanners(), fetchCategories(), fetchProducts()])
+    })
+
     return {
+      banners,
+      categories,
+      products,
+      loading,
       Pagination,
-      Navigation
-    };
-  }
-};
+      Navigation,
+      selectCategory,
+    }
+  },
+}
 </script>
 
 <style scoped>
@@ -104,4 +223,3 @@ export default {
   background-color: #b91c1c !important;
 }
 </style>
-

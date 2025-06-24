@@ -571,7 +571,8 @@ export default {
           `${import.meta.env.VITE_API_BASE_URL}/seller/orders/status`,
         )
         if (response.data.status === 'success') {
-          this.orderStatuses = response.data.data
+          // Filter out the "Belum Dibayar" status (id: 5)
+          this.orderStatuses = response.data.data.filter((status) => status.id !== 5)
         } else {
           throw new Error('Failed to fetch order statuses')
         }
