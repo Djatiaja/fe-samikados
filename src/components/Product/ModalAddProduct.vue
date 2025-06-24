@@ -34,7 +34,10 @@ export default {
         unit: 'unit',
         is_publish: 1,
         thumbnail: null,
-        product_variants: [],
+        images: [],
+        product_variants: [
+          { name: '', price: 0, stock: 0, weight: 0, min_qty: 1, is_default: true },
+        ],
         product_finishing: [],
       }
 
@@ -109,6 +112,29 @@ export default {
               >
             </div>
 
+            <!-- Product Images Section -->
+            <div class="mb-5">
+              <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-center mb-3">
+                  <label class="block text-gray-700 font-medium text-sm">Gambar Produk</label>
+                  <button
+                    type="button"
+                    id="addImageBtn"
+                    class="bg-red-600 hover:bg-red-700 text-white text-xs py-1.5 px-3 rounded-lg flex items-center transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Tambah Gambar
+                  </button>
+                </div>
+                <div id="imagesContainer" class="images-container max-h-56 overflow-y-auto pr-1">
+                  ${this.generateImagesHtml(productForm.images)}
+                </div>
+                <small class="text-gray-600 text-xs block mt-2">Tambahkan minimal satu gambar tambahan untuk produk.</small>
+              </div>
+            </div>
+
             <!-- Variations Section -->
             <div class="mb-5">
               <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -181,26 +207,31 @@ export default {
           actions: 'flex justify-center space-x-6',
         },
         preConfirm: () => {
-          // MySQL limits
           const MAX_VARCHAR_255 = 255
           const MAX_TEXT_LENGTH = 65535
           const MAX_INT = 2147483647
-          const MAX_TINYINT = 255
+          const MAX_IMAGE_SIZE = 2048 // 2MB in KB
 
           const category_id = parseInt(document.getElementById('category_id').value)
-          const name = document.getElementById('productName').value
-          const description = document.getElementById('description').value
-          const unit = document.getElementById('unit').value
-          const is_publish = parseInt(document.getElementById('is_publish').value)
+          const name = document.getElementById('productName').value.trim()
+          const description = document.getElementById('description').value.trim()
+          const unit = document.getElementById('unit').value.trim()
+          const is_publish = parseInt(document.getElementById('is_publish').value) === 1
           const thumbnail = document.getElementById('thumbnail').files[0]
+          const images = Array.from(
+            document.getElementById('imagesContainer').querySelectorAll('input[type="file"]'),
+          )
+            .map((fileInput) => fileInput.files[0])
+            .filter((file) => file)
 
-          // Basic required field validation
-          if (!name || !description || !unit || !thumbnail) {
-            Swal.showValidationMessage('Nama, deskripsi, unit, dan thumbnail harus diisi')
+          // Basic field validations
+          if (!name || !description || !unit || !thumbnail || images.length === 0) {
+            Swal.showValidationMessage(
+              'Nama, deskripsi, unit, thumbnail, dan minimal satu gambar harus diisi',
+            )
             return false
           }
 
-          // MySQL-specific validations
           if (name.length > MAX_VARCHAR_255) {
             Swal.showValidationMessage(
               `Nama produk tidak boleh melebihi ${MAX_VARCHAR_255} karakter`,
@@ -219,25 +250,64 @@ export default {
           }
 
           if (!category_id || category_id <= 0 || category_id > MAX_INT) {
-            Swal.showValidationMessage(
-              'Kategori harus dipilih dan tidak boleh melebihi batas maksimum',
-            )
+            Swal.showValidationMessage('Kategori harus dipilih dan valid')
             return false
           }
 
-          if (is_publish < 0 || is_publish > MAX_TINYINT) {
-            Swal.showValidationMessage('Status publikasi tidak valid')
-            return false
+          // Thumbnail validation
+          if (thumbnail) {
+            const validImageTypes = [
+              'image/jpeg',
+              'image/png',
+              'image/jpg',
+              'image/gif',
+              'image/svg+xml',
+            ]
+            if (!validImageTypes.includes(thumbnail.type)) {
+              Swal.showValidationMessage('Thumbnail harus berupa gambar (jpeg, png, jpg, gif, svg)')
+              return false
+            }
+            if (thumbnail.size > MAX_IMAGE_SIZE * 1024) {
+              Swal.showValidationMessage(
+                `Ukuran thumbnail tidak boleh melebihi ${MAX_IMAGE_SIZE}KB`,
+              )
+              return false
+            }
           }
 
+          // Images validation
+          for (let i = 0; i < images.length; i++) {
+            const image = images[i]
+            const validImageTypes = [
+              'image/jpeg',
+              'image/png',
+              'image/jpg',
+              'image/gif',
+              'image/svg+xml',
+            ]
+            if (!validImageTypes.includes(image.type)) {
+              Swal.showValidationMessage(
+                `Gambar ke-${i + 1} harus berupa gambar (jpeg, png, jpg, gif, svg)`,
+              )
+              return false
+            }
+            if (image.size > MAX_IMAGE_SIZE * 1024) {
+              Swal.showValidationMessage(
+                `Ukuran gambar ke-${i + 1} tidak boleh melebihi ${MAX_IMAGE_SIZE}KB`,
+              )
+              return false
+            }
+          }
+
+          // Variations validation
           const variationBoxes = document.querySelectorAll('.variation-box:not(.finishing-box)')
           let hasStock = false
           let hasDefaultVariation = false
+          let missingVariationFields = false
+          let invalidVariation = false
+          let invalidPrice = false
           let invalidWeight = false
           let invalidMinQty = false
-          let invalidVariation = false
-          let missingVariationFields = false
-          let invalidPrice = false
 
           if (variationBoxes.length === 0) {
             Swal.showValidationMessage('Produk harus memiliki minimal satu variasi')
@@ -253,85 +323,100 @@ export default {
             const minQtyInput = box.querySelector('.variation-min-qty')
             const isDefault = box.querySelector('.variation-default')?.checked
 
-            // Required field validation
-            if (!nameInput.value || !priceInput.value || !stockInput.value || !weightInput.value) {
+            if (
+              !nameInput.value ||
+              !priceInput.value ||
+              !stockInput.value ||
+              !weightInput.value ||
+              !minQtyInput.value
+            ) {
               missingVariationFields = true
               return
             }
 
-            const price = parseInt(priceInput.value) || 0
+            const price = parseFloat(priceInput.value) || 0
             const stock = parseInt(stockInput.value) || 0
-            const weight = parseInt(weightInput.value) || 0
+            const weight = parseFloat(weightInput.value) || 0
             const minQty = parseInt(minQtyInput.value) || 1
 
-            // MySQL-specific validations for variations
             if (nameInput.value.length > MAX_VARCHAR_255) {
               Swal.showValidationMessage(
-                `Nama variasi tidak boleh melebihi ${MAX_VARCHAR_255} karakter`,
+                `Nama variasi ke-${index + 1} tidak boleh melebihi ${MAX_VARCHAR_255} karakter`,
               )
               invalidVariation = true
               return
             }
 
-            if (price <= 0 || price > MAX_INT) {
+            if (price < 1 || price > MAX_INT) {
+              Swal.showValidationMessage(
+                `Harga variasi ke-${index + 1} harus lebih dari 0 dan tidak boleh melebihi ${MAX_INT}`,
+              )
               invalidPrice = true
               return
             }
 
             if (stock < 0 || stock > MAX_INT) {
+              Swal.showValidationMessage(
+                `Stok variasi ke-${index + 1} tidak boleh negatif atau melebihi ${MAX_INT}`,
+              )
               invalidVariation = true
               return
             }
 
-            if (weight <= 0 || weight > MAX_INT) {
+            if (weight < 0 || weight > MAX_INT) {
+              Swal.showValidationMessage(
+                `Berat variasi ke-${index + 1} tidak boleh negatif atau melebihi ${MAX_INT}`,
+              )
               invalidWeight = true
               return
             }
 
-            if (minQty <= 0 || minQty > MAX_INT) {
+            if (minQty < 1 || minQty > MAX_INT) {
+              Swal.showValidationMessage(
+                `Jumlah minimum variasi ke-${index + 1} harus lebih dari 0 dan tidak boleh melebihi ${MAX_INT}`,
+              )
               invalidMinQty = true
               return
             }
-
-            console.log('Variasi:', {
-              name: nameInput.value,
-              price,
-              stock,
-              weight,
-              minQty,
-              isDefault,
-            })
 
             if (stock > 0) hasStock = true
             if (isDefault) hasDefaultVariation = true
 
             variations.push({
               id: productForm.product_variants[index]?.id || Date.now() + index,
-              name: nameInput.value,
+              name: nameInput.value.trim(),
               price: price,
               stock: stock,
               weight: weight,
               min_qty: minQty,
-              is_default: isDefault ? 1 : 0,
+              is_default: isDefault,
             })
           })
 
           if (missingVariationFields) {
-            Swal.showValidationMessage('Semua field variasi (nama, harga, stok, berat) harus diisi')
+            Swal.showValidationMessage(
+              'Semua field variasi (nama, harga, stok, berat, jumlah minimum) harus diisi',
+            )
             return false
           }
 
           if (invalidPrice) {
-            Swal.showValidationMessage(
-              'Harga variasi harus lebih dari 0 dan tidak boleh melebihi batas maksimum',
-            )
+            Swal.showValidationMessage('Harga variasi harus valid dan lebih dari 0')
             return false
           }
 
           if (invalidVariation) {
-            Swal.showValidationMessage(
-              'Stok dan berat variasi tidak boleh bernilai minus atau melebihi batas maksimum',
-            )
+            Swal.showValidationMessage('Stok variasi tidak boleh negatif')
+            return false
+          }
+
+          if (invalidWeight) {
+            Swal.showValidationMessage('Berat variasi tidak boleh negatif')
+            return false
+          }
+
+          if (invalidMinQty) {
+            Swal.showValidationMessage('Jumlah minimum variasi harus lebih dari 0')
             return false
           }
 
@@ -345,31 +430,24 @@ export default {
             return false
           }
 
-          if (invalidWeight) {
-            Swal.showValidationMessage(
-              'Berat produk harus lebih dari 0 dan tidak boleh melebihi batas maksimum',
-            )
-            return false
-          }
-
-          if (invalidMinQty) {
-            Swal.showValidationMessage(
-              'Jumlah minimum harus lebih dari 0 dan tidak boleh melebihi batas maksimum',
-            )
-            return false
-          }
-
+          // Finishing validation
           const finishing = []
           const finishingBoxes = document.querySelectorAll('.finishing-box')
           finishingBoxes.forEach((box, index) => {
             const nameInput = box.querySelector('.finishing-name')
             const priceInput = box.querySelector('.finishing-price')
             const colorCodeInput = box.querySelector('.finishing-color-code')
-            if (nameInput && nameInput.value && priceInput && priceInput.value) {
+            if (nameInput?.value || priceInput?.value || colorCodeInput?.value) {
+              if (!nameInput.value || !priceInput.value) {
+                Swal.showValidationMessage(
+                  `Nama dan harga finishing ke-${index + 1} harus diisi jika salah satu field diisi`,
+                )
+                return
+              }
               finishing.push({
                 id: productForm.product_finishing[index]?.id || Date.now() + index,
-                name: nameInput.value,
-                price: parseInt(priceInput.value) || 0,
+                name: nameInput.value.trim(),
+                price: parseFloat(priceInput.value) || 0,
                 color_code: colorCodeInput.value || '#000000',
               })
             }
@@ -383,6 +461,7 @@ export default {
             unit,
             is_publish,
             thumbnail,
+            images,
             product_variants: variations,
             product_finishing: finishing,
           }
@@ -391,6 +470,7 @@ export default {
         },
         didOpen: () => {
           this.setupVariationAndFinishingButtons()
+          this.setupImageButtons()
           const modalContent = document.querySelector('.swal2-content')
           if (modalContent) {
             modalContent.style.maxHeight = '70vh'
@@ -426,7 +506,7 @@ export default {
 
     generateVariationsHtml(variations = []) {
       if (!variations || variations.length === 0) {
-        return '<div class="text-grey-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
+        return this.generateVariationBox({ is_default: true }, 0)
       }
 
       return variations
@@ -547,9 +627,39 @@ export default {
               <label class="block text-gray-700 text-xs mb-1">Kode Warna</label>
               <input
                 type="text"
-                class="finishing-color-code w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                class="finishing-color-code w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-red-500"
                 placeholder="Contoh: #000000"
                 value="${finishing.color_code || '#000000'}"
+              >
+            </div>
+          </div>
+        </div>
+      `
+    },
+
+    generateImagesHtml(images = []) {
+      if (!images || images.length === 0) {
+        return this.generateImageBox(0)
+      }
+
+      return images.map((_, index) => this.generateImageBox(index)).join('')
+    },
+
+    generateImageBox(index) {
+      return `
+        <div class="image-box bg-white shadow-sm border border-red-100 rounded-lg p-3 mb-3" data-index="${index}">
+          <div class="close-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <div class="grid grid-cols-1 gap-2">
+            <div class="col-span-1">
+              <label class="block text-gray-700 text-xs mb-1">Gambar Produk</label>
+              <input
+                type="file"
+                class="image-file w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                accept="image/*"
               >
             </div>
           </div>
@@ -571,8 +681,7 @@ export default {
           }
 
           const newBox = document.createElement('div')
-          const isDefault = variationsCount === 0
-          newBox.innerHTML = this.generateVariationBox({ is_default: isDefault }, variationsCount)
+          newBox.innerHTML = this.generateVariationBox({}, variationsCount)
           container.appendChild(newBox.firstElementChild)
 
           this.setupCloseButtons()
@@ -600,17 +709,30 @@ export default {
       this.setupCloseButtons()
     },
 
+    setupImageButtons() {
+      const addImageBtn = document.getElementById('addImageBtn')
+      if (addImageBtn) {
+        addImageBtn.addEventListener('click', () => {
+          const container = document.getElementById('imagesContainer')
+          const imagesCount = container.querySelectorAll('.image-box').length
+
+          if (imagesCount === 0) {
+            container.innerHTML = ''
+          }
+
+          const newBox = document.createElement('div')
+          newBox.innerHTML = this.generateImageBox(imagesCount)
+          container.appendChild(newBox.firstElementChild)
+
+          this.setupCloseButtons()
+        })
+      }
+    },
+
     setupCloseButtons() {
       document.querySelectorAll('.close-btn').forEach((btn) => {
         btn.addEventListener('click', (e) => {
-          const CUT_OFF_DATE = new Date('2025-05-18T11:15:00+07:00')
-          const now = new Date()
-
-          if (now >= CUT_OFF_DATE) {
-            return
-          }
-
-          const box = e.target.closest('.variation-box, .finishing-box')
+          const box = e.target.closest('.variation-box, .finishing-box, .image-box')
           if (box) {
             const isDefault = box.querySelector('.variation-default')?.checked
             if (isDefault) {
@@ -631,14 +753,18 @@ export default {
 
             const varContainer = document.getElementById('variationsContainer')
             if (varContainer && varContainer.children.length === 0) {
-              varContainer.innerHTML =
-                '<div class="text-grey-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
+              varContainer.innerHTML = this.generateVariationBox({ is_default: true }, 0)
             }
 
             const finContainer = document.getElementById('finishingContainer')
             if (finContainer && finContainer.children.length === 0) {
               finContainer.innerHTML =
                 '<div class="text-grey-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
+            }
+
+            const imgContainer = document.getElementById('imagesContainer')
+            if (imgContainer && imgContainer.children.length === 0) {
+              imgContainer.innerHTML = this.generateImageBox(0)
             }
           }
         })
@@ -657,13 +783,15 @@ export default {
 
 <style scoped>
 .variation-box,
-.finishing-box {
+.finishing-box,
+.image-box {
   position: relative;
   transition: all 0.2s;
 }
 
 .variation-box:hover,
-.finishing-box:hover {
+.finishing-box:hover,
+.image-box:hover {
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -693,12 +821,14 @@ export default {
 }
 
 .variations-container::-webkit-scrollbar,
-.finishing-container::-webkit-scrollbar {
+.finishing-container::-webkit-scrollbar,
+.images-container::-webkit-scrollbar {
   width: 6px;
 }
 
 .variations-container::-webkit-scrollbar-track,
-.finishing-container::-webkit-scrollbar-track {
+.finishing-container::-webkit-scrollbar-track,
+.images-container::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 10px;
 }
@@ -713,11 +843,20 @@ export default {
   border-radius: 10px;
 }
 
+.images-container::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border-radius: 10px;
+}
+
 .variations-container::-webkit-scrollbar-thumb:hover {
   background: #b91c1c;
 }
 
 .finishing-container::-webkit-scrollbar-thumb:hover {
   background: #2563eb;
+}
+
+.images-container::-webkit-scrollbar-thumb:hover {
+  background: #b91c1c;
 }
 </style>

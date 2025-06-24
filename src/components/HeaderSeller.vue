@@ -35,7 +35,7 @@
           <img src="/icon/user-regular.svg" alt="User Icon" class="w-6 h-6" />
         </router-link>
 
-        <span class="font-semibold">{{ storeName || 'RuangJayaPrint' }}</span>
+        <span class="font-semibold">{{ storeName }}</span>
       </div>
     </div>
   </header>
@@ -107,7 +107,7 @@ export default {
         return
       }
 
-      // Try to fetch store information
+      // Fetch store information
       axios
         .get(`${import.meta.env.VITE_API_BASE_URL}/seller/profile`, {
           headers: {
@@ -116,7 +116,7 @@ export default {
         })
         .then((response) => {
           if (response.data && response.data.status === 'success') {
-            this.storeName = response.data.data.nama_toko || 'RuangJayaPrint'
+            this.storeName = response.data.data.name || 'RuangJayaPrint'
           }
         })
         .catch((error) => {
@@ -125,7 +125,7 @@ export default {
     },
   },
   mounted() {
-    // Fetch notification count when component is mounted
+    // Fetch notification count and store info when component is mounted
     this.fetchNotificationCount()
     this.fetchStoreInfo()
 

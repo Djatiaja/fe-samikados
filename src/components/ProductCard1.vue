@@ -1,17 +1,15 @@
-```vue
 <template>
   <div
-    class="p-4 mx-auto border border-gray-200 shadow-md rounded-lg hover:shadow-lg transition min-h-[350px]"
+    class="p-4 mx-auto border border-gray-200 shadow-md rounded-lg hover:shadow-lg transition min-h-[400px] max-w-[300px] w-full"
   >
-    <router-link :to="link" class="block">
-      <img
-        :src="image"
-        :alt="'Product image for ' + name"
-        class="w-full h-[300px] object-cover mb-2 rounded-t-lg"
-      />
-      <div class="p-2">
-        <div class="text-sm lg:text-base font-semibold truncate">{{ name }}</div>
-        <div class="text-gray-500 text-sm lg:text-base">Rp{{ price }}</div>
+    <router-link :to="link" class="block h-full flex flex-col">
+      <div class="w-full h-[250px] flex items-center justify-center overflow-hidden rounded-t-lg">
+        <img :src="image" :alt="'Product image for ' + name" class="w-full h-full object-contain" />
+      </div>
+      <div class="p-4 flex flex-col flex-grow justify-end">
+        <div class="text-base lg:text-lg font-semibold truncate">{{ name }}</div>
+        <div class="text-gray-500 text-sm mt-1">Dijual oleh: {{ sellerName }}</div>
+        <div class="text-gray-500 text-base lg:text-lg mt-2">Rp{{ price }}</div>
       </div>
     </router-link>
   </div>
@@ -40,6 +38,10 @@ export default {
       type: String,
       required: true,
     },
+    sellerName: {
+      type: String,
+      required: true,
+    },
   },
 }
 </script>
@@ -51,4 +53,3 @@ a,
   color: inherit;
 }
 </style>
-```

@@ -97,7 +97,7 @@ import Swal from 'sweetalert2'
 import AuthFooter from '@/components/AuthFooter.vue'
 import HeaderView from '@/components/HeaderView.vue'
 import CategoryItem1 from '@/components/CategoryItem1.vue'
-import ProductCard1 from '../components/ProductCard1.vue'
+import ProductCard1 from '@/components/ProductCard1.vue'
 
 export default {
   components: { HeaderView, AuthFooter, Swiper, SwiperSlide, CategoryItem1, ProductCard1 },
@@ -109,24 +109,37 @@ export default {
     const categories = ref([])
     const products = ref([])
 
+    const handleApiError = (error, defaultMessage) => {
+      console.error(error)
+      const message = error.response?.data?.message || defaultMessage
+      Swal.fire({
+        title: 'Error',
+        text: message,
+        icon: 'error',
+        customClass: { confirmButton: 'bg-red-600 text-white px-4 py-2 rounded-lg' },
+        confirmButtonText: 'Tutup',
+      })
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token')
+        router.push('/login')
+      }
+    }
+
     const fetchBanners = async () => {
       try {
-        const response = await axios.get(`${baseUrl}/banners`)
+        const token = localStorage.getItem('token')
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        const response = await axios.get(`${baseUrl}/banners`, { headers })
         if (response.data.status === 'success' && Array.isArray(response.data.data)) {
           banners.value = response.data.data.slice(0, 5).map((banner, index) => ({
-            image: banner.picture_url.replace(/\\\//g, '/'),
+            image: banner.picture_url?.replace(/\\/g, '/') || 'https://placehold.co/1200x400',
             alt: banner.name || `Banner ${index + 1}`,
           }))
         } else {
-          throw new Error(response.data.message || 'Gagal memuat banner')
+          throw new Error(response.data?.message || 'Gagal memuat banner')
         }
       } catch (error) {
-        console.error('Error fetching banners:', error)
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: error.message || 'Gagal memuat banner',
-        })
+        handleApiError(error, 'Gagal memuat banner')
         banners.value = []
       } finally {
         loading.value = false
@@ -135,30 +148,30 @@ export default {
 
     const fetchCategories = async () => {
       try {
-        const response = await axios.get(`${baseUrl}/categories`)
+        const token = localStorage.getItem('token')
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
+        const response = await axios.get(`${baseUrl}/categories`, { headers })
         if (response.data.status === 'success' && Array.isArray(response.data.data)) {
           categories.value = response.data.data.map((category) => ({
             id: category.id,
             name: category.name,
-            image: category.icon_url.replace(/\\\//g, '/'),
+            image: category.icon_url?.replace(/\\/g, '/') || 'https://placehold.co/100x100',
           }))
         } else {
-          throw new Error(response.data.message || 'Gagal memuat kategori')
+          throw new Error(response.data?.message || 'Gagal memuat kategori')
         }
       } catch (error) {
-        console.error('Error fetching categories:', error)
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: error.message || 'Gagal memuat kategori',
-        })
+        handleApiError(error, 'Gagal memuat kategori')
         categories.value = []
       }
     }
 
     const fetchProducts = async () => {
       try {
+        const token = localStorage.getItem('token')
+        const headers = token ? { Authorization: `Bearer ${token}` } : {}
         const response = await axios.get(`${baseUrl}/products`, {
+          headers,
           params: { limit: 10, page: 1, search: '' },
         })
         if (response.data.status === 'success' && Array.isArray(response.data.data.products)) {
@@ -166,19 +179,14 @@ export default {
             id: product.id,
             name: product.name,
             price: `Rp${product.price.toLocaleString('id-ID')}`,
-            image: product.thumbnail_url.replace(/\\\//g, '/'),
+            image: product.thumbnail_url?.replace(/\\/g, '/') || 'https://placehold.co/200x200',
             link: `/product-details/${product.id}`,
           }))
         } else {
-          throw new Error(response.data.message || 'Gagal memuat produk')
+          throw new Error(response.data?.message || 'Gagal memuat produk')
         }
       } catch (error) {
-        console.error('Error fetching products:', error)
-        Swal.fire({
-          icon: 'error',
-          title: 'Error',
-          text: error.message || 'Gagal memuat produk',
-        })
+        handleApiError(error, 'Gagal memuat produk')
         products.value = []
       }
     }
@@ -189,7 +197,6 @@ export default {
     }
 
     onMounted(() => {
-      console.log('Base URL:', baseUrl)
       Promise.all([fetchBanners(), fetchCategories(), fetchProducts()])
     })
 

@@ -42,7 +42,7 @@ const routes = [
   { path: '/profile', component: ProfileSeller, meta: { requiresAuth: true } },
   { path: '/view', component: SellerView, meta: { requiresAuth: true } },
   { path: '/category-view', component: CategoryView, meta: { requiresAuth: true } },
-  { path: '/product-details', component: DetailProduct, meta: { requiresAuth: true } },
+  { path: '/product-details/:id', component: DetailProduct, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({

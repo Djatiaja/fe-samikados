@@ -34,6 +34,7 @@ export default {
         unit: product.unit || 'unit',
         is_publish: product.status === 'active' ? 1 : 0,
         thumbnail: null,
+        images: product.images || [],
         product_variants: product.variations || [],
         product_finishing: product.additionalOptions || [],
       }
@@ -44,6 +45,7 @@ export default {
     showProductModal(title, productForm) {
       let variationsHtml = this.generateVariationsHtml(productForm.product_variants)
       let finishingHtml = this.generateFinishingHtml(productForm.product_finishing)
+      let imagesHtml = this.generateImagesHtml(productForm.images)
 
       Swal.fire({
         title: `<h3 class="text-lg font-bold">${title}</h3>`,
@@ -107,6 +109,29 @@ export default {
                 accept="image/*"
                 class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
               >
+            </div>
+
+            <!-- Product Images Section -->
+            <div class="mb-5">
+              <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-center mb-3">
+                  <label class="block text-gray-700 font-medium text-sm">Gambar Produk</label>
+                  <button
+                    type="button"
+                    id="addImageBtn"
+                    class="bg-red-600 hover:bg-red-700 text-white text-xs py-1.5 px-3 rounded-lg flex items-center transition-all"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Tambah Gambar
+                  </button>
+                </div>
+                <div id="imagesContainer" class="images-container max-h-56 overflow-y-auto pr-2">
+                  ${imagesHtml}
+                </div>
+                <small class="text-gray-600 text-xs block mt-2">Tambahkan atau edit gambar tambahan untuk produk.</small>
+              </div>
             </div>
 
             <!-- Variations Section -->
@@ -182,6 +207,7 @@ export default {
         },
         didOpen: () => {
           this.setupVariationAndFinishingButtons()
+          this.setupImageButtons()
           const modalContent = document.querySelector('.swal2-content')
           if (modalContent) {
             modalContent.style.maxHeight = '70vh'
@@ -215,6 +241,11 @@ export default {
           const unit = document.getElementById('unit').value
           const is_publish = parseInt(document.getElementById('is_publish').value)
           const thumbnail = document.getElementById('thumbnail').files[0]
+          const images = Array.from(
+            document.getElementById('imagesContainer').querySelectorAll('input[type="file"]'),
+          )
+            .map((fileInput) => fileInput.files[0])
+            .filter((file) => file)
 
           if (!category_id) {
             Swal.showValidationMessage('Kategori harus dipilih')
@@ -307,6 +338,7 @@ export default {
             unit,
             is_publish,
             thumbnail,
+            images,
             product_variants: variations,
             product_finishing: finishing,
           }
@@ -453,6 +485,36 @@ export default {
       `
     },
 
+    generateImagesHtml(images = []) {
+      if (!images || images.length === 0) {
+        return '<div class="text-gray-600 text-sm italic">Belum ada gambar. Klik tombol "Tambah Gambar" untuk menambahkan.</div>'
+      }
+
+      return images.map((_, index) => this.generateImageBox(index)).join('')
+    },
+
+    generateImageBox(index) {
+      return `
+        <div class="image-box bg-white shadow-sm border border-red-100 rounded-lg p-3 mb-3" data-index="${index}">
+          <div class="close-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <div class="grid grid-cols-1 gap-2">
+            <div class="col-span-1">
+              <label class="block text-gray-700 text-xs mb-1">Gambar Produk</label>
+              <input
+                type="file"
+                class="image-file w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                accept="image/*"
+              >
+            </div>
+          </div>
+        </div>
+      `
+    },
+
     setupVariationAndFinishingButtons() {
       window.handleDefaultVariationChange = this.handleDefaultVariationChange
 
@@ -496,10 +558,30 @@ export default {
       this.setupCloseButtons()
     },
 
+    setupImageButtons() {
+      const addImageBtn = document.getElementById('addImageBtn')
+      if (addImageBtn) {
+        addImageBtn.addEventListener('click', () => {
+          const container = document.getElementById('imagesContainer')
+          const imagesCount = container.querySelectorAll('.image-box').length
+
+          if (imagesCount === 0) {
+            container.innerHTML = ''
+          }
+
+          const newBox = document.createElement('div')
+          newBox.innerHTML = this.generateImageBox(imagesCount)
+          container.appendChild(newBox.firstElementChild)
+
+          this.setupCloseButtons()
+        })
+      }
+    },
+
     setupCloseButtons() {
       document.querySelectorAll('.close-btn').forEach((btn) => {
         btn.addEventListener('click', (e) => {
-          const box = e.target.closest('.variation-box, .finishing-box')
+          const box = e.target.closest('.variation-box, .finishing-box, .image-box')
           if (box) {
             const isDefault = box.querySelector('.variation-default')?.checked
             if (isDefault) {
@@ -529,6 +611,12 @@ export default {
               finContainer.innerHTML =
                 '<div class="text-gray-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
             }
+
+            const imgContainer = document.getElementById('imagesContainer')
+            if (imgContainer && imgContainer.children.length === 0) {
+              imgContainer.innerHTML =
+                '<div class="text-gray-600 text-sm italic">Belum ada gambar. Klik tombol "Tambah Gambar" untuk menambahkan.</div>'
+            }
           }
         })
       })
@@ -546,13 +634,15 @@ export default {
 
 <style scoped>
 .variation-box,
-.finishing-box {
+.finishing-box,
+.image-box {
   position: relative;
   transition: all 0.2s;
 }
 
 .variation-box:hover,
-.finishing-box:hover {
+.finishing-box:hover,
+.image-box:hover {
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -582,12 +672,14 @@ export default {
 }
 
 .variations-container::-webkit-scrollbar,
-.finishing-container::-webkit-scrollbar {
+.finishing-container::-webkit-scrollbar,
+.images-container::-webkit-scrollbar {
   width: 6px;
 }
 
 .variations-container::-webkit-scrollbar-track,
-.finishing-container::-webkit-scrollbar-track {
+.finishing-container::-webkit-scrollbar-track,
+.images-container::-webkit-scrollbar-track {
   background: #f1f1f1;
   border-radius: 10px;
 }
@@ -602,12 +694,21 @@ export default {
   border-radius: 10px;
 }
 
+.images-container::-webkit-scrollbar-thumb {
+  background: #dc2626;
+  border-radius: 10px;
+}
+
 .variations-container::-webkit-scrollbar-thumb:hover {
   background: #b91c1c;
 }
 
 .finishing-container::-webkit-scrollbar-thumb:hover {
   background: #2563eb;
+}
+
+.images-container::-webkit-scrollbar-thumb:hover {
+  background: #b91c1c;
 }
 
 .form-compact input,
