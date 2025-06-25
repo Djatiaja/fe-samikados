@@ -306,9 +306,7 @@ export default {
         })
         this.categories = response.data.data || []
         localStorage.setItem('categories', JSON.stringify(this.categories))
-        console.log('Fetched Categories:', JSON.stringify(this.categories, null, 2))
       } catch (error) {
-        console.error('Error fetching categories:', error.response?.data || error.message)
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal mengambil kategori',
@@ -346,10 +344,8 @@ export default {
           min_qty: parseInt(variant.min_qty) || 1,
           is_default: variant.is_default || 0,
         }))
-        console.log(`Fetched Variants for Product ${productId}:`, JSON.stringify(variants, null, 2))
         return variants
       } catch (error) {
-        console.error('Error fetching variants:', error.response?.data || error.message)
         Swal.fire({
           title: 'Error!',
           text: 'Gagal mengambil varian',
@@ -380,13 +376,8 @@ export default {
           finishing_id: finishing.finishing_id || null,
           color_code: finishing.color_code || '#000000',
         }))
-        console.log(
-          `Fetched Finishings for Product ${productId}:`,
-          JSON.stringify(finishings, null, 2),
-        )
         return finishings
       } catch (error) {
-        console.error('Error fetching finishing:', error.response?.data || error.message)
         Swal.fire({
           title: 'Error!',
           text: 'Gagal mengambil opsi finishing',
@@ -404,7 +395,6 @@ export default {
         if (!token) {
           throw new Error('Authentication token is missing')
         }
-
         const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, {
           params: {
             status:
@@ -415,12 +405,10 @@ export default {
           },
           headers: { Authorization: `Bearer ${token}` },
         })
-
         const {
           data: { products },
           meta,
         } = response.data.data
-
         const productsWithImages = await Promise.all(
           products.map(async (product) => {
             try {
@@ -431,12 +419,10 @@ export default {
                   headers: { Authorization: `Bearer ${token}` },
                 },
               )
-
               const [variations, additionalOptions] = await Promise.all([
                 this.fetchVariants(product.id),
                 this.fetchFinishing(product.id),
               ])
-
               return {
                 id: product.id,
                 sku: product.sku,
@@ -458,10 +444,6 @@ export default {
                 additionalOptions,
               }
             } catch (error) {
-              console.error(
-                `Error fetching images/variants/finishings for product ${product.id}:`,
-                error,
-              )
               return {
                 ...product,
                 thumbnail_url: product.thumbnail_url || 'https://placehold.co/1000x1000',
@@ -474,16 +456,13 @@ export default {
             }
           }),
         )
-
         this.products = productsWithImages
         this.pagination = {
           total: meta.total || 0,
           page: meta.current_page || this.pagination.page,
           limit: meta.per_page || this.pagination.limit,
         }
-        console.log('Fetched Products:', JSON.stringify(this.products, null, 2))
       } catch (error) {
-        console.error('Error fetching products:', error.response?.data || error.message)
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal mengambil produk',
@@ -530,7 +509,6 @@ export default {
           this.fetchFinishing(product.id),
         ])
         const updatedProduct = { ...product, variations, additionalOptions }
-        console.log('Editing Product:', JSON.stringify(updatedProduct, null, 2))
         this.$refs.editProductModal.open(updatedProduct)
       } finally {
         this.isLoading = false
@@ -541,13 +519,7 @@ export default {
       this.$refs.confirmDeleteModal.open(product)
     },
     handleStatusChange(product, newStatus) {
-      console.log('Status Change Triggered:', {
-        id: product?.id,
-        name: product?.name,
-        newStatus,
-      })
       if (!product || !product.id) {
-        console.error('Invalid product in handleStatusChange:', product)
         Swal.fire({
           title: 'Error!',
           text: 'Produk tidak valid',
@@ -622,12 +594,6 @@ export default {
         newProduct.images.forEach((image, index) => {
           formData.append(`images[${index}]`, image)
         })
-
-        console.log('Save Product FormData:')
-        for (const [key, value] of formData.entries()) {
-          console.log(`${key}:`, value instanceof File ? value.name : value)
-        }
-
         await axios.post(`${import.meta.env.VITE_API_BASE_URL}/seller/products`, formData, {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -637,7 +603,7 @@ export default {
         this.showSuccessMessage('Produk berhasil ditambahkan')
         this.fetchProducts()
       } catch (error) {
-        console.error('Error saving product:', error.response?.data || error.message)
+        console.error('Save Product Error:', error.response?.data) // Added for debugging
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal menambah produk',
@@ -660,12 +626,7 @@ export default {
         if (!originalProduct) {
           throw new Error('Original product not found')
         }
-
-        console.log('Original Product:', JSON.stringify(originalProduct, null, 2))
-        console.log('Updated Product:', JSON.stringify(updatedProduct, null, 2))
-
         const formData = new FormData()
-
         // Product data
         formData.append('product[id]', updatedProduct.id)
         formData.append('product[name]', updatedProduct.name?.trim() || originalProduct.name)
@@ -679,26 +640,21 @@ export default {
           'product[category_id]',
           updatedProduct.category_id || originalProduct.category_id,
         )
-
         // Thumbnail
         if (updatedProduct.thumbnail instanceof File) {
-          console.log('Appending Thumbnail:', {
-            name: updatedProduct.thumbnail.name,
-            size: updatedProduct.thumbnail.size,
-            type: updatedProduct.thumbnail.type,
-          })
-          formData.append('thumbnail', updatedProduct.thumbnail) // Menggunakan kunci 'thumbnail' untuk kompatibilitas
+          console.log('Thumbnail:', updatedProduct.thumbnail.name, updatedProduct.thumbnail.type) // Debug thumbnail
+          formData.append('thumbnail', updatedProduct.thumbnail)
         } else {
-          console.log('No Thumbnail File Selected')
+          console.log('No new thumbnail provided') // Debug no thumbnail
         }
-
         // Variants
         const originalVariants = originalProduct.variations || []
         const updatedVariants = updatedProduct.variations || []
-
-        console.log('Original Variants:', JSON.stringify(originalVariants, null, 2))
-        console.log('Updated Variants:', JSON.stringify(updatedVariants, null, 2))
-
+        // Validate exactly one default variant
+        const defaultVariants = updatedVariants.filter((v) => v.is_default)
+        if (defaultVariants.length !== 1) {
+          throw new Error('Exactly one variant must be set as default')
+        }
         // Add new variants
         updatedVariants
           .filter((v) => !v.id)
@@ -710,7 +666,6 @@ export default {
             formData.append(`variants[add][${index}][min_qty]`, parseInt(variant.min_qty) || 1)
             formData.append(`variants[add][${index}][is_default]`, variant.is_default ? 1 : 0)
           })
-
         // Update existing variants
         updatedVariants
           .filter((variant) => variant.id)
@@ -739,23 +694,16 @@ export default {
             )
             formData.append(`variants[update][${index}][is_default]`, variant.is_default ? 1 : 0)
           })
-
         // Delete variants
         const deletedVariantIds = originalVariants
           .filter((original) => !updatedVariants.some((v) => v.id === original.id))
           .map((variant) => variant.id)
-        console.log('Deleted Variant IDs:', deletedVariantIds)
         deletedVariantIds.forEach((id) => {
           formData.append('variants[delete][]', id)
         })
-
         // Finishings
         const originalFinishings = originalProduct.additionalOptions || []
         const updatedFinishings = updatedProduct.product_finishing || []
-
-        console.log('Original Finishings:', JSON.stringify(originalFinishings, null, 2))
-        console.log('Updated Finishings:', JSON.stringify(updatedFinishings, null, 2))
-
         // Add new finishings
         updatedFinishings
           .filter((f) => !f.id)
@@ -768,7 +716,6 @@ export default {
               }
             }
           })
-
         // Update existing finishings
         updatedFinishings
           .filter((finishing) => finishing.id)
@@ -790,23 +737,16 @@ export default {
               )
             }
           })
-
         // Delete finishings
         const deletedFinishingIds = originalFinishings
           .filter((original) => !updatedFinishings.some((f) => f.id === original.id))
           .map((finishing) => finishing.id)
-        console.log('Deleted Finishing IDs:', deletedFinishingIds)
         deletedFinishingIds.forEach((id) => {
           formData.append('finishings[delete][]', id)
         })
-
         // Images
         const originalImages = originalProduct.images || []
         const newImages = updatedProduct.images || []
-
-        console.log('Original Images:', JSON.stringify(originalImages, null, 2))
-        console.log('New Images:', JSON.stringify(newImages, null, 2))
-
         // Add new images
         newImages
           .filter((img) => img.file instanceof File)
@@ -818,9 +758,7 @@ export default {
             )
             formData.append(`images[add][${index}][is_primary]`, image.is_primary ? 1 : 0)
             formData.append(`images[add][${index}][sort_order]`, image.sort_order || index + 1)
-            console.log(`Adding Image: ${image.file.name}`)
           })
-
         // Update existing images
         newImages
           .filter((img) => img.id)
@@ -830,19 +768,15 @@ export default {
             formData.append(`images[update][${index}][sort_order]`, img.sort_order || index + 1)
             if (img.file instanceof File) {
               formData.append(`images[update][${index}][image]`, img.file)
-              console.log(`Updating Image ID ${img.id}: ${img.file.name}`)
             }
           })
-
         // Delete images
         const deletedImageIds = originalImages
           .filter((originalImg) => !newImages.some((img) => img.id === originalImg.id))
           .map((image) => image.id)
-        console.log('Deleted Image IDs:', deletedImageIds)
         deletedImageIds.forEach((id) => {
           formData.append('images[delete][]', id)
         })
-
         // Validation
         if (!updatedProduct.name || !updatedProduct.description || !updatedProduct.unit) {
           throw new Error('Nama, deskripsi, dan unit wajib diisi')
@@ -850,13 +784,10 @@ export default {
         if (updatedVariants.length === 0) {
           throw new Error('Produk harus memiliki minimal satu variasi')
         }
-
-        // Debug: Log FormData
-        console.log('Update Product FormData:')
-        for (const [key, value] of formData.entries()) {
-          console.log(`${key}:`, value instanceof File ? value.name : value)
+        // Debug FormData
+        for (let [key, value] of formData.entries()) {
+          console.log(`${key}: ${value instanceof File ? value.name : value}`)
         }
-
         const response = await axios.post(
           `${import.meta.env.VITE_API_BASE_URL}/seller/product/update/bulk`,
           formData,
@@ -867,9 +798,6 @@ export default {
             },
           },
         )
-
-        console.log('API Response:', JSON.stringify(response.data, null, 2))
-
         // Update local state
         const index = this.products.findIndex((p) => p.id === updatedProduct.id)
         if (index !== -1) {
@@ -914,13 +842,10 @@ export default {
           this.showSuccessMessage('Produk berhasil diperbarui')
         }
       } catch (error) {
-        console.error(
-          'Update Product Error:',
-          JSON.stringify(error.response?.data || error.message, null, 2),
-        )
+        console.error('Update Product Error:', error.response?.data) // Debug logging
         Swal.fire({
           title: 'Error!',
-          text: error.response?.data?.error || error.message || 'Gagal memperbarui produk',
+          text: error.response?.data?.message || error.message || 'Gagal memperbarui produk',
           icon: 'error',
           timer: 2000,
           showConfirmButton: false,
@@ -956,7 +881,7 @@ export default {
         this.showSuccessMessage('Produk berhasil dihapus')
         this.fetchProducts()
       } catch (error) {
-        console.error('Error deleting product:', error.response?.data || error.message)
+        console.error('Delete Product Error:', error.response?.data) // Debug logging
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal menghapus produk',
@@ -972,7 +897,7 @@ export default {
     async handleConfirmStatusChange(newStatus) {
       if (!this.currentProduct || !this.currentProduct.id) {
         Swal.fire({
-          title: 'Error!',
+          title: 'Error',
           text: 'Produk tidak ditemukan atau ID tidak valid',
           icon: 'error',
           timer: 1500,
@@ -980,38 +905,34 @@ export default {
         })
         return
       }
-
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
         if (!token) {
           throw new Error('Authentication token is missing')
         }
-
-        // Ambil data produk asli dari this.products
         const originalProduct = this.products.find((p) => p.id === this.currentProduct.id)
         if (!originalProduct) {
-          throw new Error('Produk asli tidak ditemukan di state')
+          throw new Error('Original product not found')
         }
-
-        console.log('Original Product:', JSON.stringify(originalProduct, null, 2))
-
         const formData = new FormData()
-
-        // Data produk
+        // Product data
         formData.append('product[id]', this.currentProduct.id)
         formData.append('product[name]', originalProduct.name?.trim() || '')
         formData.append('product[description]', originalProduct.description?.trim() || '')
         formData.append('product[unit]', originalProduct.unit || 'pack')
         formData.append('product[is_publish]', newStatus === 'active' ? 1 : 0)
         formData.append('product[category_id]', originalProduct.category_id || '')
-
-        // Varian
+        // Variants
         const originalVariants = originalProduct.variations || []
         if (originalVariants.length === 0) {
           throw new Error('Produk harus memiliki minimal satu varian')
         }
-
+        // Validate exactly one default variant
+        const defaultVariants = originalVariants.filter((v) => v.is_default)
+        if (defaultVariants.length !== 1) {
+          throw new Error('Exactly one variant must be set as default')
+        }
         originalVariants.forEach((variant, index) => {
           formData.append(`variants[update][${index}][id]`, variant.id)
           formData.append(`variants[update][${index}][name]`, variant.name?.trim() || '')
@@ -1021,7 +942,6 @@ export default {
           formData.append(`variants[update][${index}][min_qty]`, parseInt(variant.min_qty) || 1)
           formData.append(`variants[update][${index}][is_default]`, variant.is_default ? 1 : 0)
         })
-
         // Finishing
         const originalFinishings = originalProduct.additionalOptions || []
         originalFinishings.forEach((finishing, index) => {
@@ -1032,21 +952,17 @@ export default {
             formData.append(`finishings[update][${index}][color_code]`, finishing.color_code)
           }
         })
-
-        // Gambar
+        // Images
         const originalImages = originalProduct.images || []
         originalImages.forEach((img, index) => {
           formData.append(`images[update][${index}][id]`, img.id)
           formData.append(`images[update][${index}][is_primary]`, img.is_primary ? 1 : 0)
           formData.append(`images[update][${index}][sort_order]`, img.sort_order || index + 1)
         })
-
-        // Debug: Log FormData
-        console.log('Update Status FormData:')
-        for (const [key, value] of formData.entries()) {
-          console.log(`${key}: ${value}`)
+        // Debug FormData
+        for (let [key, value] of formData.entries()) {
+          console.log(`${key}: ${value instanceof File ? value.name : value}`)
         }
-
         const response = await axios.post(
           `${import.meta.env.VITE_API_BASE_URL}/seller/product/update/bulk`,
           formData,
@@ -1057,10 +973,7 @@ export default {
             },
           },
         )
-
-        console.log('API Response:', JSON.stringify(response.data, null, 2))
-
-        // Update state lokal
+        // Update local state
         const index = this.products.findIndex((p) => p.id === this.currentProduct.id)
         if (index !== -1) {
           this.products.splice(index, 1, {
@@ -1102,13 +1015,12 @@ export default {
               })) || [],
           })
         }
-
         this.showSuccessMessage(
           `Produk berhasil di${newStatus === 'active' ? 'aktifkan' : 'nonaktifkan'}`,
         )
-        this.currentProduct = null // Reset setelah selesai
+        this.currentProduct = null
       } catch (error) {
-        console.error('Error changing status:', error.response?.data || error.message)
+        console.error('Status Change Error:', error.response?.data) // Debug logging
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || 'Gagal mengubah status produk',

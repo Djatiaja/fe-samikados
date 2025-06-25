@@ -824,28 +824,37 @@ export default {
       let variantsByProduct = {}
       let productPrices = {}
       const self = this
+
       const updateProductPrice = (productItem) => {
         const productSelect = productItem.querySelector('.product-name')
         const finishingSelect = productItem.querySelector('.product-finishing')
         const variantSelect = productItem.querySelector('.product-variant')
         const quantityInput = productItem.querySelector('.product-qty')
         const priceDisplay = productItem.querySelector('.product-price')
-        if (!productSelect.value || !quantityInput.value) return
+
+        if (!productSelect.value || !quantityInput.value) {
+          priceDisplay.textContent = self.formatCurrency(0)
+          return
+        }
+
         const productId = productSelect.value
         const quantity = parseInt(quantityInput.value) || 0
         let basePrice = productPrices[productId] || 0
+
         if (finishingSelect.value && finishingsByProduct[productId]) {
           const selectedFinishing = finishingsByProduct[productId].find(
-            (f) => f.id == finishingSelect.value,
+            (f) => f.id == finishingSelect.value && f.finishing,
           )
           if (selectedFinishing) {
             basePrice += selectedFinishing.price
           }
         }
+
         const totalPrice = basePrice * quantity
         priceDisplay.textContent = self.formatCurrency(totalPrice)
         updateSubtotal()
       }
+
       const updateSubtotal = () => {
         const priceDisplays = document.querySelectorAll('.product-price')
         let subtotal = 0
@@ -858,6 +867,7 @@ export default {
           subtotalDisplay.textContent = self.formatCurrency(subtotal)
         }
       }
+
       this.fetchCategories()
         .then((fetchedCategories) => {
           categories = fetchedCategories
@@ -1000,6 +1010,7 @@ export default {
         `
                 }
               })
+
               const setupCategoryListener = (productItem) => {
                 const categorySelect = productItem.querySelector('.product-category')
                 const productSelect = productItem.querySelector('.product-name')
@@ -1052,27 +1063,32 @@ export default {
                   }
                 })
               }
+
               const setupProductListener = (productItem) => {
                 const productSelect = productItem.querySelector('.product-name')
                 const finishingSelect = productItem.querySelector('.product-finishing')
                 const variantSelect = productItem.querySelector('.product-variant')
                 const quantityInput = productItem.querySelector('.product-qty')
                 const previewDiv = productItem.querySelector('.product-preview')
+
                 productSelect.addEventListener('change', async function () {
                   const productId = this.value
                   finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
                   finishingSelect.disabled = true
                   variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
                   variantSelect.disabled = true
+
                   if (productId) {
                     const selectedOption = productSelect.options[productSelect.selectedIndex]
                     const imageUrl = selectedOption.dataset.image
                     updateProductPrice(productItem)
+
                     if (imageUrl) {
                       previewDiv.innerHTML = `<img src="${imageUrl}" alt="Product Preview" class="max-h-20 max-w-full">`
                     } else {
                       previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Tidak ada gambar</div>`
                     }
+
                     try {
                       console.log('Fetching finishings for productId:', productId)
                       finishingSelect.disabled = true
@@ -1086,15 +1102,36 @@ export default {
                       finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
                       if (finishings && finishings.length > 0) {
                         finishings.forEach((finishing) => {
-                          const option = document.createElement('option')
-                          option.value = finishing.id
-                          option.textContent = `${finishing.finishing.name} (+${self.formatCurrency(finishing.price)})`
-                          finishingSelect.appendChild(option)
+                          if (finishing.finishing) {
+                            const option = document.createElement('option')
+                            option.value = finishing.id
+                            option.textContent = `${finishing.finishing.name} (+${self.formatCurrency(finishing.price)})`
+                            finishingSelect.appendChild(option)
+                          }
                         })
-                        finishingSelect.disabled = false
+                        finishingSelect.disabled = finishings.some((f) => f.finishing)
+                          ? false
+                          : true
                       } else {
                         finishingSelect.innerHTML = '<option value="">Tidak Ada Finishing</option>'
                       }
+                    } catch (error) {
+                      console.error('Error fetching finishings:', error)
+                      finishingSelect.innerHTML =
+                        '<option value="">Error loading finishings</option>'
+                    }
+                  } else {
+                    previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>`
+                    const priceDisplay = productItem.querySelector('.product-price')
+                    priceDisplay.textContent = self.formatCurrency(0)
+                    updateSubtotal()
+                  }
+                })
+
+                finishingSelect.addEventListener('change', async () => {
+                  const productId = productSelect.value
+                  if (productId && finishingSelect.value) {
+                    try {
                       console.log('Fetching variants for productId:', productId)
                       variantSelect.disabled = true
                       variantSelect.innerHTML = '<option value="">Loading...</option>'
@@ -1116,26 +1153,25 @@ export default {
                         variantSelect.innerHTML = '<option value="">Tidak Ada Variasi</option>'
                       }
                     } catch (error) {
-                      console.error('Error fetching product details:', error)
-                      finishingSelect.innerHTML =
-                        '<option value="">Error loading finishings</option>'
+                      console.error('Error fetching variants:', error)
                       variantSelect.innerHTML = '<option value="">Error loading variants</option>'
                     }
                   } else {
-                    previewDiv.innerHTML = `<div class="text-center text-sm text-gray-500">Preview produk akan ditampilkan di sini</div>`
-                    const priceDisplay = productItem.querySelector('.product-price')
-                    priceDisplay.textContent = self.formatCurrency(0)
-                    updateSubtotal()
+                    variantSelect.innerHTML = '<option value="">Pilih Variasi</option>'
+                    variantSelect.disabled = true
                   }
+                  updateProductPrice(productItem)
                 })
-                finishingSelect.addEventListener('change', () => updateProductPrice(productItem))
+
                 variantSelect.addEventListener('change', () => updateProductPrice(productItem))
                 quantityInput.addEventListener('change', () => updateProductPrice(productItem))
                 quantityInput.addEventListener('input', () => updateProductPrice(productItem))
               }
+
               const initialProductItem = document.querySelector('.product-item')
               setupCategoryListener(initialProductItem)
               setupProductListener(initialProductItem)
+
               document.getElementById('addMoreProduct').addEventListener('click', () => {
                 const productItems = document.getElementById('productItems')
                 const newItem = document.createElement('div')

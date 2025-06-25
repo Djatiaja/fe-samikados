@@ -15,7 +15,6 @@ export default {
   },
   methods: {
     open(product) {
-      console.log('Opening Modal with Product:', JSON.stringify(product, null, 2)) // Debug: Detailed product data
       if (!this.categories || this.categories.length === 0) {
         Swal.fire({
           title: 'Error!',
@@ -43,7 +42,7 @@ export default {
 
       this.thumbnailFile = null
       this.thumbnailPreviewUrl = productForm.thumbnail_url
-      console.log('Product Form Initialized:', JSON.stringify(productForm, null, 2))
+
       this.showProductModal('Edit Produk', productForm)
     },
     showProductModal(title, productForm) {
@@ -254,9 +253,6 @@ export default {
           const thumbnailInput = document.getElementById('thumbnail')
           const thumbnail = this.thumbnailFile // Gunakan state thumbnailFile
 
-          console.log('Thumbnail Input Files:', thumbnailInput.files)
-          console.log('Thumbnail Selected:', thumbnail ? thumbnail.name : 'None')
-
           if (thumbnail) {
             if (thumbnail.size > 2 * 1024 * 1024) {
               Swal.showValidationMessage('Ukuran thumbnail tidak boleh melebihi 2MB')
@@ -283,8 +279,6 @@ export default {
               }
             })
             .filter((item) => item.file || item.id)
-
-          console.log('Images Collected:', JSON.stringify(images, null, 2))
 
           if (!category_id) {
             Swal.showValidationMessage('Kategori harus dipilih')
@@ -334,8 +328,6 @@ export default {
             }
           })
 
-          console.log('Variations Collected:', JSON.stringify(variations, null, 2))
-
           if (!hasStock) {
             Swal.showValidationMessage('Setidaknya satu variasi harus memiliki stok')
             return false
@@ -372,8 +364,6 @@ export default {
             }
           })
 
-          console.log('Finishings Collected:', JSON.stringify(finishings, null, 2))
-
           const product = {
             id: productForm.id,
             category_id,
@@ -387,17 +377,6 @@ export default {
             product_finishing: finishings,
           }
 
-          console.log(
-            'Final Product Data:',
-            JSON.stringify(
-              product,
-              (key, value) => {
-                if (value instanceof File) return value.name
-                return value
-              },
-              2,
-            ),
-          )
           return product
         },
       }).then((result) => {
@@ -412,9 +391,7 @@ export default {
       if (thumbnailInput && thumbnailPreview) {
         thumbnailInput.addEventListener('change', (event) => {
           const file = event.target.files[0]
-          console.log('Thumbnail Input Changed:', {
-            file: file ? { name: file.name, size: file.size, type: file.type } : null,
-          })
+
           if (file) {
             if (file.size > 2 * 1024 * 1024) {
               Swal.fire({
@@ -449,7 +426,6 @@ export default {
             reader.onload = (e) => {
               this.thumbnailPreviewUrl = e.target.result
               thumbnailPreview.src = e.target.result
-              console.log('Thumbnail Preview Updated:', e.target.result.substring(0, 50))
             }
             reader.readAsDataURL(file)
           } else {
@@ -457,11 +433,6 @@ export default {
             this.thumbnailPreviewUrl = productForm.thumbnail_url || 'https://placehold.co/1000x1000'
             thumbnailPreview.src = this.thumbnailPreviewUrl
           }
-        })
-      } else {
-        console.error('Thumbnail Input or Preview Element Missing:', {
-          thumbnailInput: !!thumbnailInput,
-          thumbnailPreview: !!thumbnailPreview,
         })
       }
     },
@@ -701,80 +672,18 @@ export default {
 
       this.setupImagePreviews()
     },
-    setupThumbnailPreview() {
-      const thumbnailInput = document.getElementById('thumbnail')
-      const thumbnailPreview = document.getElementById('thumbnailPreview')
-      if (thumbnailInput && thumbnailPreview) {
-        thumbnailInput.addEventListener('change', (event) => {
-          const file = event.target.files[0]
-          console.log('Thumbnail Input Changed:', {
-            file: file ? { name: file.name, size: file.size, type: file.type } : null,
-          })
-          if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-              Swal.fire({
-                title: 'Error!',
-                text: 'Ukuran thumbnail tidak boleh melebihi 2MB',
-                icon: 'error',
-                timer: 1500,
-                showConfirmButton: false,
-              })
-              thumbnailInput.value = ''
-              this.thumbnailFile = null
-              this.thumbnailPreviewUrl = 'https://placehold.co/1000x1000'
-              thumbnailPreview.src = this.thumbnailPreviewUrl
-              return
-            }
-            if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-              Swal.fire({
-                title: 'Error!',
-                text: 'Hanya file JPEG, PNG, atau JPG yang diizinkan',
-                icon: 'error',
-                timer: 1500,
-                showConfirmButton: false,
-              })
-              thumbnailInput.value = ''
-              this.thumbnailFile = null
-              this.thumbnailPreviewUrl = 'https://placehold.co/1000x1000'
-              thumbnailPreview.src = this.thumbnailPreviewUrl
-              return
-            }
-            this.thumbnailFile = file
-            const reader = new FileReader()
-            reader.onload = (e) => {
-              this.thumbnailPreviewUrl = e.target.result
-              thumbnailPreview.src = e.target.result
-              console.log('Thumbnail Preview Updated:', e.target.result.substring(0, 50))
-            }
-            reader.readAsDataURL(file)
-          } else {
-            this.thumbnailFile = null
-            this.thumbnailPreviewUrl = productForm.thumbnail_url || 'https://placehold.co/1000x1000'
-            thumbnailPreview.src = this.thumbnailPreviewUrl
-          }
-        })
-      } else {
-        console.error('Thumbnail Input or Preview Element Missing:', {
-          thumbnailInput: !!thumbnailInput,
-          thumbnailPreview: !!thumbnailPreview,
-        })
-      }
-    },
     setupImagePreviews() {
       const imageInputs = document.querySelectorAll('.image-file')
       imageInputs.forEach((input, index) => {
         input.addEventListener('change', (event) => {
           const file = event.target.files[0]
-          console.log(`Image Input ${index + 1} Changed:`, {
-            file: file ? { name: file.name, size: file.size, type: file.type } : null,
-          }) // Debug: Detailed image info
+
           if (file) {
             const reader = new FileReader()
             reader.onload = (e) => {
               const imgElement = input.parentElement.querySelector('img')
               if (imgElement) {
                 imgElement.src = e.target.result
-                console.log(`Image Preview ${index + 1} Updated:`, e.target.result.substring(0, 50)) // Debug
               }
             }
             reader.readAsDataURL(file)
@@ -787,15 +696,6 @@ export default {
         btn.addEventListener('click', (e) => {
           const box = e.target.closest('.variation-box, .finishing-box, .image-box')
           if (box) {
-            console.log('Removing Box:', {
-              type: box.classList.contains('variation-box')
-                ? 'variation'
-                : box.classList.contains('finishing-box')
-                  ? 'finishing'
-                  : 'image',
-              id: box.dataset.id || 'new',
-              index: box.dataset.index,
-            }) // Debug: Log removed box details
             const isDefault = box.querySelector('.variation-default')?.checked
             if (isDefault) {
               const otherVariations = document.querySelectorAll(
@@ -805,10 +705,7 @@ export default {
                 for (let i = 0; i < otherVariations.length; i++) {
                   if (otherVariations[i] !== box) {
                     otherVariations[i].querySelector('.variation-default').checked = true
-                    console.log('Set New Default Variation:', {
-                      id: otherVariations[i].dataset.id,
-                      index: otherVariations[i].dataset.index,
-                    }) // Debug
+
                     break
                   }
                 }
@@ -839,10 +736,6 @@ export default {
       })
     },
     handleDefaultVariationChange(radio) {
-      console.log('Default Variation Changed:', {
-        checked: radio.checked,
-        id: radio.closest('.variation-box')?.dataset.id || 'new',
-      }) // Debug: Log radio change
       const allRadios = document.querySelectorAll('.variation-default')
       allRadios.forEach((r) => {
         if (r !== radio) r.checked = false
