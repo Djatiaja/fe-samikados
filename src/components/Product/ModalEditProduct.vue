@@ -1,4 +1,3 @@
-```vue
 <template>
   <div></div>
 </template>
@@ -14,22 +13,10 @@ export default {
       default: () => [],
     },
   },
-  data() {
-    return {
-      deletedVariants: [],
-      deletedFinishings: [],
-      deletedImages: [],
-    }
-  },
   methods: {
     open(product) {
-      console.log('Method open dipanggil untuk produk:', product) // Debug
-      this.deletedVariants = []
-      this.deletedFinishings = []
-      this.deletedImages = []
-
+      console.log('Opening Modal with Product:', JSON.stringify(product, null, 2)) // Debug: Detailed product data
       if (!this.categories || this.categories.length === 0) {
-        console.warn('Kategori kosong') // Debug
         Swal.fire({
           title: 'Error!',
           text: 'Kategori belum tersedia. Silakan coba lagi.',
@@ -54,21 +41,23 @@ export default {
         product_finishing: product.additionalOptions || [],
       }
 
-      this.showProductModal(productForm)
+      this.thumbnailFile = null
+      this.thumbnailPreviewUrl = productForm.thumbnail_url
+      console.log('Product Form Initialized:', JSON.stringify(productForm, null, 2))
+      this.showProductModal('Edit Produk', productForm)
     },
-    showProductModal(productForm) {
-      console.log('Show product modal untuk:', productForm) // Debug
+    showProductModal(title, productForm) {
       let variationsHtml = this.generateVariationsHtml(productForm.product_variants)
       let finishingHtml = this.generateFinishingHtml(productForm.product_finishing)
       let imagesHtml = this.generateImagesHtml(productForm.images)
 
       Swal.fire({
-        title: `<h3 class="modal-title text-lg font-bold">Edit Produk</h3>`,
+        title: `<h3 class="text-lg font-bold">${title}</h3>`,
         html: `
           <form id="productForm" class="text-left form-compact">
             <div class="mb-4">
               <label class="block text-gray-700 font-medium text-sm mb-1">Kategori</label>
-              <select id="category_id" class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all">
+              <select id="category_id" class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all">
                 ${
                   this.categories.length > 0
                     ? this.categories
@@ -90,7 +79,7 @@ export default {
                 type="text"
                 id="productName"
                 placeholder="Masukkan nama produk"
-                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all"
+                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
                 value="${productForm.name || ''}"
               >
             </div>
@@ -101,7 +90,7 @@ export default {
                 id="description"
                 rows="2"
                 placeholder="Masukkan deskripsi produk"
-                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all"
+                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
               >${productForm.description || ''}</textarea>
             </div>
 
@@ -111,7 +100,7 @@ export default {
                 type="text"
                 id="unit"
                 placeholder="Contoh: pack, unit"
-                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all"
+                class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
                 value="${productForm.unit || 'pack'}"
               >
             </div>
@@ -121,7 +110,7 @@ export default {
               <div class="flex items-center gap-4">
                 <img
                   id="thumbnailPreview"
-                  src="${productForm.thumbnail_url}"
+                  :src="thumbnailPreviewUrl"
                   alt="Thumbnail Preview"
                   class="w-20 h-20 object-cover rounded-lg"
                   onerror="this.src='https://placehold.co/1000x1000'"
@@ -129,8 +118,8 @@ export default {
                 <input
                   type="file"
                   id="thumbnail"
-                  accept="image/*"
-                  class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all"
+                  accept="image/jpeg,image/png,image/jpg"
+                  class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all"
                 >
               </div>
             </div>
@@ -202,7 +191,7 @@ export default {
 
             <div class="mb-4">
               <label class="block text-gray-700 font-medium text-sm mb-1">Status</label>
-              <select id="is_publish" class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600 transition-all">
+              <select id="is_publish" class="w-full text-sm p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all">
                 <option value="1" ${productForm.is_publish === 1 ? 'selected' : ''}>Aktif</option>
                 <option value="0" ${productForm.is_publish === 0 ? 'selected' : ''}>Nonaktif</option>
               </select>
@@ -227,7 +216,6 @@ export default {
           actions: 'flex justify-center space-x-6',
         },
         didOpen: () => {
-          console.log('Modal dibuka') // Debug
           this.setupVariationAndFinishingButtons()
           this.setupImageButtons()
           this.setupThumbnailPreview()
@@ -258,22 +246,26 @@ export default {
           document.head.appendChild(styleElement)
         },
         preConfirm: () => {
-          console.log('preConfirm dijalankan') // Debug
           const category_id = parseInt(document.getElementById('category_id').value)
           const name = document.getElementById('productName').value
           const description = document.getElementById('description').value
           const unit = document.getElementById('unit').value
           const is_publish = parseInt(document.getElementById('is_publish').value)
-          const thumbnail = document.getElementById('thumbnail').files[0]
+          const thumbnailInput = document.getElementById('thumbnail')
+          const thumbnail = this.thumbnailFile // Gunakan state thumbnailFile
 
-          if (!category_id) {
-            Swal.showValidationMessage('Kategori harus dipilih')
-            return false
-          }
+          console.log('Thumbnail Input Files:', thumbnailInput.files)
+          console.log('Thumbnail Selected:', thumbnail ? thumbnail.name : 'None')
 
-          if (!name || !description || !unit) {
-            Swal.showValidationMessage('Nama, deskripsi, dan unit wajib diisi')
-            return false
+          if (thumbnail) {
+            if (thumbnail.size > 2 * 1024 * 1024) {
+              Swal.showValidationMessage('Ukuran thumbnail tidak boleh melebihi 2MB')
+              return false
+            }
+            if (!['image/jpeg', 'image/png', 'image/jpg'].includes(thumbnail.type)) {
+              Swal.showValidationMessage('Hanya file JPEG, PNG, atau JPG yang diizinkan')
+              return false
+            }
           }
 
           const images = Array.from(
@@ -283,7 +275,7 @@ export default {
               const fileInput = box.querySelector('.image-file')
               const id = box.dataset.id ? parseInt(box.dataset.id) : null
               return {
-                file: fileInput.files[0] || null,
+                file: fileInput.files[0],
                 id: id,
                 alt_text: `Image ${index + 1}`,
                 is_primary: index === 0 ? 1 : 0,
@@ -292,8 +284,10 @@ export default {
             })
             .filter((item) => item.file || item.id)
 
-          if (images.length === 0) {
-            Swal.showValidationMessage('Minimal satu gambar produk harus diunggah')
+          console.log('Images Collected:', JSON.stringify(images, null, 2))
+
+          if (!category_id) {
+            Swal.showValidationMessage('Kategori harus dipilih')
             return false
           }
 
@@ -330,7 +324,7 @@ export default {
 
               variations.push({
                 id: id,
-                name: nameInput.value.trim(),
+                name: nameInput.value,
                 price: parseFloat(priceInput.value) || 0,
                 stock: stock,
                 weight: weight,
@@ -339,6 +333,8 @@ export default {
               })
             }
           })
+
+          console.log('Variations Collected:', JSON.stringify(variations, null, 2))
 
           if (!hasStock) {
             Swal.showValidationMessage('Setidaknya satu variasi harus memiliki stok')
@@ -369,18 +365,20 @@ export default {
             if (nameInput && nameInput.value && priceInput && priceInput.value) {
               finishings.push({
                 id: id,
-                name: nameInput.value.trim(),
+                name: nameInput.value,
                 price: parseFloat(priceInput.value) || 0,
                 color_code: colorCodeInput.value || '#000000',
               })
             }
           })
 
+          console.log('Finishings Collected:', JSON.stringify(finishings, null, 2))
+
           const product = {
             id: productForm.id,
             category_id,
-            name: name.trim(),
-            description: description.trim(),
+            name,
+            description,
             unit,
             status: is_publish ? 'active' : 'inactive',
             thumbnail,
@@ -389,111 +387,89 @@ export default {
             product_finishing: finishings,
           }
 
-          const formData = new FormData()
-          formData.append('product[id]', product.id)
-          formData.append('product[category_id]', product.category_id)
-          formData.append('product[name]', product.name)
-          formData.append('product[description]', product.description)
-          formData.append('product[unit]', product.unit)
-          formData.append('product[is_publish]', is_publish)
-          if (thumbnail instanceof File) {
-            formData.append('product[thumbnail]', thumbnail)
-          }
-
-          variations
-            .filter((v) => !v.id)
-            .forEach((variant, index) => {
-              formData.append(`variants[add][${index}][name]`, variant.name)
-              formData.append(`variants[add][${index}][price]`, variant.price)
-              formData.append(`variants[add][${index}][stock]`, variant.stock)
-              formData.append(`variants[add][${index}][weight]`, variant.weight)
-              formData.append(`variants[add][${index}][min_qty]`, variant.min_qty)
-              formData.append(`variants[add][${index}][is_default]`, variant.is_default)
-            })
-
-          variations
-            .filter((v) => v.id)
-            .forEach((variant, index) => {
-              formData.append(`variants[update][${index}][id]`, variant.id)
-              formData.append(`variants[update][${index}][name]`, variant.name)
-              formData.append(`variants[update][${index}][price]`, variant.price)
-              formData.append(`variants[update][${index}][stock]`, variant.stock)
-              formData.append(`variants[update][${index}][weight]`, variant.weight)
-              formData.append(`variants[update][${index}][min_qty]`, variant.min_qty)
-              formData.append(`variants[update][${index}][is_default]`, variant.is_default)
-            })
-
-          this.deletedVariants.forEach((id, index) => {
-            formData.append(`variants[delete][${index}]`, id)
-          })
-
-          finishings
-            .filter((f) => !f.id)
-            .forEach((finishing, index) => {
-              formData.append(`finishings[add][${index}][name]`, finishing.name)
-              formData.append(`finishings[add][${index}][price]`, finishing.price)
-              formData.append(`finishings[add][${index}][color_code]`, finishing.color_code)
-            })
-
-          finishings
-            .filter((f) => f.id)
-            .forEach((finishing, index) => {
-              formData.append(`finishings[update][${index}][id]`, finishing.id)
-              formData.append(`finishings[update][${index}][name]`, finishing.name)
-              formData.append(`finishings[update][${index}][price]`, finishing.price)
-              formData.append(`finishings[update][${index}][color_code]`, finishing.color_code)
-            })
-
-          this.deletedFinishings.forEach((id, index) => {
-            formData.append(`finishings[delete][${index}]`, id)
-          })
-
-          images
-            .filter((img) => !img.id && img.file)
-            .forEach((img, index) => {
-              formData.append(`images[add][${index}][image]`, img.file)
-              formData.append(`images[add][${index}][alt_text]`, img.alt_text)
-              formData.append(`images[add][${index}][is_primary]`, img.is_primary)
-              formData.append(`images[add][${index}][sort_order]`, img.sort_order)
-            })
-
-          images
-            .filter((img) => img.id)
-            .forEach((img, index) => {
-              formData.append(`images[update][${index}][id]`, img.id)
-              formData.append(`images[update][${index}][is_primary]`, img.is_primary)
-              formData.append(`images[update][${index}][sort_order]`, img.sort_order)
-              if (img.file) {
-                formData.append(`images[update][${index}][image]`, img.file)
-              }
-            })
-
-          this.deletedImages.forEach((id, index) => {
-            formData.append(`images[delete][${index}]`, id)
-          })
-
-          // Debug FormData
-          console.log('FormData yang akan dikirim:')
-          for (let [key, value] of formData.entries()) {
-            console.log(`${key}:`, value instanceof File ? value.name : value)
-          }
-
-          return { product, formData }
+          console.log(
+            'Final Product Data:',
+            JSON.stringify(
+              product,
+              (key, value) => {
+                if (value instanceof File) return value.name
+                return value
+              },
+              2,
+            ),
+          )
+          return product
         },
       }).then((result) => {
         if (result.isConfirmed && result.value) {
-          console.log('Emit save-product:', result.value) // Debug
-          this.$emit('save-product', {
-            product: result.value.product,
-            formData: result.value.formData,
-          })
+          this.$emit('save-product', result.value)
         }
       })
+    },
+    setupThumbnailPreview() {
+      const thumbnailInput = document.getElementById('thumbnail')
+      const thumbnailPreview = document.getElementById('thumbnailPreview')
+      if (thumbnailInput && thumbnailPreview) {
+        thumbnailInput.addEventListener('change', (event) => {
+          const file = event.target.files[0]
+          console.log('Thumbnail Input Changed:', {
+            file: file ? { name: file.name, size: file.size, type: file.type } : null,
+          })
+          if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+              Swal.fire({
+                title: 'Error!',
+                text: 'Ukuran thumbnail tidak boleh melebihi 2MB',
+                icon: 'error',
+                timer: 1500,
+                showConfirmButton: false,
+              })
+              thumbnailInput.value = ''
+              this.thumbnailFile = null
+              this.thumbnailPreviewUrl = 'https://placehold.co/1000x1000'
+              thumbnailPreview.src = this.thumbnailPreviewUrl
+              return
+            }
+            if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+              Swal.fire({
+                title: 'Error!',
+                text: 'Hanya file JPEG, PNG, atau JPG yang diizinkan',
+                icon: 'error',
+                timer: 1500,
+                showConfirmButton: false,
+              })
+              thumbnailInput.value = ''
+              this.thumbnailFile = null
+              this.thumbnailPreviewUrl = 'https://placehold.co/1000x1000'
+              thumbnailPreview.src = this.thumbnailPreviewUrl
+              return
+            }
+            this.thumbnailFile = file
+            const reader = new FileReader()
+            reader.onload = (e) => {
+              this.thumbnailPreviewUrl = e.target.result
+              thumbnailPreview.src = e.target.result
+              console.log('Thumbnail Preview Updated:', e.target.result.substring(0, 50))
+            }
+            reader.readAsDataURL(file)
+          } else {
+            this.thumbnailFile = null
+            this.thumbnailPreviewUrl = productForm.thumbnail_url || 'https://placehold.co/1000x1000'
+            thumbnailPreview.src = this.thumbnailPreviewUrl
+          }
+        })
+      } else {
+        console.error('Thumbnail Input or Preview Element Missing:', {
+          thumbnailInput: !!thumbnailInput,
+          thumbnailPreview: !!thumbnailPreview,
+        })
+      }
     },
     generateVariationsHtml(variations = []) {
       if (!variations || variations.length === 0) {
         return '<div class="text-gray-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
       }
+
       return variations
         .map((variation, index) => this.generateVariationBox(variation, index))
         .join('')
@@ -522,7 +498,7 @@ export default {
               <label class="block text-gray-700 text-xs mb-1">Nama Variasi</label>
               <input
                 type="text"
-                class="variation-name w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600 focus:border-red-600"
+                class="variation-name w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 placeholder="Contoh: 16GB RAM - 512GB SSD"
                 value="${variation.name || ''}"
               >
@@ -531,8 +507,8 @@ export default {
               <label class="block text-gray-700 text-xs mb-1">Harga (Rp)</label>
               <input
                 type="number"
-                class="variation-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600"
-                placeholder="0"
+                class="variation-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-red-500 focus:ring-2 focus:border-red-500"
+                placeholder="Harga variasi"
                 value="${variation.price || ''}"
               >
             </div>
@@ -540,7 +516,8 @@ export default {
               <label class="block text-gray-700 text-xs mb-1">Stok</label>
               <input
                 type="number"
-                class="variation-stock w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600"
+                class="variation-stock w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="0"
                 value="${variation.stock || 0}"
               >
             </div>
@@ -548,7 +525,8 @@ export default {
               <label class="block text-gray-700 text-xs mb-1">Berat (gram)</label>
               <input
                 type="number"
-                class="variation-weight w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-600"
+                class="variation-weight w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="0"
                 value="${variation.weight || 0}"
               >
             </div>
@@ -556,7 +534,8 @@ export default {
               <label class="block text-gray-700 text-xs mb-1">Jumlah Minimum</label>
               <input
                 type="number"
-                class="variation-min-qty w-full text-sm p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-red-600"
+                class="variation-min-qty w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                placeholder="1"
                 value="${variation.min_qty || 1}"
               >
             </div>
@@ -565,7 +544,7 @@ export default {
                 <input
                   type="radio"
                   name="default-variation"
-                  class="variation-default form-radio"
+                  class="variation-default form-radio text-red-600"
                   ${variation.is_default ? 'checked' : ''}
                   onchange="window.handleDefaultVariationChange(this)"
                 >
@@ -578,8 +557,9 @@ export default {
     },
     generateFinishingHtml(finishings = []) {
       if (!finishings || finishings.length === 0) {
-        return '<div class="text-gray-600 text-sm italic">Belum ada finishing yang.</div>'
+        return '<div class="text-gray-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
       }
+
       return finishings.map((fin, index) => this.generateFinishingBox(fin, index)).join('')
     },
     generateFinishingBox(
@@ -593,29 +573,31 @@ export default {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-4 sm:gap-3">
-            <div class="col-span-1">
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-12 sm:gap-3">
+            <div class="col-span-1 sm:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Nama Finishing</label>
               <input
                 type="text"
-                class="finishing-name w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                class="finishing-name w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Contoh: Matte Black"
                 value="${finishing.name || ''}"
               >
             </div>
-            <div class="col-span-1">
+            <div class="col-span-1 sm:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Harga Tambahan (Rp)</label>
               <input
                 type="number"
-                class="finishing-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                class="finishing-price w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="0"
                 value="${finishing.price || ''}"
               >
             </div>
-            <div class="col-span-1">
+            <div class="col-span-1 sm:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Kode Warna</label>
               <input
                 type="text"
-                class="finishing-color-code w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                class="finishing-color-code w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Contoh: #000000"
                 value="${finishing.color_code || '#000000'}"
               >
             </div>
@@ -625,64 +607,77 @@ export default {
     },
     generateImagesHtml(images = []) {
       if (!images || images.length === 0) {
-        return '<div class="text-gray-600 text-sm italic">Belum ada gambar.</div>'
+        return '<div class="text-gray-600 text-sm italic">Belum ada gambar. Klik tombol "Tambah Gambar" untuk menambahkan.</div>'
       }
+
       return images.map((image, index) => this.generateImageBox(image, index)).join('')
     },
     generateImageBox(image = { id: null, image_url: 'https://placehold.co/1000x1000' }, index) {
       return `
-        <div class="image-box bg-white shadow-sm border border-blue-100 rounded-lg p-3 mb-3" data-index="${index}" data-id="${image.id || ''}">
+        <div class="image-box bg-white shadow-sm border border-red-100 rounded-lg p-3 mb-3" data-index="${index}" data-id="${image.id || ''}">
           <div class="close-btn">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <div class="flex items-center gap-4">
-            <img
-              src="${image.image_url || 'https://placehold.co/1000x1000'}"
-              alt="Image Preview ${index + 1}"
-              class="w-20 h-20 object-cover rounded"
-            />
-            <input
-              type="file"
-              class="image-file w-full text-sm p-2 border rounded-lg focus:ring-blue-500"
-              accept="image/*"
-            >
+          <div class="grid grid-cols-1 gap-2">
+            <div class="col-span-1 flex items-center gap-4">
+              <img
+                src="${image.image_url}"
+                alt="Image Preview ${index + 1}"
+                class="w-20 h-20 object-cover rounded-lg"
+                onerror="this.src='https://placehold.co/1000x1000'"
+              >
+              <input
+                type="file"
+                class="image-file w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                accept="image/*"
+              >
+            </div>
           </div>
         </div>
       `
     },
     setupVariationAndFinishingButtons() {
       window.handleDefaultVariationChange = this.handleDefaultVariationChange
+
       const addVariationBtn = document.getElementById('addVariationBtn')
       if (addVariationBtn) {
         addVariationBtn.addEventListener('click', () => {
           const container = document.getElementById('variationsContainer')
           const variationsCount = container.querySelectorAll('.variation-box').length
+
           if (variationsCount === 0) {
             container.innerHTML = ''
           }
+
           const newBox = document.createElement('div')
           const isDefault = variationsCount === 0
           newBox.innerHTML = this.generateVariationBox({ is_default: isDefault }, variationsCount)
           container.appendChild(newBox.firstElementChild)
+
           this.setupCloseButtons()
         })
       }
+
       const addFinishingBtn = document.getElementById('addFinishingBtn')
       if (addFinishingBtn) {
         addFinishingBtn.addEventListener('click', () => {
           const container = document.getElementById('finishingContainer')
           const finishingCount = container.querySelectorAll('.finishing-box').length
+
           if (finishingCount === 0) {
             container.innerHTML = ''
           }
+
           const newBox = document.createElement('div')
           newBox.innerHTML = this.generateFinishingBox({}, finishingCount)
           container.appendChild(newBox.firstElementChild)
+
           this.setupCloseButtons()
         })
       }
+
       this.setupCloseButtons()
     },
     setupImageButtons() {
@@ -691,16 +686,19 @@ export default {
         addImageBtn.addEventListener('click', () => {
           const container = document.getElementById('imagesContainer')
           const imagesCount = container.querySelectorAll('.image-box').length
+
           if (imagesCount === 0) {
             container.innerHTML = ''
           }
+
           const newBox = document.createElement('div')
           newBox.innerHTML = this.generateImageBox({}, imagesCount)
           container.appendChild(newBox.firstElementChild)
-          this.setupImagePreviews()
+
           this.setupCloseButtons()
         })
       }
+
       this.setupImagePreviews()
     },
     setupThumbnailPreview() {
@@ -709,13 +707,56 @@ export default {
       if (thumbnailInput && thumbnailPreview) {
         thumbnailInput.addEventListener('change', (event) => {
           const file = event.target.files[0]
+          console.log('Thumbnail Input Changed:', {
+            file: file ? { name: file.name, size: file.size, type: file.type } : null,
+          })
           if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+              Swal.fire({
+                title: 'Error!',
+                text: 'Ukuran thumbnail tidak boleh melebihi 2MB',
+                icon: 'error',
+                timer: 1500,
+                showConfirmButton: false,
+              })
+              thumbnailInput.value = ''
+              this.thumbnailFile = null
+              this.thumbnailPreviewUrl = 'https://placehold.co/1000x1000'
+              thumbnailPreview.src = this.thumbnailPreviewUrl
+              return
+            }
+            if (!['image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
+              Swal.fire({
+                title: 'Error!',
+                text: 'Hanya file JPEG, PNG, atau JPG yang diizinkan',
+                icon: 'error',
+                timer: 1500,
+                showConfirmButton: false,
+              })
+              thumbnailInput.value = ''
+              this.thumbnailFile = null
+              this.thumbnailPreviewUrl = 'https://placehold.co/1000x1000'
+              thumbnailPreview.src = this.thumbnailPreviewUrl
+              return
+            }
+            this.thumbnailFile = file
             const reader = new FileReader()
             reader.onload = (e) => {
+              this.thumbnailPreviewUrl = e.target.result
               thumbnailPreview.src = e.target.result
+              console.log('Thumbnail Preview Updated:', e.target.result.substring(0, 50))
             }
             reader.readAsDataURL(file)
+          } else {
+            this.thumbnailFile = null
+            this.thumbnailPreviewUrl = productForm.thumbnail_url || 'https://placehold.co/1000x1000'
+            thumbnailPreview.src = this.thumbnailPreviewUrl
           }
+        })
+      } else {
+        console.error('Thumbnail Input or Preview Element Missing:', {
+          thumbnailInput: !!thumbnailInput,
+          thumbnailPreview: !!thumbnailPreview,
         })
       }
     },
@@ -724,12 +765,16 @@ export default {
       imageInputs.forEach((input, index) => {
         input.addEventListener('change', (event) => {
           const file = event.target.files[0]
+          console.log(`Image Input ${index + 1} Changed:`, {
+            file: file ? { name: file.name, size: file.size, type: file.type } : null,
+          }) // Debug: Detailed image info
           if (file) {
             const reader = new FileReader()
             reader.onload = (e) => {
               const imgElement = input.parentElement.querySelector('img')
               if (imgElement) {
                 imgElement.src = e.target.result
+                console.log(`Image Preview ${index + 1} Updated:`, e.target.result.substring(0, 50)) // Debug
               }
             }
             reader.readAsDataURL(file)
@@ -738,58 +783,66 @@ export default {
       })
     },
     setupCloseButtons() {
-      console.log('Setup close buttons') // Debug
       document.querySelectorAll('.close-btn').forEach((btn) => {
-        btn.removeEventListener('click', this.handleCloseButtonClick)
-        btn.addEventListener('click', this.handleCloseButtonClick.bind(this))
-      })
-    },
-    handleCloseButtonClick(e) {
-      console.log('Close button clicked') // Debug
-      const box = e.target.closest('.variation-box, .finishing-box, .image-box')
-      if (box) {
-        const isDefault = box.querySelector('.variation-default')?.checked
-        const boxId = box.dataset.id ? parseInt(box.dataset.id) : null
-        if (box.classList.contains('variation-box') && boxId) {
-          this.deletedVariants.push(boxId)
-        }
-        if (box.classList.contains('finishing-box') && boxId) {
-          this.deletedFinishings.push(boxId)
-        }
-        if (box.classList.contains('image-box') && boxId) {
-          this.imageVariants.push(boxId)
-        }
-        if (isDefault) {
-          const otherVariations = document.querySelectorAll('.variation-box:not(.finishing-box)')
-          if (otherVariations.length > 1) {
-            for (let i = 0; i < otherVariations.length; i++) {
-              if (otherVariations[i] !== box) {
-                otherVariations[i].querySelector('.variation-default').value = true
-                break
+        btn.addEventListener('click', (e) => {
+          const box = e.target.closest('.variation-box, .finishing-box, .image-box')
+          if (box) {
+            console.log('Removing Box:', {
+              type: box.classList.contains('variation-box')
+                ? 'variation'
+                : box.classList.contains('finishing-box')
+                  ? 'finishing'
+                  : 'image',
+              id: box.dataset.id || 'new',
+              index: box.dataset.index,
+            }) // Debug: Log removed box details
+            const isDefault = box.querySelector('.variation-default')?.checked
+            if (isDefault) {
+              const otherVariations = document.querySelectorAll(
+                '.variation-box:not(.finishing-box)',
+              )
+              if (otherVariations.length > 1) {
+                for (let i = 0; i < otherVariations.length; i++) {
+                  if (otherVariations[i] !== box) {
+                    otherVariations[i].querySelector('.variation-default').checked = true
+                    console.log('Set New Default Variation:', {
+                      id: otherVariations[i].dataset.id,
+                      index: otherVariations[i].dataset.index,
+                    }) // Debug
+                    break
+                  }
+                }
               }
             }
+
+            box.remove()
+
+            const varContainer = document.getElementById('variationsContainer')
+            if (varContainer && varContainer.children.length === 0) {
+              varContainer.innerHTML =
+                '<div class="text-gray-600 text-sm italic">Belum ada variasi. Klik tombol "Tambah Variasi" untuk menambahkan.</div>'
+            }
+
+            const finContainer = document.getElementById('finishingContainer')
+            if (finContainer && finContainer.children.length === 0) {
+              finContainer.innerHTML =
+                '<div class="text-gray-600 text-sm italic">Belum ada finishing. Klik tombol "Tambah Finishing" untuk menambahkan.</div>'
+            }
+
+            const imgContainer = document.getElementById('imagesContainer')
+            if (imgContainer && imgContainer.children.length === 0) {
+              imgContainer.innerHTML =
+                '<div class="text-gray-600 text-sm italic">Belum ada gambar. Klik tombol "Tambah Gambar" untuk menambahkan.</div>'
+            }
           }
-        }
-        box.remove()
-        const varContainer = document.getElementById('variationsContainer')
-        if (varContainer && varContainer.children.length === 0) {
-          varContainer.innerHTML =
-            '<div class="text-gray-500 text-sm italic">Belum ada variasi yang ada.</div>'
-        }
-        const finContainer = document.getElementById('finishingContainer')
-        if (finContainer && finContainer.children.length === 0) {
-          finContainer.innerHTML =
-            '<div class="text-gray-500 text-sm italic">Belum ada finishing yang ada.</div>'
-        }
-        const imgContainer = document.getElementById('imagesContainer')
-        if (imgContainer && imgContainer.children.length === 0) {
-          imgContainer.innerHTML =
-            '<div class="text-gray-500 text-sm italic">Belum ada gambar yang ada.</div>'
-        }
-      }
+        })
+      })
     },
     handleDefaultVariationChange(radio) {
-      console.log('Default variation changed') // Debug
+      console.log('Default Variation Changed:', {
+        checked: radio.checked,
+        id: radio.closest('.variation-box')?.dataset.id || 'new',
+      }) // Debug: Log radio change
       const allRadios = document.querySelectorAll('.variation-default')
       allRadios.forEach((r) => {
         if (r !== radio) r.checked = false
@@ -804,74 +857,89 @@ export default {
 .finishing-box,
 .image-box {
   position: relative;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
+
 .variation-box:hover,
 .finishing-box:hover,
 .image-box:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
+
 .close-btn {
   position: absolute;
   top: 0.5rem;
-  right: 0.25rem;
+  right: 0.5rem;
   cursor: pointer;
-  color: #666;
-  background-color: #eee;
+  color: #6b7280;
+  background-color: #f3f4f6;
   border-radius: 50%;
-  padding: 0.2rem;
+  padding: 0.25rem;
   width: 1.5rem;
   height: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s;
 }
+
 .close-btn:hover {
-  color: #f00;
-  background-color: #fee;
+  color: #ef4444;
+  background-color: #fee2e2;
   transform: scale(1.1);
 }
+
 .variations-container::-webkit-scrollbar,
 .finishing-container::-webkit-scrollbar,
 .images-container::-webkit-scrollbar {
   width: 6px;
 }
+
 .variations-container::-webkit-scrollbar-track,
 .finishing-container::-webkit-scrollbar-track,
 .images-container::-webkit-scrollbar-track {
   background: #f1f1f1;
-  border-radius: 2px;
+  border-radius: 10px;
 }
+
 .variations-container::-webkit-scrollbar-thumb {
-  background: #f00;
-  border-radius: 2px;
+  background: #dc2626;
+  border-radius: 10px;
 }
+
 .finishing-container::-webkit-scrollbar-thumb {
-  background: #00f;
-  border-radius: 2px;
+  background: #3b82f6;
+  border-radius: 10px;
 }
+
 .images-container::-webkit-scrollbar-thumb {
-  background: #f00;
-  border-radius: 2px;
+  background: #dc2626;
+  border-radius: 10px;
 }
+
 .variations-container::-webkit-scrollbar-thumb:hover {
-  background: #c00;
+  background: #b91c1c;
 }
+
 .finishing-container::-webkit-scrollbar-thumb:hover {
-  background: #00c;
+  background: #2563eb;
 }
-.images-container::-webkit-scrollbar-thumb {
-  background: #c00;
+
+.images-container::-webkit-scrollbar-thumb:hover {
+  background: #b91c1c;
 }
+
 .form-compact input,
 .form-compact select,
 .form-compact textarea {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   padding: 0.5rem;
 }
+
 .form-compact label {
   font-size: 0.75rem;
   margin-bottom: 0.25rem;
 }
 </style>
-```
