@@ -314,6 +314,8 @@ export default {
                     customClass: {
                       confirmButton: 'bg-red-600 text-white py-2 px-4 rounded-md',
                     },
+                  }).then(() => {
+                    window.location.reload() // reload halaman setelah alert ditutup
                   })
                 }
               })
