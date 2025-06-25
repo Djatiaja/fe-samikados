@@ -91,7 +91,7 @@
                   : 'bg-red-500 hover:bg-red-600',
               ]"
               :value="product.status"
-              @change="$emit('change-status', product, $event.target.value)"
+              @change="handleStatusChange($event, product)"
               id="product-status"
             >
               <option value="active">Aktif</option>
@@ -146,6 +146,16 @@ export default {
     },
   },
   emits: ['preview-image', 'change-status', 'edit-product', 'delete-product'],
+  methods: {
+    handleStatusChange(event, product) {
+      console.log('ProductTable Change Status:', {
+        id: product?.id,
+        name: product?.name,
+        newStatus: event.target.value,
+      })
+      this.$emit('change-status', product, event.target.value)
+    },
+  },
 }
 </script>
 
@@ -167,15 +177,5 @@ img {
 
 img:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* Table row hover effect */
-tbody tr:hover {
-  background-color: #f9fafb;
-}
-
-/* Action buttons styling */
-button:focus {
-  outline: none;
 }
 </style>

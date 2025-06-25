@@ -1,4 +1,3 @@
-```vue
 <template>
   <div class="flex flex-col min-h-screen">
     <div
@@ -542,6 +541,22 @@ export default {
       this.$refs.confirmDeleteModal.open(product)
     },
     handleStatusChange(product, newStatus) {
+      console.log('Status Change Triggered:', {
+        id: product?.id,
+        name: product?.name,
+        newStatus,
+      })
+      if (!product || !product.id) {
+        console.error('Invalid product in handleStatusChange:', product)
+        Swal.fire({
+          title: 'Error!',
+          text: 'Produk tidak valid',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+        return
+      }
       this.currentProduct = product
       this.$refs.confirmStatusModal.open(product, newStatus)
     },
@@ -954,26 +969,144 @@ export default {
         this.currentProduct = null
       }
     },
-    async handleConfirmStatusChange(product, newStatus) {
+    async handleConfirmStatusChange(newStatus) {
+      if (!this.currentProduct || !this.currentProduct.id) {
+        Swal.fire({
+          title: 'Error!',
+          text: 'Produk tidak ditemukan atau ID tidak valid',
+          icon: 'error',
+          timer: 1500,
+          showConfirmButton: false,
+        })
+        return
+      }
+
       this.isLoading = true
       try {
         const token = localStorage.getItem('token')
         if (!token) {
           throw new Error('Authentication token is missing')
         }
+
+        // Ambil data produk asli dari this.products
+        const originalProduct = this.products.find((p) => p.id === this.currentProduct.id)
+        if (!originalProduct) {
+          throw new Error('Produk asli tidak ditemukan di state')
+        }
+
+        console.log('Original Product:', JSON.stringify(originalProduct, null, 2))
+
         const formData = new FormData()
-        formData.append('is_publish', newStatus === 'active' ? 1 : 0)
-        await axios.post(
-          `${import.meta.env.VITE_API_BASE_URL}/seller/products/${product.id}/status`,
+
+        // Data produk
+        formData.append('product[id]', this.currentProduct.id)
+        formData.append('product[name]', originalProduct.name?.trim() || '')
+        formData.append('product[description]', originalProduct.description?.trim() || '')
+        formData.append('product[unit]', originalProduct.unit || 'pack')
+        formData.append('product[is_publish]', newStatus === 'active' ? 1 : 0)
+        formData.append('product[category_id]', originalProduct.category_id || '')
+
+        // Varian
+        const originalVariants = originalProduct.variations || []
+        if (originalVariants.length === 0) {
+          throw new Error('Produk harus memiliki minimal satu varian')
+        }
+
+        originalVariants.forEach((variant, index) => {
+          formData.append(`variants[update][${index}][id]`, variant.id)
+          formData.append(`variants[update][${index}][name]`, variant.name?.trim() || '')
+          formData.append(`variants[update][${index}][price]`, parseFloat(variant.price) || 0)
+          formData.append(`variants[update][${index}][weight]`, parseFloat(variant.weight) || 0)
+          formData.append(`variants[update][${index}][stock]`, parseInt(variant.stock) || 0)
+          formData.append(`variants[update][${index}][min_qty]`, parseInt(variant.min_qty) || 1)
+          formData.append(`variants[update][${index}][is_default]`, variant.is_default ? 1 : 0)
+        })
+
+        // Finishing
+        const originalFinishings = originalProduct.additionalOptions || []
+        originalFinishings.forEach((finishing, index) => {
+          formData.append(`finishings[update][${index}][id]`, finishing.id)
+          formData.append(`finishings[update][${index}][name]`, finishing.name?.trim() || '')
+          formData.append(`finishings[update][${index}][price]`, parseFloat(finishing.price) || 0)
+          if (finishing.color_code) {
+            formData.append(`finishings[update][${index}][color_code]`, finishing.color_code)
+          }
+        })
+
+        // Gambar
+        const originalImages = originalProduct.images || []
+        originalImages.forEach((img, index) => {
+          formData.append(`images[update][${index}][id]`, img.id)
+          formData.append(`images[update][${index}][is_primary]`, img.is_primary ? 1 : 0)
+          formData.append(`images[update][${index}][sort_order]`, img.sort_order || index + 1)
+        })
+
+        // Debug: Log FormData
+        console.log('Update Status FormData:')
+        for (const [key, value] of formData.entries()) {
+          console.log(`${key}: ${value}`)
+        }
+
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/update/bulk`,
           formData,
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data',
+            },
           },
         )
+
+        console.log('API Response:', JSON.stringify(response.data, null, 2))
+
+        // Update state lokal
+        const index = this.products.findIndex((p) => p.id === this.currentProduct.id)
+        if (index !== -1) {
+          this.products.splice(index, 1, {
+            ...response.data.data.product,
+            category: this.getCategoryName(response.data.data.product.category_id),
+            category_id: response.data.data.product.category_id,
+            status: response.data.data.product.is_publish ? 'active' : 'inactive',
+            stock_total: parseInt(response.data.data.product.stock_total) || 0,
+            unit: response.data.data.product.unit || 'pack',
+            weight: parseFloat(response.data.data.product.weight) || 0,
+            thumbnail_url:
+              response.data.data.product.thumbnail_url || 'https://placehold.co/1000x1000',
+            images:
+              response.data.data.images?.map((img) => ({
+                id: img.id,
+                image_url: img.image_url,
+                alt_text: img.alt_text,
+                is_primary: img.is_primary,
+                sort_order: img.sort_order,
+              })) || [],
+            variant_count: response.data.data.variants?.length || 0,
+            finishing_count: response.data.data.finishings?.length || 0,
+            variations:
+              response.data.data.variants?.map((v) => ({
+                id: v.id,
+                name: v.name,
+                price: parseFloat(v.price) || 0,
+                stock: parseInt(v.stock) || 0,
+                weight: parseFloat(v.weight) || 0,
+                min_qty: parseInt(v.min_qty) || 1,
+                is_default: v.is_default || 0,
+              })) || [],
+            additionalOptions:
+              response.data.data.finishings?.map((f) => ({
+                id: f.id,
+                name: f.finishing?.name || f.name,
+                price: parseFloat(f.price) || 0,
+                color_code: f.finishing?.color_code || f.color_code || '#000000',
+              })) || [],
+          })
+        }
+
         this.showSuccessMessage(
           `Produk berhasil di${newStatus === 'active' ? 'aktifkan' : 'nonaktifkan'}`,
         )
-        this.fetchProducts()
+        this.currentProduct = null // Reset setelah selesai
       } catch (error) {
         console.error('Error changing status:', error.response?.data || error.message)
         Swal.fire({
