@@ -25,6 +25,7 @@ const routes = [
   { path: '/register', component: Register },
   { path: '/verification', component: VerificationEmail },
   { path: '/login', component: Login },
+  { path: '/auth/seller/callback', component: Login, meta: { requiresGuest: true } },
   { path: '/forgot-password', component: ForgotPassword },
   { path: '/otp-password', component: OtpPage },
   { path: '/reset-password', component: ResetPassword },
