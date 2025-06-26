@@ -650,7 +650,7 @@ export default {
         // Thumbnail
         if (updatedProduct.thumbnail instanceof File) {
           console.log('Thumbnail:', updatedProduct.thumbnail.name, updatedProduct.thumbnail.type)
-          formData.append('thumbnail', updatedProduct.thumbnail)
+          formData.append('product[thumbnail]', updatedProduct.thumbnail)
         } else {
           console.log('No new thumbnail provided')
         }

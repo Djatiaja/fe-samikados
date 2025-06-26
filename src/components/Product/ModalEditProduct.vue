@@ -423,22 +423,50 @@ export default {
             reader.onload = (e) => {
               this.thumbnailPreviewUrl = e.target.result
               thumbnailPreview.src = e.target.result
-              Swal.fire({
-                title: 'Berhasil!',
-                text: 'Thumbnail berhasil dipilih',
-                icon: 'success',
-                timer: 1000,
-                showConfirmButton: false,
-              })
             }
             reader.readAsDataURL(file)
           } else {
             this.thumbnailFile = null
-            this.thumbnailPreviewUrl = productForm.thumbnail_url || 'https://placehold.co/1000x1000'
+            this.thumbnailPreviewUrl = 'https://placehold.co/1000x1000'
             thumbnailPreview.src = this.thumbnailPreviewUrl
           }
         })
       }
+    },
+    didOpen: () => {
+      this.setupVariationAndFinishingButtons()
+      this.setupImageButtons()
+      this.setupThumbnailPreview()
+      const modalContent = document.querySelector('.swal2-content')
+      if (modalContent) {
+        modalContent.style.maxHeight = '70vh'
+        modalContent.style.overflowY = 'auto'
+        modalContent.style.overflowX = 'hidden'
+      }
+      const productForm = document.getElementById('productForm')
+      if (productForm) {
+        productForm.addEventListener('submit', (e) => {
+          e.preventDefault()
+        })
+      }
+      const styleElement = document.createElement('style')
+      styleElement.textContent = `
+    .swal2-content::-webkit-scrollbar {
+      width: 6px;
+    }
+    .swal2-content::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    .swal2-content::-webkit-scrollbar-thumb {
+      background: #dc2626;
+      border-radius: 10px;
+    }
+    .swal2-content::-webkit-scrollbar-thumb:hover {
+      background: #b91c1c;
+    }
+  `
+      document.head.appendChild(styleElement)
     },
     generateVariationsHtml(variations = []) {
       if (!variations || variations.length === 0) {
@@ -772,7 +800,7 @@ export default {
             updatedProduct.thumbnail.name,
             updatedProduct.thumbnail.size,
           )
-          formData.append('thumbnail', updatedProduct.thumbnail)
+          formData.append('product[thumbnail]', updatedProduct.thumbnail)
         } else {
           console.log('No new thumbnail provided')
         }
