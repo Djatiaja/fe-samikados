@@ -649,10 +649,10 @@ export default {
         )
         // Thumbnail
         if (updatedProduct.thumbnail instanceof File) {
-          console.log('Thumbnail:', updatedProduct.thumbnail.name, updatedProduct.thumbnail.type) // Debug thumbnail
+          console.log('Thumbnail:', updatedProduct.thumbnail.name, updatedProduct.thumbnail.type)
           formData.append('thumbnail', updatedProduct.thumbnail)
         } else {
-          console.log('No new thumbnail provided') // Debug no thumbnail
+          console.log('No new thumbnail provided')
         }
         // Variants
         const originalVariants = originalProduct.variations || []
@@ -754,9 +754,9 @@ export default {
         // Images
         const originalImages = originalProduct.images || []
         const newImages = updatedProduct.images || []
-        // Add new images
+        // Add new images (only those without an id)
         newImages
-          .filter((img) => img.file instanceof File)
+          .filter((img) => !img.id && img.file instanceof File)
           .forEach((image, index) => {
             formData.append(`images[add][${index}][image]`, image.file)
             formData.append(
@@ -766,7 +766,7 @@ export default {
             formData.append(`images[add][${index}][is_primary]`, image.is_primary ? 1 : 0)
             formData.append(`images[add][${index}][sort_order]`, image.sort_order || index + 1)
           })
-        // Update existing images
+        // Update existing images (including those with a new file)
         newImages
           .filter((img) => img.id)
           .forEach((img, index) => {
@@ -849,7 +849,7 @@ export default {
           this.showSuccessMessage('Produk berhasil diperbarui')
         }
       } catch (error) {
-        console.error('Update Product Error:', error.response?.data) // Debug logging
+        console.error('Update Product Error:', error.response?.data)
         Swal.fire({
           title: 'Error!',
           text: error.response?.data?.message || error.message || 'Gagal memperbarui produk',
