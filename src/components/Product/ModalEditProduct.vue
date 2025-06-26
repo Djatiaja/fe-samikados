@@ -423,6 +423,13 @@ export default {
             reader.onload = (e) => {
               this.thumbnailPreviewUrl = e.target.result
               thumbnailPreview.src = e.target.result
+              Swal.fire({
+                title: 'Berhasil!',
+                text: 'Thumbnail berhasil dipilih',
+                icon: 'success',
+                timer: 1000,
+                showConfirmButton: false,
+              })
             }
             reader.readAsDataURL(file)
           } else {
