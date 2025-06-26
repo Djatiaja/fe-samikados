@@ -1,3 +1,4 @@
+```vue
 <template>
   <div></div>
 </template>
@@ -12,6 +13,12 @@ export default {
       type: Array,
       default: () => [],
     },
+  },
+  data() {
+    return {
+      thumbnailFile: null,
+      thumbnailPreviewUrl: 'https://placehold.co/1000x1000',
+    }
   },
   methods: {
     open(product) {
@@ -41,7 +48,7 @@ export default {
       }
 
       this.thumbnailFile = null
-      this.thumbnailPreviewUrl = productForm.thumbnail_url
+      this.thumbnailPreviewUrl = productForm.thumbnail_url + `?t=${new Date().getTime()}`
 
       this.showProductModal('Edit Produk', productForm)
     },
@@ -109,7 +116,7 @@ export default {
               <div class="flex items-center gap-4">
                 <img
                   id="thumbnailPreview"
-                  :src="thumbnailPreviewUrl"
+                  src="${this.thumbnailPreviewUrl}"
                   alt="Thumbnail Preview"
                   class="w-20 h-20 object-cover rounded-lg"
                   onerror="this.src='https://placehold.co/1000x1000'"
@@ -250,8 +257,7 @@ export default {
           const description = document.getElementById('description').value
           const unit = document.getElementById('unit').value
           const is_publish = parseInt(document.getElementById('is_publish').value)
-          const thumbnailInput = document.getElementById('thumbnail')
-          const thumbnail = this.thumbnailFile // Gunakan state thumbnailFile
+          const thumbnail = this.thumbnailFile
 
           if (thumbnail) {
             if (thumbnail.size > 2 * 1024 * 1024) {
@@ -289,7 +295,6 @@ export default {
           let hasStock = false
           let hasDefaultVariation = false
           let invalidWeight = false
-          let invalidMinQty = false
 
           if (variationBoxes.length === 0) {
             Swal.showValidationMessage('Produk harus memiliki minimal satu variasi')
@@ -302,19 +307,18 @@ export default {
             const priceInput = box.querySelector('.variation-price')
             const stockInput = box.querySelector('.variation-stock')
             const weightInput = box.querySelector('.variation-weight')
-            const minQtyInput = box.querySelector('.variation-min-qty')
             const isDefault = box.querySelector('.variation-default')?.checked
             const id = box.dataset.id ? parseInt(box.dataset.id) : null
 
             if (nameInput && nameInput.value) {
               const stock = parseInt(stockInput.value) || 0
               const weight = parseFloat(weightInput.value) || 0
-              const minQty = parseInt(minQtyInput.value) || 1
 
               if (stock > 0) hasStock = true
               if (isDefault) hasDefaultVariation = true
               if (weight <= 0) invalidWeight = true
-              if (minQty <= 0) invalidMinQty = true
+
+              console.log(`Variation ${nameInput.value} is_default: ${isDefault ? 1 : 0}`) // Debug log
 
               variations.push({
                 id: id,
@@ -322,7 +326,6 @@ export default {
                 price: parseFloat(priceInput.value) || 0,
                 stock: stock,
                 weight: weight,
-                min_qty: minQty,
                 is_default: isDefault ? 1 : 0,
               })
             }
@@ -340,11 +343,6 @@ export default {
 
           if (invalidWeight) {
             Swal.showValidationMessage('Berat produk harus lebih dari 0 pada setiap variasi')
-            return false
-          }
-
-          if (invalidMinQty) {
-            Swal.showValidationMessage('Jumlah minimum harus lebih dari 0 pada setiap variasi')
             return false
           }
 
@@ -391,7 +389,6 @@ export default {
       if (thumbnailInput && thumbnailPreview) {
         thumbnailInput.addEventListener('change', (event) => {
           const file = event.target.files[0]
-
           if (file) {
             if (file.size > 2 * 1024 * 1024) {
               Swal.fire({
@@ -426,6 +423,13 @@ export default {
             reader.onload = (e) => {
               this.thumbnailPreviewUrl = e.target.result
               thumbnailPreview.src = e.target.result
+              Swal.fire({
+                title: 'Berhasil!',
+                text: 'Thumbnail berhasil dipilih',
+                icon: 'success',
+                timer: 1000,
+                showConfirmButton: false,
+              })
             }
             reader.readAsDataURL(file)
           } else {
@@ -452,7 +456,6 @@ export default {
         price: 0,
         stock: 0,
         weight: 0,
-        min_qty: 1,
         is_default: false,
       },
       index,
@@ -464,7 +467,7 @@ export default {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <div class="grid grid-cols-2 gap-2 sm:grid-cols-12 sm:gap-3">
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-10 sm:gap-3">
             <div class="col-span-2 sm:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Nama Variasi</label>
               <input
@@ -499,15 +502,6 @@ export default {
                 class="variation-weight w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 placeholder="0"
                 value="${variation.weight || 0}"
-              >
-            </div>
-            <div class="col-span-1 sm:col-span-2">
-              <label class="block text-gray-700 text-xs mb-1">Jumlah Minimum</label>
-              <input
-                type="number"
-                class="variation-min-qty w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="1"
-                value="${variation.min_qty || 1}"
               >
             </div>
             <div class="col-span-2 sm:col-span-2 flex items-end pb-2">
@@ -610,7 +604,16 @@ export default {
       `
     },
     setupVariationAndFinishingButtons() {
-      window.handleDefaultVariationChange = this.handleDefaultVariationChange
+      window.handleDefaultVariationChange = (radio) => {
+        const allRadios = document.querySelectorAll('.variation-default')
+        allRadios.forEach((r) => {
+          if (r !== radio) r.checked = false
+        })
+        console.log(
+          'Default changed to:',
+          radio.closest('.variation-box').querySelector('.variation-name').value,
+        )
+      }
 
       const addVariationBtn = document.getElementById('addVariationBtn')
       if (addVariationBtn) {
@@ -628,6 +631,10 @@ export default {
           container.appendChild(newBox.firstElementChild)
 
           this.setupCloseButtons()
+
+          document.querySelectorAll('.variation-default').forEach((radio) => {
+            radio.addEventListener('change', () => window.handleDefaultVariationChange(radio))
+          })
         })
       }
 
@@ -677,7 +684,6 @@ export default {
       imageInputs.forEach((input, index) => {
         input.addEventListener('change', (event) => {
           const file = event.target.files[0]
-
           if (file) {
             const reader = new FileReader()
             reader.onload = (e) => {
@@ -705,7 +711,6 @@ export default {
                 for (let i = 0; i < otherVariations.length; i++) {
                   if (otherVariations[i] !== box) {
                     otherVariations[i].querySelector('.variation-default').checked = true
-
                     break
                   }
                 }
@@ -735,11 +740,261 @@ export default {
         })
       })
     },
-    handleDefaultVariationChange(radio) {
-      const allRadios = document.querySelectorAll('.variation-default')
-      allRadios.forEach((r) => {
-        if (r !== radio) r.checked = false
+    async handleUpdateProduct(updatedProduct) {
+      this.isLoading = true
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+        const originalProduct = this.products.find((p) => p.id === updatedProduct.id)
+        if (!originalProduct) {
+          throw new Error('Original product not found')
+        }
+        const formData = new FormData()
+        // Product data
+        formData.append('product[id]', updatedProduct.id)
+        formData.append('product[name]', updatedProduct.name?.trim() || originalProduct.name)
+        formData.append(
+          'product[description]',
+          updatedProduct.description?.trim() || originalProduct.description,
+        )
+        formData.append('product[unit]', updatedProduct.unit || originalProduct.unit || 'pack')
+        formData.append('product[is_publish]', updatedProduct.status === 'active' ? 1 : 0)
+        formData.append(
+          'product[category_id]',
+          updatedProduct.category_id || originalProduct.category_id,
+        )
+        // Thumbnail
+        if (updatedProduct.thumbnail instanceof File) {
+          console.log(
+            'Appending thumbnail:',
+            updatedProduct.thumbnail.name,
+            updatedProduct.thumbnail.size,
+          )
+          formData.append('thumbnail', updatedProduct.thumbnail)
+        } else {
+          console.log('No new thumbnail provided')
+        }
+        // Variants
+        const originalVariants = originalProduct.variations || []
+        const updatedVariants = updatedProduct.variations || []
+        // Validate exactly one default variant
+        const defaultVariants = updatedVariants.filter((v) => v.is_default)
+        if (defaultVariants.length !== 1) {
+          throw new Error('Exactly one variant must be set as default')
+        }
+        // Add new variants
+        updatedVariants
+          .filter((v) => !v.id)
+          .forEach((variant, index) => {
+            formData.append(`variants[add][${index}][name]`, variant.name?.trim() || '')
+            formData.append(`variants[add][${index}][price]`, parseFloat(variant.price) || 0)
+            formData.append(`variants[add][${index}][weight]`, parseFloat(variant.weight) || 0)
+            formData.append(`variants[add][${index}][stock]`, parseInt(variant.stock) || 0)
+            formData.append(`variants[add][${index}][is_default]`, variant.is_default ? 1 : 0)
+            console.log(`Adding variant ${index}: is_default=${variant.is_default ? 1 : 0}`)
+          })
+        // Update existing variants
+        updatedVariants
+          .filter((variant) => variant.id)
+          .forEach((variant, index) => {
+            const originalVariant = originalVariants.find((v) => v.id === variant.id) || {}
+            formData.append(`variants[update][${index}][id]`, variant.id)
+            formData.append(
+              `variants[update][${index}][name]`,
+              variant.name?.trim() || originalVariant.name || '',
+            )
+            formData.append(
+              `variants[update][${index}][price]`,
+              parseFloat(variant.price) || originalVariant.price || 0,
+            )
+            formData.append(
+              `variants[update][${index}][weight]`,
+              parseFloat(variant.weight) || originalVariant.weight || 0,
+            )
+            formData.append(
+              `variants[update][${index}][stock]`,
+              parseInt(variant.stock) || originalVariant.stock || 0,
+            )
+            formData.append(`variants[update][${index}][is_default]`, variant.is_default ? 1 : 0)
+            console.log(`Updating variant ${index}: is_default=${variant.is_default ? 1 : 0}`)
+          })
+        // Delete variants
+        const deletedVariantIds = originalVariants
+          .filter((original) => !updatedVariants.some((v) => v.id === original.id))
+          .map((variant) => variant.id)
+        deletedVariantIds.forEach((id) => {
+          formData.append('variants[delete][]', id)
+        })
+        // Finishings
+        const originalFinishings = originalProduct.additionalOptions || []
+        const updatedFinishings = updatedProduct.product_finishing || []
+        // Add new finishings
+        updatedFinishings
+          .filter((f) => !f.id)
+          .forEach((finishing, index) => {
+            if (finishing.name) {
+              formData.append(`finishings[add][${index}][name]`, finishing.name?.trim())
+              formData.append(`finishings[add][${index}][price]`, parseFloat(finishing.price) || 0)
+              if (finishing.color_code) {
+                formData.append(`finishings[add][${index}][color_code]`, finishing.color_code)
+              }
+            }
+          })
+        // Update existing finishings
+        updatedFinishings
+          .filter((finishing) => finishing.id)
+          .forEach((finishing, index) => {
+            const originalFinishing = originalFinishings.find((f) => f.id === finishing.id) || {}
+            formData.append(`finishings[update][${index}][id]`, finishing.id)
+            formData.append(
+              `finishings[update][${index}][name]`,
+              finishing.name?.trim() || originalFinishing.name || '',
+            )
+            formData.append(
+              `finishings[update][${index}][price]`,
+              parseFloat(finishing.price) || originalFinishing.price || 0,
+            )
+            if (finishing.color_code) {
+              formData.append(
+                `finishings[update][${index}][color_code]`,
+                finishing.color_code || originalFinishing.color_code || '#000000',
+              )
+            }
+          })
+        // Delete finishings
+        const deletedFinishingIds = originalFinishings
+          .filter((original) => !updatedFinishings.some((f) => f.id === original.id))
+          .map((finishing) => finishing.id)
+        deletedFinishingIds.forEach((id) => {
+          formData.append('finishings[delete][]', id)
+        })
+        // Images
+        const originalImages = originalProduct.images || []
+        const newImages = updatedProduct.images || []
+        // Add new images
+        newImages
+          .filter((img) => img.file instanceof File)
+          .forEach((image, index) => {
+            formData.append(`images[add][${index}][image]`, image.file)
+            formData.append(
+              `images[add][${index}][alt_text]`,
+              image.alt_text || `Image ${index + 1}`,
+            )
+            formData.append(`images[add][${index}][is_primary]`, image.is_primary ? 1 : 0)
+            formData.append(`images[add][${index}][sort_order]`, image.sort_order || index + 1)
+          })
+        // Update existing images
+        newImages
+          .filter((img) => img.id)
+          .forEach((img, index) => {
+            formData.append(`images[update][${index}][id]`, img.id)
+            formData.append(`images[update][${index}][is_primary]`, img.is_primary ? 1 : 0)
+            formData.append(`images[update][${index}][sort_order]`, img.sort_order || index + 1)
+            if (img.file instanceof File) {
+              formData.append(`images[update][${index}][image]`, img.file)
+            }
+          })
+        // Delete images
+        const deletedImageIds = originalImages
+          .filter((originalImg) => !newImages.some((img) => img.id === originalImg.id))
+          .map((image) => image.id)
+        deletedImageIds.forEach((id) => {
+          formData.append('images[delete][]', id)
+        })
+        // Validation
+        if (!updatedProduct.name || !updatedProduct.description || !updatedProduct.unit) {
+          throw new Error('Nama, deskripsi, dan unit wajib diisi')
+        }
+        if (updatedVariants.length === 0) {
+          throw new Error('Produk harus memiliki minimal satu variasi')
+        }
+        // Debug FormData
+        for (let [key, value] of formData.entries()) {
+          console.log(`${key}: ${value instanceof File ? value.name : value}`)
+        }
+        const response = await axios.post(
+          `${import.meta.env.VITE_API_BASE_URL}/seller/product/update/bulk`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data',
+            },
+          },
+        )
+        console.log('Backend thumbnail_url:', response.data.data.product.thumbnail_url)
+        // Update local state
+        const index = this.products.findIndex((p) => p.id === updatedProduct.id)
+        if (index !== -1) {
+          this.products.splice(index, 1, {
+            ...response.data.data.product,
+            category: this.getCategoryName(response.data.data.product.category_id),
+            category_id: response.data.data.product.category_id,
+            status: response.data.data.product.is_publish ? 'active' : 'inactive',
+            stock_total: parseInt(response.data.data.product.stock_total) || 0,
+            unit: response.data.data.product.unit || 'pack',
+            weight: parseFloat(response.data.data.product.weight) || 0,
+            thumbnail_url:
+              (response.data.data.product.thumbnail_url || 'https://placehold.co/1000x1000') +
+              `?t=${new Date().getTime()}`,
+            images:
+              response.data.data.images?.map((img) => ({
+                id: img.id,
+                image_url: img.image_url,
+                alt_text: img.alt_text,
+                is_primary: img.is_primary,
+                sort_order: img.sort_order,
+              })) || [],
+            variant_count: response.data.data.variants?.length || 0,
+            finishing_count: response.data.data.finishings?.length || 0,
+            variations:
+              response.data.data.variants?.map((v) => ({
+                id: v.id,
+                name: v.name,
+                price: parseFloat(v.price) || 0,
+                stock: parseInt(v.stock) || 0,
+                weight: parseFloat(v.weight) || 0,
+                is_default: v.is_default || 0,
+              })) || [],
+            additionalOptions:
+              response.data.data.finishings?.map((f) => ({
+                id: f.id,
+                name: f.name,
+                price: parseFloat(f.price) || 0,
+                color_code: f.color_code || '#000000',
+              })) || [],
+          })
+          this.showSuccessMessage('Produk berhasil diperbarui')
+        }
+      } catch (error) {
+        console.error('Update Product Error:', error.response?.data)
+        const message = error.response?.data?.message || error.message || 'Gagal memperbarui produk'
+        Swal.fire({
+          title: 'Error!',
+          text: message.includes('thumbnail') ? 'Gagal mengunggah thumbnail: ' + message : message,
+          icon: 'error',
+          timer: 2000,
+          showConfirmButton: false,
+        })
+      } finally {
+        this.isLoading = false
+        this.fetchProducts()
+      }
+    },
+    showSuccessMessage(message) {
+      Swal.fire({
+        title: 'Berhasil!',
+        text: message,
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false,
       })
+    },
+    getCategoryName(categoryId) {
+      const category = this.categories.find((cat) => cat.id === categoryId)
+      return category ? category.name : ''
     },
   },
 }

@@ -82,12 +82,16 @@
           <ProductTable
             :products="products"
             :isLoading="isLoading"
+            :hasInitialLoad="hasInitialLoad"
             @edit-product="handleEditProduct"
             @delete-product="handleDeleteProduct"
             @change-status="handleStatusChange"
             @preview-image="handleImagePreview"
           />
-          <div v-if="products.length === 0" class="text-center text-gray-600 mt-4">
+          <div
+            v-if="products.length === 0 && !isLoading && hasInitialLoad"
+            class="text-center text-gray-600 mt-4"
+          >
             Tidak ada produk yang ditemukan
           </div>
         </div>
@@ -227,6 +231,7 @@ export default {
       searchQuery: '',
       currentProduct: null,
       products: [],
+      hasInitialLoad: false,
       categories: [],
       pagination: {
         total: 0,
@@ -457,6 +462,7 @@ export default {
           }),
         )
         this.products = productsWithImages
+        this.hasInitialLoad = true
         this.pagination = {
           total: meta.total || 0,
           page: meta.current_page || this.pagination.page,
@@ -474,6 +480,7 @@ export default {
         this.pagination.total = 0
       } finally {
         this.isLoading = false
+        this.hasInitialLoad = true
       }
     },
     toggleSidebar() {

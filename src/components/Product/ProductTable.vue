@@ -117,15 +117,6 @@
             </div>
           </td>
         </tr>
-        <!-- No Products State -->
-        <tr v-if="!isLoading && products.length === 0" class="border-b border-gray-300">
-          <td colspan="11" class="p-4 text-center text-gray-500 py-8">
-            <div class="flex flex-col items-center gap-2">
-              <i class="fa-solid fa-box-open text-3xl text-gray-300"></i>
-              <span>Tidak ada produk yang ditemukan</span>
-            </div>
-          </td>
-        </tr>
       </tbody>
     </table>
   </div>
@@ -141,6 +132,10 @@ export default {
       default: () => [],
     },
     isLoading: {
+      type: Boolean,
+      default: false,
+    },
+    hasInitialLoad: {
       type: Boolean,
       default: false,
     },
