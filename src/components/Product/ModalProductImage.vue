@@ -1,6 +1,5 @@
 <template>
   <div>
-    <!-- Invisible button that can be targeted programmatically -->
     <button ref="modalTrigger" class="hidden" @click="open"></button>
   </div>
 </template>
@@ -13,67 +12,110 @@ export default {
   data() {
     return {
       currentImageIndex: 0,
+      productImages: [],
     }
   },
   methods: {
     open(product) {
+      // Gabungkan semua gambar (thumbnail + images)
+      this.productImages = []
+
+      // Tambahkan thumbnail jika ada
+      if (product.thumbnail_url) {
+        this.productImages.push({
+          type: 'thumbnail',
+          url: product.thumbnail_url,
+          title: 'Thumbnail Produk',
+        })
+      }
+
+      // Tambahkan gambar produk lainnya
+      if (product.images && product.images.length > 0) {
+        product.images.forEach((image, index) => {
+          this.productImages.push({
+            type: 'gallery',
+            url: image.image_url || image,
+            title: `Gambar Produk ${index + 1}` + (image.is_primary ? ' (Utama)' : ''),
+          })
+        })
+      }
+
       this.currentImageIndex = 0
 
-      if (!product.images || product.images.length === 0) {
+      if (this.productImages.length === 0) {
         Swal.fire({
           title: product.name,
-          text: 'No images available for this product',
+          text: 'Produk ini belum memiliki gambar',
           icon: 'info',
-          confirmButtonText: 'Close',
-          confirmButtonColor: '#3085d6',
+          confirmButtonText: 'Tutup',
+          confirmButtonColor: '#ef4444',
         })
         return
       }
 
-      const renderSlider = () => {
-        const images = product.images
-        const currentImage = images[this.currentImageIndex]
-        const totalImages = images.length
+      this.showModal()
+    },
 
+    showModal() {
+      const currentImage = this.productImages[this.currentImageIndex]
+      const totalImages = this.productImages.length
+
+      // Render konten modal
+      const renderContent = () => {
         let dotsHtml = ''
-        for (let i = 0; i < totalImages; i++) {
-          dotsHtml += `
-            <span
-              class="dot ${i === this.currentImageIndex ? 'active' : ''}"
-              onclick="window.setCurrentImage(${i})"
-            ></span>
+        if (totalImages > 1) {
+          dotsHtml = this.productImages
+            .map(
+              (_, idx) => `
+            <span class="dot ${idx === this.currentImageIndex ? 'active' : ''}"
+                  onclick="window.currentModal.setCurrentImage(${idx})"></span>
+          `,
+            )
+            .join('')
+        }
+
+        let thumbnailsHtml = ''
+        if (totalImages > 1 && totalImages <= 8) {
+          thumbnailsHtml = `
+            <div class="thumbnails-container">
+              ${this.productImages
+                .map(
+                  (img, idx) => `
+                <div class="thumbnail ${idx === this.currentImageIndex ? 'active' : ''}"
+                     onclick="window.currentModal.setCurrentImage(${idx})">
+                  <img src="${img.url}" alt="Thumbnail ${idx + 1}"
+                       onerror="this.onerror=null; this.src='https://via.placeholder.com/60x60?text=Thumb';">
+                </div>
+              `,
+                )
+                .join('')}
+            </div>
           `
         }
 
         return `
           <div class="image-slider-container">
             <div class="image-wrapper">
-              <img
-                src="${currentImage}"
-                alt="${product.name} - Image ${this.currentImageIndex + 1}"
-                class="product-image"
-                onerror="this.onerror=null; this.src='https://via.placeholder.com/400x400?text=Image+Not+Found';"
-              >
+              <img src="${currentImage.url}"
+                   alt="${currentImage.title}"
+                   class="product-image"
+                   onerror="this.onerror=null; this.src='https://via.placeholder.com/400x400?text=Image+Not+Found';">
 
               ${
                 totalImages > 1
                   ? `
                 <div class="slider-nav">
-                  <button
-                    class="nav-btn prev-btn ${this.currentImageIndex === 0 ? 'disabled' : ''}"
-                    onclick="window.prevImage()"
-                    ${this.currentImageIndex === 0 ? 'disabled' : ''}
-                  >
+                  <button class="nav-btn prev-btn ${this.currentImageIndex === 0 ? 'disabled' : ''}"
+                          onclick="window.currentModal.prevImage()"
+                          ${this.currentImageIndex === 0 ? 'disabled' : ''}>
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
                       <polyline points="15 18 9 12 15 6"></polyline>
                     </svg>
                   </button>
 
-                  <button
-                    class="nav-btn next-btn ${this.currentImageIndex === totalImages - 1 ? 'disabled' : ''}"
-                    onclick="window.nextImage()"
-                    ${this.currentImageIndex === totalImages - 1 ? 'disabled' : ''}
-                  >
+                  <button class="nav-btn next-btn ${this.currentImageIndex === totalImages - 1 ? 'disabled' : ''}"
+                          onclick="window.currentModal.nextImage()"
+                          ${this.currentImageIndex === totalImages - 1 ? 'disabled' : ''}>
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
                       <polyline points="9 18 15 12 9 6"></polyline>
                     </svg>
@@ -87,35 +129,11 @@ export default {
             ${
               totalImages > 1
                 ? `
-              <div class="slider-dots-container">
+              <div class="slider-controls">
                 <div class="slider-dots">${dotsHtml}</div>
-                <div class="image-counter">Image ${this.currentImageIndex + 1} of ${totalImages}</div>
+                <div class="image-counter">Gambar ${this.currentImageIndex + 1} dari ${totalImages}</div>
               </div>
-
-                              ${
-                                images.length <= 8
-                                  ? `
-                <div class="thumbnails-container">
-                  ${images
-                    .map(
-                      (img, idx) => `
-                    <div
-                      class="thumbnail ${idx === this.currentImageIndex ? 'active' : ''}"
-                      onclick="window.setCurrentImage(${idx})"
-                    >
-                      <img
-                        src="${img}"
-                        alt="Thumbnail ${idx + 1}"
-                        onerror="this.onerror=null; this.src='https://via.placeholder.com/60x60?text=Thumb';"
-                      >
-                    </div>
-                  `,
-                    )
-                    .join('')}
-                </div>
-                `
-                                  : ''
-                              }
+              ${thumbnailsHtml}
             `
                 : ''
             }
@@ -123,85 +141,186 @@ export default {
         `
       }
 
-      // Define navigation functions in window scope
-      window.prevImage = () => {
-        if (this.currentImageIndex > 0) {
-          this.currentImageIndex--
-          updateSliderContent()
-        }
-      }
+      // Simpan referensi modal di window
+      window.currentModal = this
 
-      window.nextImage = () => {
-        if (this.currentImageIndex < product.images.length - 1) {
-          this.currentImageIndex++
-          updateSliderContent()
-        }
-      }
-
-      window.setCurrentImage = (index) => {
-        this.currentImageIndex = index
-        updateSliderContent()
-      }
-
-      const updateSliderContent = () => {
-        const container = document.querySelector('.swal2-html-container')
-        if (container) {
-          container.innerHTML = renderSlider()
-        }
-      }
-
-      // Add keyboard navigation
-      const handleKeydown = (e) => {
-        if (e.key === 'ArrowLeft') window.prevImage()
-        if (e.key === 'ArrowRight') window.nextImage()
-        if (e.key === 'Escape') Swal.close()
-      }
-
-      document.addEventListener('keydown', handleKeydown)
-
+      // Tampilkan modal
       Swal.fire({
-        title: product.name,
-        html: renderSlider(),
-        showCancelButton: false,
-        confirmButtonText: 'Tutup',
-        confirmButtonColor: '#ff0000',
-        buttonsStyling: false,
-        width: '40%',
-        maxWidth: '600px',
-        padding: '0.75rem',
+        title: this.productImages[this.currentImageIndex].title,
+        html: renderContent(),
+        showConfirmButton: false,
+        showCloseButton: true,
+        width: '600px', // Reduced width
+        maxWidth: '90%', // Slightly more flexible max-width
+        padding: '0.5rem', // Reduced padding
         customClass: {
-          confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base',
-          container: 'product-modal-container',
-          popup: 'product-modal-popup',
-          title: 'product-modal-title',
-          htmlContainer: 'product-modal-content',
+          container: 'product-image-modal',
+          popup: 'product-image-popup',
+          title: 'product-image-title',
+          htmlContainer: 'product-image-content',
+          closeButton: 'product-image-close',
         },
         didOpen: () => {
-          // Init swipe detection for mobile
-          let touchstartX = 0
-          let touchendX = 0
+          document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') this.prevImage()
+            if (e.key === 'ArrowRight') this.nextImage()
+            if (e.key === 'Escape') Swal.close()
+          })
+
+          // Tambahkan swipe untuk mobile
           const slider = document.querySelector('.image-slider-container')
+          if (slider) {
+            let touchStartX = 0
+            slider.addEventListener(
+              'touchstart',
+              (e) => {
+                touchStartX = e.changedTouches[0].screenX
+              },
+              { passive: true },
+            )
 
-          slider.addEventListener('touchstart', (e) => {
-            touchstartX = e.changedTouches[0].screenX
-          })
-
-          slider.addEventListener('touchend', (e) => {
-            touchendX = e.changedTouches[0].screenX
-            handleSwipe()
-          })
-
-          const handleSwipe = () => {
-            if (touchendX < touchstartX - 50) window.nextImage()
-            if (touchendX > touchstartX + 50) window.prevImage()
+            slider.addEventListener(
+              'touchend',
+              (e) => {
+                const touchEndX = e.changedTouches[0].screenX
+                const diff = touchStartX - touchEndX
+                if (diff > 50) this.nextImage()
+                if (diff < -50) this.prevImage()
+              },
+              { passive: true },
+            )
           }
         },
         willClose: () => {
-          document.removeEventListener('keydown', handleKeydown)
+          document.removeEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') this.prevImage()
+            if (e.key === 'ArrowRight') this.nextImage()
+            if (e.key === 'Escape') Swal.close()
+          })
+          delete window.currentModal
         },
       })
     },
-    // Method to open modal externally
+
+    prevImage() {
+      if (this.currentImageIndex > 0) {
+        this.currentImageIndex--
+        this.updateModal()
+      }
+    },
+
+    nextImage() {
+      if (this.currentImageIndex < this.productImages.length - 1) {
+        this.currentImageIndex++
+        this.updateModal()
+      }
+    },
+
+    setCurrentImage(index) {
+      if (index >= 0 && index < this.productImages.length) {
+        this.currentImageIndex = index
+        this.updateModal()
+      }
+    },
+
+    updateModal() {
+      const modal = Swal.getPopup()
+      if (modal) {
+        const titleElement = modal.querySelector('.swal2-title')
+        if (titleElement) {
+          titleElement.textContent = this.productImages[this.currentImageIndex].title
+        }
+
+        const container = modal.querySelector('.swal2-html-container')
+        if (container) {
+          container.innerHTML = this.renderModalContent()
+        }
+      }
+    },
+
+    renderModalContent() {
+      const currentImage = this.productImages[this.currentImageIndex]
+      const totalImages = this.productImages.length
+
+      let dotsHtml = ''
+      if (totalImages > 1) {
+        dotsHtml = this.productImages
+          .map(
+            (_, idx) => `
+              <span class="dot ${idx === this.currentImageIndex ? 'active' : ''}"
+                    onclick="window.currentModal.setCurrentImage(${idx})"></span>
+            `,
+          )
+          .join('')
+      }
+
+      let thumbnailsHtml = ''
+      if (totalImages > 1 && totalImages <= 8) {
+        thumbnailsHtml = `
+          <div class="thumbnails-container">
+            ${this.productImages
+              .map(
+                (img, idx) => `
+                  <div class="thumbnail ${idx === this.currentImageIndex ? 'active' : ''}"
+                       onclick="window.currentModal.setCurrentImage(${idx})">
+                    <img src="${img.url}" alt="Thumbnail ${idx + 1}"
+                         onerror="this.onerror=null; this.src='https://via.placeholder.com/60x60?text=Thumb';">
+                  </div>
+                `,
+              )
+              .join('')}
+          </div>
+        `
+      }
+
+      return `
+        <div class="image-slider-container">
+          <div class="image-wrapper">
+            <img src="${currentImage.url}"
+                 alt="${currentImage.title}"
+                 class="product-image"
+                 onerror="this.onerror=null; this.src='https://via.placeholder.com/400x400?text=Image+Not+Found';">
+
+            ${
+              totalImages > 1
+                ? `
+                  <div class="slider-nav">
+                    <button class="nav-btn prev-btn ${this.currentImageIndex === 0 ? 'disabled' : ''}"
+                            onclick="window.currentModal.prevImage()"
+                            ${this.currentImageIndex === 0 ? 'disabled' : ''}>
+                      <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
+                        <polyline points="15 18 9 12 15 6"></polyline>
+                      </svg>
+                    </button>
+
+                    <button class="nav-btn next-btn ${this.currentImageIndex === totalImages - 1 ? 'disabled' : ''}"
+                            onclick="window.currentModal.nextImage()"
+                            ${this.currentImageIndex === totalImages - 1 ? 'disabled' : ''}>
+                      <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                      </svg>
+                    </button>
+                  </div>
+                `
+                : ''
+            }
+          </div>
+
+          ${
+            totalImages > 1
+              ? `
+                <div class="slider-controls">
+                  <div class="slider-dots">${dotsHtml}</div>
+                  <div class="image-counter">Gambar ${this.currentImageIndex + 1} dari ${totalImages}</div>
+                </div>
+                ${thumbnailsHtml}
+              `
+              : ''
+          }
+        </div>
+      `
+    },
+
     openModal(product) {
       this.open(product)
     },
@@ -210,45 +329,58 @@ export default {
 </script>
 
 <style scoped>
-/* This style is scoped to the component */
 .hidden {
   display: none;
 }
 </style>
 
 <style>
-/* Global styles for the SweetAlert modal */
-.product-modal-container {
-  z-index: 1050;
+.product-image-modal {
+  z-index: 1060;
 }
 
-.product-modal-popup {
-  border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+.product-image-popup {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.product-image-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.25rem;
+  padding: 0;
+}
+
+.product-image-content {
+  padding: 0;
+  margin: 0;
   overflow: hidden;
 }
 
-.product-modal-content {
-  padding: 0 !important;
-  margin: 0 !important;
-  overflow: hidden;
+.product-image-close {
+  color: #666;
+  font-size: 1.25rem;
+  top: 8px;
+  right: 8px;
 }
 
-/* Image slider styles */
 .image-slider-container {
   width: 100%;
   margin: 0 auto;
-  padding: 0.5rem;
+  padding: 0.25rem;
 }
 
 .image-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 16/10;
-  margin-bottom: 0.5rem;
-  border-radius: 8px;
+  max-height: 400px; /* Reduced max height */
+  aspect-ratio: 1/1;
+  margin-bottom: 0.25rem;
+  border-radius: 6px;
   overflow: hidden;
-  background-color: #f8f8f8;
+  background-color: #f5f5f5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -274,9 +406,9 @@ export default {
 }
 
 .nav-btn {
-  width: 32px;
-  height: 32px;
-  background-color: rgba(255, 255, 255, 0.7);
+  width: 36px;
+  height: 36px;
+  background-color: rgba(255, 255, 255, 0.8);
   border: none;
   border-radius: 50%;
   display: flex;
@@ -285,14 +417,14 @@ export default {
   cursor: pointer;
   transition: all 0.2s ease;
   pointer-events: auto;
-  margin: 0 8px;
+  margin: 0 10px;
   color: #333;
-  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .nav-btn:hover {
-  background-color: rgba(255, 255, 255, 0.9);
-  transform: scale(1.1);
+  background-color: rgba(255, 255, 255, 0.95);
+  transform: scale(1.05);
 }
 
 .nav-btn.disabled {
@@ -300,52 +432,56 @@ export default {
   cursor: not-allowed;
 }
 
-.slider-dots-container {
+.nav-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.slider-controls {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .slider-dots {
   display: flex;
   justify-content: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background-color: #ddd;
-  margin: 0 5px;
+  margin: 0 4px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .dot.active {
-  background-color: #ff0000;
+  background-color: #ef4444;
   transform: scale(1.2);
 }
 
 .image-counter {
-  font-size: 0.875rem;
-  color: #777;
+  font-size: 0.75rem;
+  color: #666;
+  margin-bottom: 0.25rem;
 }
 
 .thumbnails-container {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
+  gap: 6px;
+  padding: 6px 0;
   overflow-x: auto;
-  padding: 5px 0;
   scrollbar-width: thin;
   scrollbar-color: #ddd transparent;
-  margin-bottom: 0.25rem;
 }
 
 .thumbnails-container::-webkit-scrollbar {
-  height: 6px;
+  height: 4px;
 }
 
 .thumbnails-container::-webkit-scrollbar-track {
@@ -354,12 +490,12 @@ export default {
 
 .thumbnails-container::-webkit-scrollbar-thumb {
   background-color: #ddd;
-  border-radius: 10px;
+  border-radius: 4px;
 }
 
 .thumbnail {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   flex: 0 0 auto;
   border-radius: 4px;
   overflow: hidden;
@@ -374,7 +510,7 @@ export default {
 }
 
 .thumbnail.active {
-  border-color: #ff0000;
+  border-color: #ef4444;
   opacity: 1;
 }
 
@@ -384,10 +520,37 @@ export default {
   object-fit: cover;
 }
 
-/* Responsive adjustments */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
+  .product-image-popup {
+    width: 95% !important;
+    max-width: 95% !important;
+  }
+
   .image-wrapper {
-    aspect-ratio: 3/2;
+    max-height: 300px; /* Smaller on mobile */
+    aspect-ratio: 4/3;
+  }
+
+  .nav-btn {
+    width: 32px;
+    height: 32px;
+    margin: 0 6px;
+  }
+
+  .thumbnail {
+    width: 45px;
+    height: 45px;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-image-title {
+    font-size: 1rem;
+  }
+
+  .image-wrapper {
+    max-height: 250px;
+    aspect-ratio: 1/1;
   }
 
   .nav-btn {
@@ -396,39 +559,18 @@ export default {
   }
 
   .thumbnail {
-    width: 50px;
-    height: 50px;
-  }
-}
-
-@media (max-width: 480px) {
-  .image-wrapper {
-    aspect-ratio: 4/3;
-  }
-
-  .nav-btn {
-    width: 26px;
-    height: 26px;
-  }
-
-  .thumbnail {
     width: 40px;
     height: 40px;
   }
 
-  .product-modal-title {
-    font-size: 1rem;
-    padding: 0.25rem 0;
-  }
-
-  .slider-dots-container {
-    margin-bottom: 0.25rem;
-  }
-
   .dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     margin: 0 3px;
+  }
+
+  .image-counter {
+    font-size: 0.7rem;
   }
 }
 </style>

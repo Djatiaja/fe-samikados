@@ -25,6 +25,7 @@ const routes = [
   { path: '/register', component: Register },
   { path: '/verification', component: VerificationEmail },
   { path: '/login', component: Login },
+  { path: '/auth/seller/callback', component: Login, meta: { requiresGuest: true } },
   { path: '/forgot-password', component: ForgotPassword },
   { path: '/otp-password', component: OtpPage },
   { path: '/reset-password', component: ResetPassword },
@@ -42,7 +43,7 @@ const routes = [
   { path: '/profile', component: ProfileSeller, meta: { requiresAuth: true } },
   { path: '/view', component: SellerView, meta: { requiresAuth: true } },
   { path: '/category-view', component: CategoryView, meta: { requiresAuth: true } },
-  { path: '/product-details', component: DetailProduct, meta: { requiresAuth: true } },
+  { path: '/product-details/:id', component: DetailProduct, meta: { requiresAuth: true } },
 ]
 
 const router = createRouter({
@@ -50,15 +51,21 @@ const router = createRouter({
   routes,
 })
 
-// Middleware: Cek apakah user sudah login sebelum akses halaman tertentu
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('token') !== null // Cek token
+  const isAuthenticated = !!localStorage.getItem('token')
 
+  // If route requires authentication and user is not authenticated
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login') // Redirect ke login jika belum login
-  } else {
-    next() // Lanjut ke halaman tujuan
+    return next('/login')
   }
+
+  // If route is for guests only and user is authenticated
+  if (to.meta.guestOnly && isAuthenticated) {
+    return next('/dashboard-seller')
+  }
+
+  // Proceed to the route
+  next()
 })
 
 export default router

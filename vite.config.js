@@ -9,8 +9,13 @@ import Swal from 'sweetalert2'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [vue(), vueDevTools(), tailwindcss()],
+  optimizeDeps: {
+    include: ['jspdf', 'html2canvas', 'xlsx'],
+  },
+  plugins: [vue(), vueDevTools(), tailwindcss()],
   resolve: {
     alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },

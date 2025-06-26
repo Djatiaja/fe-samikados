@@ -37,11 +37,13 @@
         <div v-else class="flex flex-col md:flex-row items-start md:space-x-20 justify-center">
           <!-- Profile Picture and Actions -->
           <div class="w-full md:w-1/4 flex flex-col items-center">
-            <img
-              :src="userData.photo_url || 'https://placehold.co/300x300'"
-              class="rounded-lg shadow-lg w-full max-w-xs min-w-60"
-              alt="Profile Picture"
-            />
+            <div class="w-90 h-90 overflow-hidden rounded-lg shadow-lg">
+              <img
+                :src="userData.photo_url || 'https://placehold.co/300x300'"
+                class="w-full h-full object-cover"
+                alt="Profile Picture"
+              />
+            </div>
             <!-- Button Ganti Foto Profil -->
             <button
               class="mt-5 w-full max-w-xs bg-red-600 text-white py-3 rounded-lg text-sm sm:text-base md:text-lg min-w-60"
@@ -80,7 +82,7 @@
             </h2>
             <div class="space-y-4 w-5/6 mt-8">
               <div class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base">
-                {{ userData.name || userData.storeName }}
+                {{ userData.name || userData.storeName || 'Nama tidak tersedia' }}
               </div>
               <div class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base">
                 {{ userData.no_telp || userData.phone }}
@@ -89,18 +91,27 @@
                 {{ userData.email }}
               </div>
               <div
-                v-if="userData.address"
+                v-if="userData.address?.label"
                 class="bg-gray-100 p-4 sm:p-5 lg:p-6 rounded-lg text-xs sm:text-sm md:text-base"
               >
-                {{ userData.address }}
+                {{ userData.address.label }}
               </div>
             </div>
-            <button
-              class="mt-10 w-full max-w-md bg-red-600 text-white py-3 rounded-lg mb-4 text-sm sm:text-base md:text-lg"
-              @click="openEditModal"
-            >
-              Edit Profil
-            </button>
+            <div class="flex mt-10 space-x-6 justify-center w-full">
+              <!-- Increased space-x-6 for more spacing -->
+              <button
+                class="w-60 max-w-md bg-red-600 hover:bg-red-800 text-white py-3 rounded-lg text-sm sm:text-base md:text-lg transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg"
+                @click="openEditModal"
+              >
+                Edit Profil
+              </button>
+              <button
+                class="w-60 max-w-md bg-red-600 hover:bg-red-800 text-white py-3 rounded-lg text-sm sm:text-base md:text-lg transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg"
+                @click="openEditAddressModal"
+              >
+                Edit Alamat
+              </button>
+            </div>
           </div>
         </div>
         <!-- Action Buttons -->
@@ -124,33 +135,43 @@
       </div>
     </div>
     <FooterSeller />
+    <EditAddressModalSeller
+      v-if="showEditAddressModal"
+      :visible="showEditAddressModal"
+      :address="userData.address"
+      @update-address="updateAddress"
+      @close="closeEditAddressModal"
+    />
   </div>
 </template>
+
 <script>
 import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
+import EditAddressModalSeller from '@/components/EditAddressModalSeller.vue'
 import Swal from 'sweetalert2'
 import axios from 'axios'
 
 export default {
-  components: { HeaderSeller, SidebarSeller, FooterSeller },
+  components: { HeaderSeller, SidebarSeller, FooterSeller, EditAddressModalSeller },
   data() {
     return {
       isSidebarActive: false,
       isMobile: window.innerWidth < 1024,
       statusFilter: 'all',
       entriesPerPage: 25,
-      baseUrl: import.meta.env.VITE_API_BASE_URL, // Use .env variable
+      baseUrl: import.meta.env.VITE_API_BASE_URL,
       loading: false,
       error: null,
+      showEditAddressModal: false,
       userData: {
         name: '',
         email: '',
         no_telp: '',
-        address: '',
+        address: {},
         isActive: true,
-        profilePicture: 'https://placehold.co/300x300',
+        photo_url: 'https://placehold.co/300x300',
       },
     }
   },
@@ -167,7 +188,6 @@ export default {
       this.loading = true
       this.error = null
 
-      // Get token from localStorage
       const token = localStorage.getItem('token')
       if (!token) {
         this.$router.push('/login')
@@ -182,12 +202,11 @@ export default {
         })
         .then((response) => {
           if (response.data.status === 'success') {
-            // Map API data to userData
             const apiData = response.data.data
             this.userData = {
               ...this.userData,
               ...apiData,
-              isActive: apiData.isActive === 1,
+              address: apiData.address || {},
             }
           } else {
             this.error = response.data.message || 'Terjadi kesalahan saat memuat data'
@@ -252,7 +271,6 @@ export default {
               },
             })
           } else {
-            // Revert back since update failed
             this.userData.isActive = !this.userData.isActive
             Swal.fire({
               title: `<h3 class="text-lg font-bold">Gagal</h3>`,
@@ -268,7 +286,6 @@ export default {
           }
         })
         .catch((error) => {
-          // Revert back since update failed
           this.userData.isActive = !this.userData.isActive
           Swal.fire({
             title: `<h3 class="text-lg font-bold">Gagal</h3>`,
@@ -319,16 +336,13 @@ export default {
 
           const file = fileInput.files[0]
           if (file.size > 2 * 1024 * 1024) {
-            // 2MB
             Swal.showValidationMessage('Ukuran file maksimal 2MB')
             return false
           }
 
-          // Create form data for upload
           const formData = new FormData()
           formData.append('photo', file)
 
-          // Return promise to handle upload
           return this.uploadProfilePicture(formData)
         },
       })
@@ -349,11 +363,10 @@ export default {
         })
         .then((response) => {
           if (response.data.status === 'success') {
-            // Update local userData with new picture URL from response
             if (response.data.data) {
               this.userData.photo_url = response.data.data
             }
-            window.location.reload() // Reload the page to reflect changes
+            window.location.reload()
             return true
           } else {
             throw new Error(response.data.message || 'Gagal mengunggah foto')
@@ -389,12 +402,6 @@ export default {
               </label>
               <input id="email" type="email" class="w-full text-sm p-2 border border-gray-300 rounded-lg" value="${this.userData.email || ''}">
             </div>
-            <div class="mb-3">
-              <label class="block text-gray-700 font-medium text-sm mb-1" for="address">
-                Alamat
-              </label>
-              <textarea id="address" class="w-full text-sm p-2 border border-gray-300 rounded-lg" rows="3">${this.userData.address || ''}</textarea>
-            </div>
           </form>
         `,
         showCancelButton: true,
@@ -413,7 +420,6 @@ export default {
           const name = document.getElementById('name').value
           const phone = document.getElementById('phone').value
           const email = document.getElementById('email').value
-          const address = document.getElementById('address').value
 
           if (!name) {
             Swal.showValidationMessage('Nama tidak boleh kosong')
@@ -428,14 +434,12 @@ export default {
             return false
           }
 
-          // Create updated profile data
           const updatedData = {
             name: name,
             no_telp: phone,
-            address: address,
+            email: email,
           }
 
-          // Return promise to handle update
           return this.updateProfile(updatedData)
         },
       }).then((result) => {
@@ -469,7 +473,6 @@ export default {
         })
         .then((response) => {
           if (response.data.status === 'success') {
-            // Update userData with new data
             this.userData = {
               ...this.userData,
               ...data,
@@ -485,6 +488,19 @@ export default {
           )
           return false
         })
+    },
+    openEditAddressModal() {
+      this.showEditAddressModal = true
+    },
+    closeEditAddressModal() {
+      this.showEditAddressModal = false
+    },
+    updateAddress(updatedAddress) {
+      this.userData.address = {
+        ...this.userData.address,
+        ...updatedAddress,
+      }
+      this.closeEditAddressModal()
     },
     openChangePasswordModal() {
       Swal.fire({
@@ -545,14 +561,12 @@ export default {
             return false
           }
 
-          // Create password update data
           const passwordData = {
             currentPassword: currentPassword,
             password: newPassword,
             password_confirmation: confirmPassword,
           }
 
-          // Return promise to handle password update
           return this.changePassword(passwordData)
         },
       }).then((result) => {
@@ -621,7 +635,6 @@ export default {
             return
           }
 
-          // Call logout API
           axios
             .post(
               `${this.baseUrl}/seller/logout`,
@@ -634,9 +647,7 @@ export default {
             )
             .then((response) => {
               if (response.data.status === 'success') {
-                // Clear local storage
                 localStorage.removeItem('token')
-                // Redirect to login page
                 this.$router.push('/login')
               } else {
                 Swal.fire({
@@ -654,7 +665,6 @@ export default {
             })
             .catch((error) => {
               console.error('Logout error:', error)
-              // Force logout anyway even if the API call fails
               localStorage.removeItem('token')
               this.$router.push('/login')
             })
@@ -666,5 +676,5 @@ export default {
 </script>
 
 <style scoped>
-/* You can add custom styles here if needed */
+/* Custom styles if needed */
 </style>

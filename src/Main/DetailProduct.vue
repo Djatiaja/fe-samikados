@@ -1,125 +1,44 @@
 <template>
   <div class="flex flex-col min-h-screen">
     <HeaderView />
-    
-    <div class="container mx-auto p-4 sm:p-8 flex-1">
+    <div class="container mx-auto p-4 sm:p-8 flex-1" v-if="isLoaded">
       <main class="container mx-auto p-8">
         <div class="lg:flex lg:justify-evenly">
           <!-- Product Image & Description -->
-          <div class="lg:w-1/3 h-1/3">
-            <!-- Slider Container -->
-            <div class="relative">
-              <div class="overflow-hidden rounded-lg shadow-lg">
-                <swiper
-                  :modules="[Navigation, Pagination]"
-                  :navigation="true"
-                  :pagination="{ clickable: true }"
-                  class="mySwiper"
-                >
-                  <swiper-slide v-for="(image, index) in productImages" :key="index">
-                    <img :src="image.src" :alt="image.alt" class="w-full">
-                  </swiper-slide>
-                </swiper>
-              </div>
-            </div>
-
-            <h2 class="text-3xl font-bold mt-4">{{ product.name }}</h2>
-            <p class="text-gray-500">{{ product.soldCount }}+ Terjual</p>
-            <p class="mt-4 text-gray-700">{{ product.description }}</p>
-          </div>
-
+          <ProductImages :product="product" :product-images="productImages" />
           <!-- Product Details -->
-          <div class="lg:w-1/2 lg:pl-12 mt-8 lg:mt-0">
-            <!-- Harga -->
-            <div class="pb-4 mb-4">
-              <h3 class="text-lg sm:text-xl lg:text-2xl font-bold">Harga</h3>
-              <p class="text-xl sm:text-2xl lg:text-3xl font-bold text-center">{{ formatCurrency(product.price) }}</p>
-            </div>
-
-            <!-- Catatan -->
-            <div class="pb-4 mb-4">
-              <h3 class="text-lg sm:text-xl lg:text-2xl font-bold">Catatan</h3>
-              <textarea 
-                v-model="note"
-                class="w-full sm:w-3/4 h-24 sm:h-28 border p-2 rounded-lg mt-2 text-sm sm:text-base lg:text-lg" 
-                placeholder="Masukkan catatan untuk produk Anda"
-              ></textarea>
-              <p class="text-gray-500 mt-1 text-xs sm:text-sm lg:text-base">Contoh: packing pakai selongsong</p>
-            </div>
-
-            <!-- Ukuran -->
-            <div class="pb-4 mb-4">
-              <h3 class="text-lg sm:text-xl lg:text-2xl font-bold">Ukuran</h3>
-              <p class="text-gray-500 mb-2 text-xs sm:text-sm lg:text-base">Masukkan ukuran untuk produk Anda</p>
-              <div class="flex items-center">
-                <input 
-                  v-model="size.length"
-                  type="text" 
-                  class="border p-2 w-1/2 sm:w-1/3 lg:w-2/12 mr-2 rounded-lg text-sm sm:text-base lg:text-lg" 
-                  placeholder="Panjang"
-                >
-                <span class="mx-2 text-sm sm:text-base lg:text-lg">X</span>
-                <input 
-                  v-model="size.width"
-                  type="text" 
-                  class="border p-2 w-1/2 sm:w-1/3 lg:w-2/12 rounded-lg text-sm sm:text-base lg:text-lg" 
-                  placeholder="Lebar"
-                >
-                <span class="ml-2 text-sm sm:text-base lg:text-lg">cm</span>
-              </div>
-            </div>
-
-            <!-- Finishing -->
-            <div class="pb-4 mb-4">
-              <h3 class="text-lg sm:text-xl lg:text-2xl font-bold mb-2">Finishing</h3>
-              <select 
-                v-model="selectedFinishing"
-                class="w-full sm:w-3/4 border p-2 mb-2 rounded-lg text-sm sm:text-base lg:text-lg"
-                @change="updateAdditionalPrice"
-              >
-                <option value="">Tidak Ada yang Dipilih</option>
-                <option 
-                  v-for="option in finishingOptions" 
-                  :key="option.value" 
-                  :value="option.value"
-                >
-                  {{ option.label }}
-                </option>
-              </select>
-              <p class="text-sm sm:text-base lg:text-lg mt-2">Harga Tambahan: {{ formatCurrency(additionalPrice) }}</p>
-            </div>
-
-            <!-- Jumlah -->
-            <div class="pb-4 mb-4">
-              <h3 class="text-lg sm:text-xl lg:text-2xl font-bold">Jumlah</h3>
-              <div class="flex items-center mt-2">
-                <button 
-                  @click="decreaseQuantity"
-                  class="bg-white px-4 py-2 rounded-lg text-sm sm:text-base lg:text-lg"
-                >-</button>
-                <span class="px-4 text-sm sm:text-base lg:text-lg">{{ quantity }}</span>
-                <button 
-                  @click="increaseQuantity"
-                  class="bg-white px-4 py-2 rounded-lg text-sm sm:text-base lg:text-lg"
-                >+</button>
-              </div>
-            </div>
-          </div>
+          <ProductDetails
+            :product="product"
+            :size-options="sizeOptions"
+            :finishing-options="finishingOptions"
+            :total-price="totalPrice"
+            :is-adding-to-cart="isAddingToCart"
+            v-model:note="note"
+            v-model:selected-size="selectedSize"
+            v-model:selected-finishing="selectedFinishing"
+            v-model:quantity="quantity"
+            @update-total-price="updateTotalPrice"
+            @select-size="selectSize"
+            @increase-quantity="increaseQuantity"
+            @decrease-quantity="decreaseQuantity"
+            @place-order="placeOrder"
+            @add-to-cart="addToCart"
+            @open-chat="openChat"
+            @toggle-bookmark="toggleBookmark"
+          />
         </div>
-
         <!-- Reviews Section -->
         <section class="mt-8 lg:mx-20">
           <h3 class="text-xl sm:text-2xl lg:text-3xl font-bold mb-10">Ulasan</h3>
           <div class="mt-4">
-            <ReviewWithoutReply 
-              v-for="review in reviews.withoutReply" 
+            <ReviewWithoutReply
+              v-for="review in reviews.withoutReply"
               :key="review.id"
               :review="review"
               @reply="openReplyModal"
             />
-            
-            <ReviewWithReply 
-              v-for="review in reviews.withReply" 
+            <ReviewWithReply
+              v-for="review in reviews.withReply"
               :key="review.id"
               :review="review"
               @edit-reply="openEditReplyModal"
@@ -129,68 +48,59 @@
         </section>
       </main>
     </div>
-    
+    <div v-else class="flex flex-col min-h-screen justify-center items-center">
+      <p>Loading...</p>
+    </div>
     <AuthFooter />
   </div>
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue';
-import { Swiper, SwiperSlide } from 'swiper/vue';
-import { Pagination, Navigation } from 'swiper/modules';
-import Swal from 'sweetalert2';
-import 'swiper/css';
-import 'swiper/css/pagination';
-import 'swiper/css/navigation';
-
-import AuthFooter from "@/components/AuthFooter.vue";
-import HeaderView from "@/components/HeaderView.vue";
-import ReviewWithReply from '@/components/ReviewWithReply.vue';
-import ReviewWithoutReply from '@/components/ReviewWithoutReply.vue';
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { Swiper, SwiperSlide } from 'swiper/vue'
+import { Pagination, Navigation } from 'swiper/modules'
+import axios from 'axios'
+import Swal from 'sweetalert2'
+import 'swiper/css'
+import 'swiper/css/pagination'
+import 'swiper/css/navigation'
+import AuthFooter from '@/components/AuthFooter.vue'
+import HeaderView from '@/components/HeaderView.vue'
+import ProductDetails from '@/components/details-product/ProductDetails.vue'
+import ReviewWithReply from '@/components/ReviewWithReply.vue'
+import ReviewWithoutReply from '@/components/ReviewWithoutReply.vue'
+import ProductImages from '../components/details-product/ProductImages.vue'
 
 export default {
-  components: { 
-    HeaderView, 
-    AuthFooter, 
-    Swiper, 
-    SwiperSlide, 
-    ReviewWithReply, 
-    ReviewWithoutReply 
+  components: {
+    HeaderView,
+    AuthFooter,
+    Swiper,
+    SwiperSlide,
+    ProductDetails,
+    ProductImages,
+    ReviewWithReply,
+    ReviewWithoutReply,
   },
-  
   setup() {
-    // Product data
+    const route = useRoute()
+    const isLoaded = ref(false)
+    const isAddingToCart = ref(false)
     const product = reactive({
-      name: 'PIN PENITI 58mm',
-      soldCount: '10RB',
-      description: 'Temukan solusi praktis untuk menyatukan kain dan aksesoris dengan Pin Peniti 58mm. Dirancang dengan ukuran ideal untuk penggunaan sehari-hari, pin ini terbuat dari bahan berkualitas tinggi yang memastikan daya tahan dan ketahanan terhadap korosi.',
-      price: 4500
-    });
-    
-    // Product images
-    const productImages = ref([
-      { src: 'https://placehold.co/600x600', alt: 'Gambar 1' },
-      { src: 'https://placehold.co/600x600', alt: 'Gambar 2' },
-      { src: 'https://placehold.co/600x600', alt: 'Gambar 3' }
-    ]);
-    
-    // Form values
-    const note = ref('');
-    const size = reactive({
-      length: '',
-      width: ''
-    });
-    const selectedFinishing = ref('');
-    const additionalPrice = ref(0);
-    const quantity = ref(1);
-    
-    // Finishing options
-    const finishingOptions = ref([
-      { value: '0', label: 'Tanpa Finishing' },
-      { value: '10000', label: 'Finishing + Paperbag (+ Rp10.000)' }
-    ]);
-    
-    // Reviews data
+      id: '',
+      name: '',
+      soldCount: '0',
+      description: '',
+      price: 0,
+    })
+    const productImages = ref([])
+    const note = ref('')
+    const selectedSize = ref('')
+    const selectedFinishing = ref('0')
+    const quantity = ref(1)
+    const sizeOptions = ref([])
+    const finishingOptions = ref([{ value: '0', label: 'Tanpa Finishing' }])
     const reviews = reactive({
       withoutReply: [
         {
@@ -199,9 +109,10 @@ export default {
           time: '15.49',
           date: '23 Desember 2023',
           rating: 5,
-          content: 'Bahan yang digunakan terasa kokoh dan tahan lama, sehingga saya tidak khawatir tentang kerusakan setelah penggunaan berulang. Ujung pin yang runcing memudahkan untuk menembus berbagai jenis kain, dan saya sangat menghargai kenyamanan saat menggunakannya.',
-          profilePic: 'https://placehold.co/50x50'
-        }
+          content:
+            'Bahan yang digunakan terasa kokoh dan tahan lama, sehingga saya tidak khawatir tentang kerusakan setelah penggunaan berulang. Ujung pin yang runcing memudahkan untuk menembus berbagai jenis kain, dan saya sangat menghargai kenyamanan saat menggunakannya.',
+          profilePic: 'https://placehold.co/50x50',
+        },
       ],
       withReply: [
         {
@@ -210,36 +121,148 @@ export default {
           time: '15.49',
           date: '23 Desember 2023',
           rating: 5,
-          content: 'Bahan yang digunakan terasa kokoh dan tahan lama, sehingga saya tidak khawatir tentang kerusakan setelah penggunaan berulang. Ujung pin yang runcing memudahkan untuk menembus berbagai jenis kain, dan saya sangat menghargai kenyamanan saat menggunakannya.',
+          content:
+            'Bahan yang digunakan terasa kokoh dan tahan lama, sehingga saya tidak khawatir tentang kerusakan setelah penggunaan berulang. Ujung pin yang runcing memudahkan untuk menembus berbagai jenis kain, dan saya sangat menghargai kenyamanan saat menggunakannya.',
           profilePic: 'https://placehold.co/50x50',
           reply: {
             time: '10.55',
-            content: 'Halo Denada Ananda! Terima kasih atas ulasan baiknya, semoga barang awet. Kami menantikan pembelian Anda selanjutnya!'
-          }
+            content:
+              'Halo Denada Ananda! Terima kasih atas ulasan baiknya, semoga barang awet. Kami menantikan pembelian Anda selanjutnya!',
+          },
+        },
+      ],
+    })
+
+    const fetchProduct = async (productId) => {
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/products/${productId}`,
+        )
+        const data = response.data.data.product
+
+        product.id = data.id || productId
+        product.name = data.name || ''
+        product.soldCount = data.unit || '0'
+        product.description = data.description || ''
+        product.price = data.variants.find((v) => v.is_default)?.price || data.price || 0
+
+        productImages.value = data.images
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map((img) => ({
+            src: img.image_url || 'https://placehold.co/400x400',
+            alt: img.alt_text || 'Product image',
+          }))
+
+        sizeOptions.value = data.variants.map((variant, index) => ({
+          value: variant.id.toString(),
+          label: variant.name
+            ? `${variant.name} (${formatCurrency(variant.price)})`
+            : `Variant ${index + 1} (${formatCurrency(variant.price)})`,
+          price: variant.price,
+        }))
+        if (data.variants.length > 0) {
+          selectedSize.value =
+            data.variants.find((v) => v.is_default)?.id.toString() || data.variants[0].id.toString()
         }
-      ]
-    });
-    
-    // Methods
+
+        finishingOptions.value = [
+          { value: '0', label: 'Tanpa Finishing' },
+          ...data.finishings.map((finishing) => ({
+            value: finishing.id.toString(),
+            label: `${finishing.name} (+${formatCurrency(finishing.price)})`,
+            price: finishing.price,
+          })),
+        ]
+
+        isLoaded.value = true
+      } catch (error) {
+        console.error('Error fetching product:', error)
+        Swal.fire({
+          title: 'Error',
+          text: 'Gagal memuat data produk. Silakan coba lagi nanti.',
+          icon: 'error',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: 'bg-red-600 text-white px-4 py-2 rounded-lg text-sm sm:text-base',
+          },
+          confirmButtonText: 'Tutup',
+        })
+      }
+    }
+
+    onMounted(() => {
+      const productId = route.params.id
+      if (productId) {
+        fetchProduct(productId)
+      } else {
+        Swal.fire({
+          title: 'Error',
+          text: 'ID produk tidak ditemukan.',
+          icon: 'error',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: 'bg-red-600 text-white px-4 py-2 rounded-lg text-sm sm:text-base',
+          },
+          confirmButtonText: 'Tutup',
+        })
+      }
+    })
+
+    const totalPrice = computed(() => {
+      const selectedVariant = sizeOptions.value.find(
+        (option) => option.value === selectedSize.value,
+      )
+      const variantPrice = selectedVariant ? selectedVariant.price : product.price
+      const selectedFinishingOption = finishingOptions.value.find(
+        (option) => option.value === selectedFinishing.value,
+      )
+      const additionalPrice = selectedFinishingOption?.price || 0
+      return (variantPrice + additionalPrice) * quantity.value
+    })
+
     const formatCurrency = (value) => {
-      return `Rp${value.toLocaleString('id-ID')}`;
-    };
-    
-    const updateAdditionalPrice = () => {
-      additionalPrice.value = parseInt(selectedFinishing.value) || 0;
-    };
-    
+      return `Rp${value.toLocaleString('id-ID')}`
+    }
+
+    const selectSize = (size) => {
+      selectedSize.value = size
+      updateTotalPrice()
+    }
+
+    const updateTotalPrice = () => {
+      // Total price is computed automatically
+    }
+
     const increaseQuantity = () => {
-      quantity.value++;
-    };
-    
+      quantity.value++
+      updateTotalPrice()
+    }
+
     const decreaseQuantity = () => {
       if (quantity.value > 1) {
-        quantity.value--;
+        quantity.value--
+        updateTotalPrice()
       }
-    };
-    
-    // Reply modal functions
+    }
+
+    // Placeholder handlers for ProductDetails events
+    const placeOrder = () => {
+      // Seller doesn't place orders, so this is a no-op
+    }
+
+    const addToCart = () => {
+      // Seller doesn't add to cart, so this is a no-op
+    }
+
+    const openChat = () => {
+      // Seller doesn't open chat with themselves, so this is a no-op
+    }
+
+    const toggleBookmark = () => {
+      // Seller doesn't bookmark their own product, so this is a no-op
+    }
+
+    // Review modal functions remain unchanged
     const openReplyModal = (reviewId) => {
       Swal.fire({
         title: `<h3 class="text-lg font-bold">Tanggapi Ulasan</h3>`,
@@ -249,8 +272,8 @@ export default {
               <label class="block text-gray-700 font-medium text-sm mb-1" for="replyContent">
                 Isi Tanggapan
               </label>
-              <textarea 
-                id="replyContent" 
+              <textarea
+                id="replyContent"
                 class="w-full text-sm p-2 border border-gray-300 rounded-lg h-32"
                 placeholder="Tuliskan tanggapan Anda untuk ulasan ini">
               </textarea>
@@ -260,52 +283,43 @@ export default {
         showCancelButton: true,
         buttonsStyling: false,
         customClass: {
-          confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          cancelButton: 'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          confirmButton:
+            'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          cancelButton:
+            'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
           actions: 'flex justify-center space-x-6',
         },
         cancelButtonText: 'Batal',
         confirmButtonText: 'Kirim Tanggapan',
         width: 600,
         preConfirm: () => {
-          const replyContent = document.getElementById('replyContent').value;
-          
-          // Validation
+          const replyContent = document.getElementById('replyContent').value
           if (!replyContent.trim()) {
-            Swal.showValidationMessage('Silakan masukkan tanggapan');
-            return false;
+            Swal.showValidationMessage('Silakan masukkan tanggapan')
+            return false
           }
-          
           return {
             content: replyContent,
-            reviewId: reviewId
-          };
+            reviewId: reviewId,
+          }
         },
       }).then((result) => {
         if (result.isConfirmed) {
-          // Add reply to the review
-          handleSubmitReply(result.value);
+          handleSubmitReply(result.value)
         }
-      });
-    };
-    
+      })
+    }
+
     const handleSubmitReply = (data) => {
-      // Find the review in the without-reply list
-      const reviewIndex = reviews.withoutReply.findIndex(r => r.id === data.reviewId);
-      
+      const reviewIndex = reviews.withoutReply.findIndex((r) => r.id === data.reviewId)
       if (reviewIndex !== -1) {
-        // Create a copy of the review with the new reply
-        const review = {...reviews.withoutReply[reviewIndex]};
+        const review = { ...reviews.withoutReply[reviewIndex] }
         review.reply = {
-          time: new Date().toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'}),
-          content: data.content
-        };
-        
-        // Remove from without-reply list and add to with-reply list
-        reviews.withoutReply.splice(reviewIndex, 1);
-        reviews.withReply.push(review);
-        
-        // Show success message
+          time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          content: data.content,
+        }
+        reviews.withoutReply.splice(reviewIndex, 1)
+        reviews.withReply.push(review)
         Swal.fire({
           title: 'Berhasil!',
           text: 'Tanggapan telah dikirim',
@@ -315,16 +329,13 @@ export default {
             confirmButton: 'bg-red-600 text-white px-4 py-2 rounded-lg text-sm sm:text-base',
           },
           confirmButtonText: 'Tutup',
-        });
+        })
       }
-    };
-    
-    // Edit reply modal function
+    }
+
     const openEditReplyModal = (reviewId) => {
-      // Find the review
-      const review = reviews.withReply.find(r => r.id === reviewId);
-      if (!review) return;
-      
+      const review = reviews.withReply.find((r) => r.id === reviewId)
+      if (!review) return
       Swal.fire({
         title: `<h3 class="text-lg font-bold">Edit Tanggapan</h3>`,
         html: `
@@ -333,8 +344,8 @@ export default {
               <label class="block text-gray-700 font-medium text-sm mb-1" for="editReplyContent">
                 Isi Tanggapan
               </label>
-              <textarea 
-                id="editReplyContent" 
+              <textarea
+                id="editReplyContent"
                 class="w-full text-sm p-2 border border-gray-300 rounded-lg h-32"
                 placeholder="Tuliskan tanggapan Anda untuk ulasan ini"
               >${review.reply.content}</textarea>
@@ -344,44 +355,37 @@ export default {
         showCancelButton: true,
         buttonsStyling: false,
         customClass: {
-          confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          cancelButton: 'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          confirmButton:
+            'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          cancelButton:
+            'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
           actions: 'flex justify-center space-x-6',
         },
         cancelButtonText: 'Batal',
         confirmButtonText: 'Simpan',
         width: 600,
         preConfirm: () => {
-          const replyContent = document.getElementById('editReplyContent').value;
-          
-          // Validation
+          const replyContent = document.getElementById('editReplyContent').value
           if (!replyContent.trim()) {
-            Swal.showValidationMessage('Silakan masukkan tanggapan');
-            return false;
+            Swal.showValidationMessage('Silakan masukkan tanggapan')
+            return false
           }
-          
           return {
             content: replyContent,
-            reviewId: reviewId
-          };
+            reviewId: reviewId,
+          }
         },
       }).then((result) => {
         if (result.isConfirmed) {
-          // Update the reply
-          handleUpdateReply(result.value);
+          handleUpdateReply(result.value)
         }
-      });
-    };
-    
+      })
+    }
+
     const handleUpdateReply = (data) => {
-      // Find the review
-      const reviewIndex = reviews.withReply.findIndex(r => r.id === data.reviewId);
-      
+      const reviewIndex = reviews.withReply.findIndex((r) => r.id === data.reviewId)
       if (reviewIndex !== -1) {
-        // Update the reply content
-        reviews.withReply[reviewIndex].reply.content = data.content;
-        
-        // Show success message
+        reviews.withReply[reviewIndex].reply.content = data.content
         Swal.fire({
           title: 'Berhasil!',
           text: 'Tanggapan telah diperbarui',
@@ -391,11 +395,10 @@ export default {
             confirmButton: 'bg-red-600 text-white px-4 py-2 rounded-lg text-sm sm:text-base',
           },
           confirmButtonText: 'Tutup',
-        });
+        })
       }
-    };
-    
-    // Delete reply modal function
+    }
+
     const openDeleteReplyModal = (reviewId) => {
       Swal.fire({
         title: `<h3 class="text-lg font-bold">Hapus Tanggapan</h3>`,
@@ -410,8 +413,10 @@ export default {
         showCancelButton: true,
         buttonsStyling: false,
         customClass: {
-          confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
-          cancelButton: 'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          confirmButton:
+            'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
+          cancelButton:
+            'bg-gray-300 text-gray-700 px-4 py-2 w-40 rounded-lg text-sm sm:text-base mt-6 sm:mt-8',
           actions: 'flex justify-center space-x-6',
         },
         cancelButtonText: 'Batal',
@@ -419,26 +424,18 @@ export default {
         width: 400,
       }).then((result) => {
         if (result.isConfirmed) {
-          // Delete the reply
-          handleDeleteReply(reviewId);
+          handleDeleteReply(reviewId)
         }
-      });
-    };
-    
+      })
+    }
+
     const handleDeleteReply = (reviewId) => {
-      // Find the review
-      const reviewIndex = reviews.withReply.findIndex(r => r.id === reviewId);
-      
+      const reviewIndex = reviews.withReply.findIndex((r) => r.id === reviewId)
       if (reviewIndex !== -1) {
-        // Create a copy of the review without the reply
-        const review = {...reviews.withReply[reviewIndex]};
-        delete review.reply;
-        
-        // Remove from with-reply list and add to without-reply list
-        reviews.withReply.splice(reviewIndex, 1);
-        reviews.withoutReply.push(review);
-        
-        // Show success message
+        const review = { ...reviews.withReply[reviewIndex] }
+        delete review.reply
+        reviews.withReply.splice(reviewIndex, 1)
+        reviews.withoutReply.push(review)
         Swal.fire({
           title: 'Berhasil!',
           text: 'Tanggapan telah dihapus',
@@ -448,39 +445,40 @@ export default {
             confirmButton: 'bg-red-600 text-white px-4 py-2 rounded-lg text-sm sm:text-base',
           },
           confirmButtonText: 'Tutup',
-        });
+        })
       }
-    };
-    
+    }
+
     return {
-      // Navigation
       Navigation,
       Pagination,
-      
-      // Data
+      isLoaded,
+      isAddingToCart,
       product,
       productImages,
       note,
-      size,
+      selectedSize,
       selectedFinishing,
-      additionalPrice,
       quantity,
+      sizeOptions,
       finishingOptions,
+      totalPrice,
       reviews,
-      
-      // Methods
       formatCurrency,
-      updateAdditionalPrice,
+      selectSize,
+      updateTotalPrice,
       increaseQuantity,
       decreaseQuantity,
-      
-      // Review Functions
+      placeOrder,
+      addToCart,
+      openChat,
+      toggleBookmark,
       openReplyModal,
       openEditReplyModal,
-      openDeleteReplyModal
-    };
-  }
-};
+      openDeleteReplyModal,
+    }
+  },
+}
 </script>
 
 <style scoped>
@@ -488,7 +486,6 @@ export default {
 :deep(.swiper-button-prev) {
   color: #dc2626; /* Red-600 */
 }
-
 :deep(.swiper-pagination-bullet-active) {
   background-color: #b91c1c !important;
 }
