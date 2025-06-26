@@ -12,10 +12,8 @@ export default defineConfig({
   optimizeDeps: {
     include: ['jspdf', 'html2canvas', 'xlsx'],
   },
-  plugins: [vue(), vueDevTools(), tailwindcss()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
