@@ -122,6 +122,9 @@
                   </button>
                 </td>
               </tr>
+              <tr v-if="filteredOrders.length === 0">
+                <td colspan="8" class="text-center py-4">Tidak ada data pesanan yang ditemukan</td>
+              </tr>
             </tbody>
           </table>
         </div>
