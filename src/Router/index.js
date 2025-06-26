@@ -22,14 +22,12 @@ import Register from '@/Auth/Register.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
-  { path: '/register', component: Register },
-  { path: '/verification', component: VerificationEmail },
-  { path: '/login', component: Login },
-  { path: '/forgot-password', component: ForgotPassword },
-  { path: '/otp-password', component: OtpPage },
-  { path: '/reset-password', component: ResetPassword },
-
-  // Halaman yang butuh login
+  { path: '/register', component: Register, meta: { guestOnly: true } },
+  { path: '/verification', component: VerificationEmail, meta: { guestOnly: true } },
+  { path: '/login', component: Login, meta: { guestOnly: true } },
+  { path: '/forgot-password', component: ForgotPassword, meta: { guestOnly: true } },
+  { path: '/otp-password', component: OtpPage, meta: { guestOnly: true } },
+  { path: '/reset-password', component: ResetPassword, meta: { guestOnly: true } },
   { path: '/dashboard-seller', component: DashboardSeller, meta: { requiresAuth: true } },
   { path: '/pesanan-seller', component: PesananSeller, meta: { requiresAuth: true } },
   { path: '/pengiriman-seller', component: PengirimanSeller, meta: { requiresAuth: true } },
@@ -50,15 +48,21 @@ const router = createRouter({
   routes,
 })
 
-// Middleware: Cek apakah user sudah login sebelum akses halaman tertentu
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('token') !== null // Cek token
+  const isAuthenticated = !!localStorage.getItem('token')
 
+  // If route requires authentication and user is not authenticated
   if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login') // Redirect ke login jika belum login
-  } else {
-    next() // Lanjut ke halaman tujuan
+    return next('/login')
   }
+
+  // If route is for guests only and user is authenticated
+  if (to.meta.guestOnly && isAuthenticated) {
+    return next('/dashboard-seller')
+  }
+
+  // Proceed to the route
+  next()
 })
 
 export default router
