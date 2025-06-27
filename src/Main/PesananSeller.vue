@@ -449,7 +449,9 @@ export default {
           `${import.meta.env.VITE_API_BASE_URL}/seller/product/finishing`,
           { params: { product_id: productId } },
         )
-        if (response.data.status === 'success') {
+
+        if (response.data.status === 'Success') {
+          console.log('Product finishings:', response.data.data)
           return response.data.data
         }
         return []
@@ -1090,30 +1092,48 @@ export default {
                     }
 
                     try {
-                      console.log('Fetching finishings for productId:', productId)
                       finishingSelect.disabled = true
                       finishingSelect.innerHTML = '<option value="">Loading...</option>'
-                      if (!finishingsByProduct[productId]) {
-                        finishingsByProduct[productId] =
-                          await self.fetchProductFinishings(productId)
-                        console.log('Fetched finishings:', finishingsByProduct[productId])
-                      }
-                      const finishings = finishingsByProduct[productId]
-                      finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
-                      if (finishings && finishings.length > 0) {
-                        finishings.forEach((finishing) => {
-                          if (finishing.finishing) {
-                            const option = document.createElement('option')
-                            option.value = finishing.id
-                            option.textContent = `${finishing.finishing.name} (+${self.formatCurrency(finishing.price)})`
-                            finishingSelect.appendChild(option)
-                          }
-                        })
-                        finishingSelect.disabled = finishings.some((f) => f.finishing)
-                          ? false
-                          : true
-                      } else {
-                        finishingSelect.innerHTML = '<option value="">Tidak Ada Finishing</option>'
+                      finishingSelect.disabled = true
+                      finishingSelect.innerHTML = '<option value="">Loading...</option>'
+
+                      try {
+                        // Check if finishings are cached
+                        let finishings = finishingsByProduct[productId]
+                        if (!finishings) {
+                          // Fetch and cache finishings
+                          finishings = await self.fetchProductFinishings(productId)
+                          finishingsByProduct[productId] = finishings
+                          console.log('Fetched finishings:', finishings)
+                        }
+
+                        // Reset select element
+                        finishingSelect.innerHTML = '<option value="">Pilih Finishing</option>'
+
+                        // Populate options if finishings exist
+                        if (finishings && finishings.length > 0) {
+                          finishings.forEach((finishing) => {
+                            if (finishing?.finishing) {
+                              console.log('Adding finishing:', finishing)
+                              const option = document.createElement('option')
+                              option.value = finishing.id
+                              option.textContent = `${finishing.finishing.name} (+${self.formatCurrency(finishing.price)})`
+                              finishingSelect.appendChild(option)
+                            }
+                          })
+                          // Enable select only if valid finishings exist
+                          finishingSelect.disabled = !finishings.some((f) => f.finishing)
+                        } else {
+                          // No finishings available
+                          finishingSelect.innerHTML =
+                            '<option value="">Tidak Ada Finishing</option>'
+                          finishingSelect.disabled = true
+                        }
+                      } catch (error) {
+                        console.error('Error fetching finishings:', error)
+                        finishingSelect.innerHTML =
+                          '<option value="">Error Loading Finishings</option>'
+                        finishingSelect.disabled = true
                       }
                     } catch (error) {
                       console.error('Error fetching finishings:', error)
