@@ -19,6 +19,7 @@ import SellerView from '@/Main/SellerView.vue'
 import CategoryView from '@/Main/CategoryView.vue'
 import DetailProduct from '@/Main/DetailProduct.vue'
 import Register from '@/Auth/Register.vue'
+import NotFoundPage from '@/Main/NotFoundPage.vue'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -44,6 +45,8 @@ const routes = [
   { path: '/view', component: SellerView, meta: { requiresAuth: true } },
   { path: '/category-view', component: CategoryView, meta: { requiresAuth: true } },
   { path: '/product-details/:id', component: DetailProduct, meta: { requiresAuth: true } },
+  { path: '/not-found', component: NotFoundPage },
+  { path: '/:pathMatch(.*)*', component: NotFoundPage },
 ]
 
 const router = createRouter({
