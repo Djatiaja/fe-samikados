@@ -399,10 +399,10 @@ export default {
             payload,
           )
 
-          if (response.data.status === 'success') {
+          if (response.status === 201) {
             Swal.fire({
               title: 'Registrasi Berhasil!',
-              text: 'Akun Anda telah terdaftar. Silakan login.',
+              text: 'Akun Anda telah terdaftar. Silakan verifikasi email Anda.',
               icon: 'success',
               confirmButtonText: 'OK',
             }).then(() => {

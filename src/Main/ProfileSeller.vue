@@ -614,9 +614,8 @@ export default {
     },
     logout() {
       Swal.fire({
-        title: `<h3 class="text-lg font-bold">Konfirmasi</h3>`,
+        title: 'Konfirmasi',
         text: 'Apakah anda yakin ingin keluar?',
-        icon: 'question',
         showCancelButton: true,
         buttonsStyling: false,
         customClass: {

@@ -7,7 +7,6 @@
       @click="toggleSidebar"
       class="fixed inset-0 bg-opacity-20 z-20"
     ></div>
-
     <!-- Header -->
     <HeaderSeller @toggle-sidebar="toggleSidebar" />
 

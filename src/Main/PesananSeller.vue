@@ -751,6 +751,7 @@ export default {
         }
       })
     },
+
     viewOrderDetail(order) {
       const productsHtml = this.createProductsCarousel(order)
       Swal.fire({
