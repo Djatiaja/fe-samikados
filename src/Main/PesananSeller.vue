@@ -480,7 +480,7 @@ export default {
           `${import.meta.env.VITE_API_BASE_URL}/seller/product/variant`,
           { params: { product_id: productId } },
         )
-        if (response.data.status === 'success') {
+        if (response.data.status === 'Success') {
           return response.data.data
         }
         return []
