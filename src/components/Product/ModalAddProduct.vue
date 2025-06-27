@@ -35,9 +35,7 @@ export default {
         is_publish: 1,
         thumbnail: null,
         images: [],
-        product_variants: [
-          { name: '', price: 0, stock: 0, weight: 0, min_qty: 1, is_default: true },
-        ],
+        product_variants: [{ name: '', price: 0, stock: 0, weight: 0, is_default: true }],
         product_finishing: [],
       }
 
@@ -307,7 +305,6 @@ export default {
           let invalidVariation = false
           let invalidPrice = false
           let invalidWeight = false
-          let invalidMinQty = false
 
           if (variationBoxes.length === 0) {
             Swal.showValidationMessage('Produk harus memiliki minimal satu variasi')
@@ -320,16 +317,9 @@ export default {
             const priceInput = box.querySelector('.variation-price')
             const stockInput = box.querySelector('.variation-stock')
             const weightInput = box.querySelector('.variation-weight')
-            const minQtyInput = box.querySelector('.variation-min-qty')
             const isDefault = box.querySelector('.variation-default')?.checked
 
-            if (
-              !nameInput.value ||
-              !priceInput.value ||
-              !stockInput.value ||
-              !weightInput.value ||
-              !minQtyInput.value
-            ) {
+            if (!nameInput.value || !priceInput.value || !stockInput.value || !weightInput.value) {
               missingVariationFields = true
               return
             }
@@ -337,7 +327,6 @@ export default {
             const price = parseFloat(priceInput.value) || 0
             const stock = parseInt(stockInput.value) || 0
             const weight = parseFloat(weightInput.value) || 0
-            const minQty = parseInt(minQtyInput.value) || 1
 
             if (nameInput.value.length > MAX_VARCHAR_255) {
               Swal.showValidationMessage(
@@ -371,14 +360,6 @@ export default {
               return
             }
 
-            if (minQty < 1 || minQty > MAX_INT) {
-              Swal.showValidationMessage(
-                `Jumlah minimum variasi ke-${index + 1} harus lebih dari 0 dan tidak boleh melebihi ${MAX_INT}`,
-              )
-              invalidMinQty = true
-              return
-            }
-
             if (stock > 0) hasStock = true
             if (isDefault) hasDefaultVariation = true
 
@@ -388,15 +369,12 @@ export default {
               price: price,
               stock: stock,
               weight: weight,
-              min_qty: minQty,
               is_default: isDefault,
             })
           })
 
           if (missingVariationFields) {
-            Swal.showValidationMessage(
-              'Semua field variasi (nama, harga, stok, berat, jumlah minimum) harus diisi',
-            )
+            Swal.showValidationMessage('Semua field variasi (nama, harga, stok, berat) harus diisi')
             return false
           }
 
@@ -412,11 +390,6 @@ export default {
 
           if (invalidWeight) {
             Swal.showValidationMessage('Berat variasi tidak boleh negatif')
-            return false
-          }
-
-          if (invalidMinQty) {
-            Swal.showValidationMessage('Jumlah minimum variasi harus lebih dari 0')
             return false
           }
 
@@ -515,7 +488,7 @@ export default {
     },
 
     generateVariationBox(
-      variation = { name: '', price: 0, stock: 0, weight: 0, min_qty: 1, is_default: false },
+      variation = { name: '', price: 0, stock: 0, weight: 0, is_default: false },
       index,
     ) {
       return `
@@ -526,7 +499,7 @@ export default {
             </svg>
           </div>
           <div class="grid grid-cols-2 md:grid-cols-12 gap-2">
-            <div class="col-span-2 md:col-span-3">
+            <div class="col-span-2 md:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Nama Variasi</label>
               <input
                 type="text"
@@ -535,7 +508,7 @@ export default {
                 value="${variation.name || ''}"
               >
             </div>
-            <div class="col-span-1 md:col-span-2">
+            <div class="col-span-1 md:col-span-3">
               <label class="block text-gray-700 text-xs mb-1">Harga (Rp)</label>
               <input
                 type="number"
@@ -562,16 +535,8 @@ export default {
                 value="${variation.weight || 0}"
               >
             </div>
-            <div class="col-span-1 md:col-span-2">
-              <label class="block text-gray-700 text-xs mb-1">Jumlah Minimum</label>
-              <input
-                type="number"
-                class="variation-min-qty w-full text-sm p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                placeholder="Min. Qty"
-                value="${variation.min_qty || 1}"
-              >
-            </div>
-            <div class="col-span-1 md:col-span-1 flex items-end pb-2">
+          </div>
+          <div class="mt-2">
               <label class="inline-flex items-center">
                 <input
                   type="radio"
@@ -583,7 +548,6 @@ export default {
                 <span class="ml-1 text-xs">Default</span>
               </label>
             </div>
-          </div>
         </div>
       `
     },
@@ -614,7 +578,7 @@ export default {
                 value="${finishing.name || ''}"
               >
             </div>
-            <div class="col-span-1 md:col-span-4">
+            <div class="colons-1 md:col-span-4">
               <label class="block text-gray-700 text-xs mb-1">Harga Tambahan (Rp)</label>
               <input
                 type="number"
