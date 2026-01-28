@@ -229,6 +229,15 @@
       </div>
     </div>
     <FooterSeller />
+
+    <!-- Modal Konfirmasi Pesanan -->
+    <ModalKonfirmasiPesanan
+      v-if="showConfirmationModal"
+      :orderId="selectedOrderForConfirmation"
+      :isOpen="showConfirmationModal"
+      @close="closeKonfirmasiModal"
+      @confirmed="handleConfirmationSuccess"
+    />
   </div>
 </template>
 
@@ -237,11 +246,12 @@ import { debounce } from 'lodash'
 import HeaderSeller from '@/components/HeaderSeller.vue'
 import SidebarSeller from '@/components/SidebarSeller.vue'
 import FooterSeller from '@/components/FooterSeller.vue'
+import ModalKonfirmasiPesanan from '@/components/ModalKonfirmasiPesanan.vue'
 import Swal from 'sweetalert2'
 import axios from 'axios'
 
 export default {
-  components: { HeaderSeller, SidebarSeller, FooterSeller },
+  components: { HeaderSeller, SidebarSeller, FooterSeller, ModalKonfirmasiPesanan },
   data() {
     return {
       isSidebarActive: false,
@@ -253,6 +263,8 @@ export default {
       loading: false,
       orders: [],
       orderStatuses: [],
+      selectedOrderForConfirmation: null,
+      showConfirmationModal: false,
     }
   },
   computed: {
@@ -573,8 +585,8 @@ export default {
           `${import.meta.env.VITE_API_BASE_URL}/seller/orders/status`,
         )
         if (response.data.status === 'success') {
-          // Filter out the "Belum Dibayar" status (id: 5)
-          this.orderStatuses = response.data.data.filter((status) => status.id !== 5)
+          // Include all statuses (including status 5 and 7)
+          this.orderStatuses = response.data.data
         } else {
           throw new Error('Failed to fetch order statuses')
         }
@@ -686,15 +698,15 @@ export default {
       if (!status) return 'bg-gray-500'
       switch (statusId) {
         case 1:
-          return 'bg-blue-600'
+          return 'bg-gray-600'      // Masuk
         case 2:
-          return 'bg-yellow-500'
-        case 3:
-          return 'bg-purple-600'
-        case 4:
-          return 'bg-green-600'
+          return 'bg-green-600'     // Diproses
         case 5:
-          return 'bg-red-600'
+          return 'bg-red-600'       // Belum Dibayar
+        case 6:
+          return 'bg-purple-600'    // Dikirim
+        case 7:
+          return 'bg-yellow-500'    // Menunggu Konfirmasi
         default:
           return 'bg-gray-500'
       }
@@ -704,31 +716,55 @@ export default {
       if (!status) return 'bg-gray-500'
       switch (statusId) {
         case 1:
-          return 'bg-blue-600 text-white'
+          return 'bg-gray-600 text-white'      // Masuk
         case 2:
-          return 'bg-yellow-500 text-white'
-        case 3:
-          return 'bg-purple-600 text-white'
-        case 4:
-          return 'bg-green-600 text-white'
+          return 'bg-green-600 text-white'     // Diproses
         case 5:
-          return 'bg-red-600 text-white'
+          return 'bg-red-600 text-white'       // Belum Dibayar
+        case 6:
+          return 'bg-purple-600 text-white'    // Dikirim
+        case 7:
+          return 'bg-yellow-500 text-white'    // Menunggu Konfirmasi
         default:
           return 'bg-gray-500 text-white'
       }
     },
     isStatusAllowed(prevStatusId, newStatusId) {
+      // Always allow current status
       if (prevStatusId === newStatusId) return true
-      const prevIndex = this.orderStatuses.findIndex((s) => s.id === prevStatusId)
-      const newIndex = this.orderStatuses.findIndex((s) => s.id === newStatusId)
+
+      // Status flow: 7 (Menunggu Konfirmasi) -> 5 (Belum Bayar) -> 1 (Masuk) -> 2 (Diproses) -> 6 (Dikirim)
+      const statusFlow = [7, 5, 1, 2, 6]
+
+      const prevIndex = statusFlow.indexOf(prevStatusId)
+      const newIndex = statusFlow.indexOf(newStatusId)
+
+      // If either status not in flow, disallow
+      if (prevIndex === -1 || newIndex === -1) return false
+
+      // Only allow forward progression (newIndex > prevIndex)
       return newIndex > prevIndex
     },
     async confirmStatusChange(order) {
       const originalStatusId = order.prevStatusId
       const newStatusId = order.order_status_id
+
       if (originalStatusId === newStatusId) return
+
       const newStatus = this.orderStatuses.find((s) => s.id === newStatusId)
       if (!newStatus) return
+
+      // If changing from status 7 (Menunggu Konfirmasi), open modal konfirmasi
+      if (originalStatusId === 7) {
+        // Revert dropdown to original status first
+        order.order_status_id = originalStatusId
+
+        // Open konfirmasi modal
+        this.openKonfirmasiModal(order)
+        return
+      }
+
+      // For other status changes, show confirmation dialog
       Swal.fire({
         title: `<span class='text-xl font-bold'>Konfirmasi Perubahan Status</span>`,
         html: `<p class='text-lg'>Apakah Anda yakin ingin mengubah status pesanan #${order.id} menjadi ${newStatus.name}?</p>`,
@@ -754,46 +790,105 @@ export default {
       })
     },
 
-    viewOrderDetail(order) {
-      const productsHtml = this.createProductsCarousel(order)
+    async viewOrderDetail(order) {
+      // Show loading
       Swal.fire({
-        title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${order.id}</span>`,
-        html: `
+        title: 'Memuat Detail Pesanan...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading()
+        },
+      })
+
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) {
+          throw new Error('Authentication token is missing')
+        }
+
+        // Fetch detailed order data from API
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/v2/seller/orders/${order.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        )
+
+        if (response.data.status !== 'success') {
+          throw new Error('Failed to fetch order details')
+        }
+
+        const orderDetail = response.data.data
+        const productsHtml = this.createProductsCarousel(orderDetail)
+        const isPendingConfirmation = orderDetail.order_status_id === 7
+
+        Swal.fire({
+          title: `<span class='text-xl sm:text-2xl font-bold'>Detail Pesanan #${orderDetail.id}</span>`,
+          html: `
       <div class="text-left mb-6">
         <div class="grid grid-cols-1 sm:grid-cols-[120px_10px_auto] gap-y-2 text-base sm:text-lg">
-          <div class="font-semibold">Pembeli</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.user.name}</div>
-          <div class="font-semibold">Alamat</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${order.address || '-'}</div>
-          <div class="font-semibold">Tanggal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatDate(order.created_at)}</div>
-          <div class="font-semibold">Status</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.getStatusName(order.order_status_id)}</div>
-          <div class="font-semibold">Total</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(order.grand_total)}</div>
+          <div class="font-semibold">Pembeli</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${orderDetail.user.name}</div>
+          <div class="font-semibold">Alamat</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${orderDetail.address || '-'}</div>
+          <div class="font-semibold">Tanggal</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatDate(orderDetail.created_at)}</div>
+          <div class="font-semibold">Status</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.getStatusName(orderDetail.order_status_id)}</div>
+          <div class="font-semibold">Total</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${this.formatCurrency(orderDetail.grand_total)}</div>
         </div>
         ${
-          order.additional_info
+          orderDetail.additional_info
             ? `
         <div class="mt-4">
           <div class="font-semibold">Informasi Tambahan:</div>
-          <div class="mt-2 p-3 bg-gray-100 rounded-lg">${order.additional_info}</div>
+          <div class="mt-2 p-3 bg-gray-100 rounded-lg">${orderDetail.additional_info}</div>
         </div>`
             : ''
         }
       </div>
       <div class="mt-4">
-        <div class="font-semibold text-lg mb-2">Produk (${order.order_detail.length}):</div>
+        <div class="font-semibold text-lg mb-2">Produk (${orderDetail.order_detail.length}):</div>
         ${productsHtml}
       </div>
+      ${
+        isPendingConfirmation
+          ? `
+      <div class="mt-6 pt-4 border-t border-gray-300 flex justify-center">
+        <button
+          id="btnKonfirmasiPesanan"
+          class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-3 px-8 rounded-lg text-base sm:text-lg transition-colors shadow-md"
+        >
+          Konfirmasi Pesanan
+        </button>
+      </div>
+      `
+          : ''
+      }
     `,
-        width: 'auto',
-        customClass: {
-          popup: 'swal-responsive-popup',
-          confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-base mt-6',
-          htmlContainer: 'overflow-y-auto',
-        },
-        confirmButtonText: 'Tutup',
-        buttonsStyling: false,
-        didOpen: () => {
-          this.initProductCarousel(order.order_detail.length)
-          const style = document.createElement('style')
-          style.innerHTML = `
+          width: 'auto',
+          customClass: {
+            popup: 'swal-responsive-popup',
+            confirmButton: 'bg-red-600 text-white px-4 py-2 w-40 rounded-lg text-base mt-6',
+            htmlContainer: 'overflow-y-auto',
+          },
+          confirmButtonText: 'Tutup',
+          buttonsStyling: false,
+          didOpen: () => {
+            this.initProductCarousel(orderDetail.order_detail.length)
+
+            // Add event listener for konfirmasi button
+            const btnKonfirmasi = document.getElementById('btnKonfirmasiPesanan')
+            if (btnKonfirmasi) {
+              btnKonfirmasi.addEventListener('click', () => {
+                Swal.close()
+                // Add small delay to ensure SweetAlert is fully closed
+                setTimeout(() => {
+                  this.openKonfirmasiModal(orderDetail)
+                }, 100)
+              })
+            }
+
+            const style = document.createElement('style')
+            style.innerHTML = `
         .swal-responsive-popup {
           width: 95% !important;
           max-width: 800px !important;
@@ -814,9 +909,22 @@ export default {
           }
         }
       `
-          document.head.appendChild(style)
-        },
-      })
+            document.head.appendChild(style)
+          },
+        })
+      } catch (error) {
+        console.error('Error fetching order detail:', error)
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Gagal memuat detail pesanan. Silakan coba lagi.',
+          confirmButtonText: 'OK',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: 'bg-red-600 text-white py-2 px-4 rounded-md',
+          },
+        })
+      }
     },
     openAddOrderModal() {
       let selectedUser = null
@@ -1340,6 +1448,69 @@ export default {
           `
               : ''
           }
+          ${
+            item.product_variant
+              ? `
+          <div class="font-semibold">Variasi</div> <div class="hidden sm:block text-center">:</div> <div class="sm:ml-4">${item.product_variant.name}</div>
+          `
+              : ''
+          }
+          ${
+            item.files && item.files.length > 0
+              ? `
+          <div class="font-semibold sm:col-start-1">File Lampiran</div>
+          <div class="hidden sm:block text-center sm:col-start-2">:</div>
+          <div class="sm:ml-4 sm:col-start-3">
+            <div class="space-y-2 mt-1 sm:mt-0">
+            ${item.files
+              .map(
+                (file) => `
+              <div class="flex items-center justify-between p-2 bg-white rounded border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center space-x-2 flex-1 min-w-0">
+                  ${file.link ? `
+                  <svg class="w-6 h-6 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd" />
+                  </svg>
+                  ` : file.file_type && file.file_type.includes('pdf') ? `
+                  <svg class="w-6 h-6 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd" />
+                  </svg>
+                  ` : file.file_type && file.file_type.includes('image') ? `
+                  <svg class="w-6 h-6 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
+                  </svg>
+                  ` : `
+                  <svg class="w-6 h-6 text-gray-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
+                  </svg>
+                  `}
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900 truncate">
+                      ${file.link ? (file.link.length > 40 ? file.link.substring(0, 40) + '...' : file.link) : file.file_name}
+                    </p>
+                    <p class="text-xs ${file.link ? 'text-blue-600' : 'text-gray-500'}">
+                      ${file.file_type || (file.link ? 'Link URL' : 'File Design')}
+                    </p>
+                  </div>
+                </div>
+                ${file.link ? `
+                <a href="${file.link}" target="_blank" class="flex-shrink-0 text-blue-600 hover:text-blue-700 text-sm font-semibold ml-2">
+                  Buka Link
+                </a>
+                ` : `
+                <a href="${this.getFileUrl(file)}" target="_blank" download="${file.file_name}" class="flex-shrink-0 text-red-600 hover:text-red-700 text-sm font-semibold ml-2">
+                  Lihat
+                </a>
+                `}
+              </div>
+            `,
+              )
+              .join('')}
+            </div>
+          </div>
+          `
+              : ''
+          }
         </div>
       </div>
     `
@@ -1409,6 +1580,49 @@ export default {
     getStatusName(statusId) {
       const status = this.orderStatuses.find((s) => s.id === statusId)
       return status ? status.name : 'Unknown'
+    },
+
+    /**
+     * Get full file URL for download or link
+     */
+    getFileUrl(file) {
+      // If it's a link, return the link directly
+      if (file.link) {
+        return file.link
+      }
+      // Otherwise, construct storage URL
+      if (file.file_path) {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL
+        const cleanBase = baseUrl.replace('/api', '')
+        return `${cleanBase}/storage/${file.file_path}`
+      }
+      return '#'
+    },
+    /**
+     * Open konfirmasi modal
+     */
+    openKonfirmasiModal(order) {
+      console.log('Opening konfirmasi modal for order:', order.id)
+      this.selectedOrderForConfirmation = order.id
+      this.showConfirmationModal = true
+      console.log('Modal state:', {
+        selectedOrderForConfirmation: this.selectedOrderForConfirmation,
+        showConfirmationModal: this.showConfirmationModal
+      })
+    },
+    /**
+     * Close konfirmasi modal
+     */
+    closeKonfirmasiModal() {
+      this.showConfirmationModal = false
+      this.selectedOrderForConfirmation = null
+    },
+    /**
+     * Handle successful confirmation
+     */
+    async handleConfirmationSuccess() {
+      this.closeKonfirmasiModal()
+      await this.fetchOrders()
     },
     toggleSidebar() {
       if (this.isMobile) {
