@@ -619,11 +619,9 @@ export default {
       if (file.link) {
         return file.link
       }
-      // Otherwise, construct storage URL
-      if (file.file_path) {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL
-        const cleanBase = baseUrl.replace('/api', '')
-        return `${cleanBase}/storage/${file.file_path}`
+      // Use file_url from API response
+      if (file.file_url) {
+        return file.file_url
       }
       return '#'
     },
